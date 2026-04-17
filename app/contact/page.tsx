@@ -28,30 +28,6 @@ export default function ContactPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#080808', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Navbar */}
-      <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(8,8,8,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 40px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: '-0.5px', cursor: 'pointer' }} onClick={() => router.push('/')}>
-          <span style={{ color: '#fff' }}>Sayeed</span>
-          <span style={{ color: '#3b82f6' }}>.</span>
-        </div>
-        <div style={{ display: 'flex', gap: 36, fontSize: 14, alignItems: 'center' }}>
-          {[
-            { label: 'Home', href: '/' },
-            { label: 'Portfolio', href: '/portfolio' },
-            { label: 'About', href: '/about' },
-            { label: 'Contact', href: '/contact' },
-          ].map(item => (
-            <a key={item.label} href={item.href}
-              style={{ color: item.label === 'Contact' ? '#fff' : '#555', textDecoration: 'none', fontWeight: item.label === 'Contact' ? 600 : 400 }}>
-              {item.label}
-            </a>
-          ))}
-          <a href="/portfolio" style={{ background: '#3b82f6', color: '#fff', padding: '8px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-            Portfolio দেখুন →
-          </a>
-        </div>
-      </nav>
-
       {/* Hero */}
       <div style={{ textAlign: 'center', padding: '72px 24px 60px' }}>
         <div style={{ display: 'inline-block', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#93c5fd', fontSize: 11, fontWeight: 700, padding: '5px 16px', borderRadius: 20, marginBottom: 20, letterSpacing: '0.12em', textTransform: 'uppercase' }}>

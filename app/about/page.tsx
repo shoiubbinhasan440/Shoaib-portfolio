@@ -33,25 +33,6 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold tracking-tight">
-            <span className="text-[#ff6b35]">S</span>ayeed<span className="text-[#ff6b35]">.</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8 text-sm text-white/70">
-            <Link href="/" className="hover:text-white transition-colors">Home</Link>
-            <Link href="/portfolio" className="hover:text-white transition-colors">Portfolio</Link>
-            <Link href="/about" className="text-[#ff6b35]">About</Link>
-            <Link href="/tutorial" className="hover:text-white transition-colors">Tutorial</Link>
-            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-          </div>
-          <Link href="/portfolio" className="px-4 py-2 bg-[#ff6b35] text-white text-sm rounded-full hover:bg-[#ff8555] transition-colors">
-            Portfolio দেখুন
-          </Link>
-        </div>
-      </nav>
-
-      {/* Hero */}
       <section className="pt-32 pb-20 px-6 relative">
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-20 right-20 w-96 h-96 bg-[#ff6b35]/5 rounded-full blur-3xl" />

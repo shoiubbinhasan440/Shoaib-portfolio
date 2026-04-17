@@ -68,25 +68,8 @@ export default function PortfolioPage() {
   });
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ minHeight: '100vh', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Navbar */}
-      <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #1a1a1a', padding: '0 40px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.5px' }}>
-          <span style={{ color: '#fff' }}>Sayeed</span>
-          <span style={{ color: '#3b82f6' }}>.</span>
-        </div>
-        <div style={{ display: 'flex', gap: 32, fontSize: 14 }}>
-          {['Home', 'Portfolio', 'About', 'Contact'].map(item => (
-            <a key={item} href={item === 'Home' ? '/' : `/${item.toLowerCase()}`}
-              style={{ color: item === 'Portfolio' ? '#fff' : '#555', textDecoration: 'none', fontWeight: item === 'Portfolio' ? 600 : 400 }}>
-              {item}
-            </a>
-          ))}
-        </div>
-      </nav>
-
-      {/* Hero */}
       <div style={{ textAlign: 'center', padding: '72px 24px 48px' }}>
         <div style={{ display: 'inline-block', background: '#1a1a2e', color: '#818cf8', fontSize: 11, fontWeight: 700, padding: '5px 16px', borderRadius: 20, marginBottom: 20, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
           Portfolio

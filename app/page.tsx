@@ -66,49 +66,6 @@ export default function HomePage() {
   return (
     <div style={{ minHeight: '100vh', background: '#080808', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif", overflowX: 'hidden' }}>
 
-      {/* ── Navbar ── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        background: scrolled ? 'rgba(8,8,8,0.92)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(20px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : '1px solid transparent',
-        padding: '0 40px', height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        transition: 'all 0.3s',
-      }}>
-        <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: '-0.5px', cursor: 'pointer' }} onClick={() => router.push('/')}>
-          <span style={{ color: '#fff' }}>Sayeed</span>
-          <span style={{ color: '#3b82f6' }}>.</span>
-        </div>
-        <div style={{ display: 'flex', gap: 32, fontSize: 14, alignItems: 'center' }}>
-          {[
-            { label: 'Home', href: '/' },
-            { label: 'Portfolio', href: '/portfolio' },
-            { label: 'Tutorial', href: '/tutorial' },
-            { label: 'About', href: '/about' },
-            { label: 'Contact', href: '/contact' },
-          ].map(item => (
-            <a key={item.label} href={item.href}
-              style={{ color: item.label === 'Home' ? '#fff' : '#666', textDecoration: 'none', fontWeight: item.label === 'Home' ? 600 : 400, transition: 'color 0.2s' }}
-              onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = '#fff'}
-              onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = item.label === 'Home' ? '#fff' : '#666'}>
-              {item.label}
-            </a>
-          ))}
-          <a href="/admin/login"
-            style={{ color: '#666', textDecoration: 'none', fontSize: 14, transition: 'color 0.2s' }}
-            onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = '#fff'}
-            onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = '#666'}>
-            Login
-          </a>
-          <a href="/portfolio"
-            style={{ background: '#3b82f6', color: '#fff', padding: '8px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none', transition: 'background 0.2s' }}
-            onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = '#2563eb'}
-            onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = '#3b82f6'}>
-            Visit Portfolio →
-          </a>
-        </div>
-      </nav>
 
       {/* ── Hero Section ── */}
       <section style={{

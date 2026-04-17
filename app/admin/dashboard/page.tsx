@@ -54,6 +54,7 @@ export default function AdminDashboard() {
   const menuItems = [
     { label: 'ভিডিও ম্যানেজার', desc: 'ভিডিও যোগ, এডিট, ডিলিট করুন', icon: '🎬', href: '/admin/videos' },
     { label: 'গ্রাফিক্স ম্যানেজার', desc: 'ছবি আপলোড ও ম্যানেজ করুন', icon: '🎨', href: '/admin/graphics' },
+    { label: 'Tutorial ম্যানেজার', desc: 'Tutorial যোগ ও এডিট করুন', icon: '🎓', href: '/admin/tutorials' },
     { label: 'ক্যাটাগরি ম্যানেজার', desc: 'ক্যাটাগরি যোগ ও এডিট করুন', icon: '📂', href: '/admin/categories' },
     { label: 'হোম পেজ এডিটর', desc: 'Hero, Showreel, Stats আপডেট করুন', icon: '🏠', href: '/admin/settings' },
     { label: 'নেভিগেশন এডিটর', desc: 'মেনু আইটেম ম্যানেজ করুন', icon: '🧭', href: '/admin/navigation' },
