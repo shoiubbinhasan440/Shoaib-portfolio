@@ -14,111 +14,295 @@ export default function Navbar() {
   if (isAdmin) return null;
 
   const links = [
-    { href: '/', label: 'Home' },
-    { href: '/portfolio', label: 'Portfolio' },
-    { href: '/tutorial', label: 'Tutorial' },
-    { href: '/about', label: 'About' },
-    { href: '/contact', label: 'Contact' },
+    { href: '/', label: 'Home', icon: '🏠' },
+    { href: '/portfolio', label: 'Portfolio', icon: '🎬' },
+    { href: '/tutorial', label: 'Tutorial', icon: '🎓' },
+    { href: '/about', label: 'About', icon: '👤' },
+    { href: '/contact', label: 'Contact', icon: '✉️' },
   ];
 
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950 px-4 md:px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="text-xl font-bold text-white" style={{ fontFamily: 'cursive' }}>
-            Sayeed Fahad
-          </Link>
+      <style>{`
+        .glass-nav {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          padding: 12px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: rgba(10, 10, 20, 0.6);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .glass-logo {
+          font-size: 18px;
+          font-weight: 900;
+          color: #fff;
+          letter-spacing: -0.5px;
+          font-family: cursive;
+        }
+        .glass-logo span { color: #a78bfa; }
+        .glass-desktop-links {
+          display: none;
+          gap: 28px;
+          align-items: center;
+        }
+        @media(min-width: 768px) {
+          .glass-desktop-links { display: flex; }
+          .glass-mobile-right { display: none !important; }
+          .glass-overlay { display: none !important; }
+        }
+        .glass-desktop-links a {
+          font-size: 13px;
+          color: rgba(255,255,255,0.5);
+          text-decoration: none;
+          transition: color 0.2s;
+          font-weight: 500;
+        }
+        .glass-desktop-links a:hover,
+        .glass-desktop-links a.active { color: #fff; }
+        .glass-toggle-btn {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.05);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          backdrop-filter: blur(10px);
+        }
+        .glass-login-btn {
+          padding: 7px 18px;
+          border-radius: 99px;
+          background: rgba(167,139,250,0.15);
+          border: 1px solid rgba(167,139,250,0.3);
+          color: #a78bfa;
+          font-size: 12px;
+          font-weight: 700;
+          text-decoration: none;
+          transition: all 0.2s;
+        }
+        .glass-login-btn:hover {
+          background: rgba(167,139,250,0.25);
+        }
+        .glass-mobile-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .glass-ham-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          cursor: pointer;
+          backdrop-filter: blur(10px);
+        }
+        .glass-ham-btn span {
+          display: block;
+          height: 1.5px;
+          background: #fff;
+          border-radius: 2px;
+          transition: all 0.3s;
+        }
+        .glass-ham-btn span:nth-child(1) { width: 18px; }
+        .glass-ham-btn span:nth-child(2) { width: 12px; }
+        .glass-ham-btn.open span:nth-child(1) {
+          transform: rotate(45deg) translate(5px, 5px);
+          width: 18px;
+        }
+        .glass-ham-btn.open span:nth-child(2) { opacity: 0; }
 
-          {/* Desktop Links */}
-          <div className="hidden md:flex items-center gap-6">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`text-sm transition-colors ${
-                  pathname === link.href
-                    ? 'text-blue-400 font-medium'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
+        /* Full screen glass overlay */
+        .glass-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 49;
+          background: rgba(5, 5, 15, 0.85);
+          backdrop-filter: blur(30px);
+          -webkit-backdrop-filter: blur(30px);
+          padding: 90px 28px 40px;
+          display: flex;
+          flex-direction: column;
+          animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .glass-overlay-item {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 18px 0;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .glass-overlay-item:last-of-type { border: none; }
+        .glass-icon-wrap {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 18px;
+          backdrop-filter: blur(10px);
+        }
+        .glass-icon-wrap.active-icon {
+          background: rgba(167,139,250,0.15);
+          border-color: rgba(167,139,250,0.3);
+        }
+        .glass-item-text { flex: 1; }
+        .glass-item-label {
+          font-size: 17px;
+          font-weight: 700;
+          color: rgba(255,255,255,0.9);
+          display: block;
+        }
+        .glass-item-label.active-label { color: #a78bfa; }
+        .glass-item-sub {
+          font-size: 11px;
+          color: rgba(255,255,255,0.3);
+          display: block;
+          margin-top: 2px;
+        }
+        .glass-item-arrow {
+          color: rgba(255,255,255,0.2);
+          font-size: 16px;
+        }
+        .glass-item-arrow.active-arrow { color: #a78bfa; }
+        .glass-overlay-bottom {
+          margin-top: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .glass-login-full {
+          display: block;
+          text-align: center;
+          padding: 14px;
+          border-radius: 14px;
+          background: rgba(167,139,250,0.15);
+          border: 1px solid rgba(167,139,250,0.25);
+          color: #a78bfa;
+          font-size: 14px;
+          font-weight: 700;
+          text-decoration: none;
+          backdrop-filter: blur(10px);
+        }
+        .glass-theme-full {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          padding: 12px;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          cursor: pointer;
+          color: rgba(255,255,255,0.5);
+          font-size: 13px;
+          font-weight: 500;
+        }
+      `}</style>
 
-            {/* Dark/Light Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gray-800 transition-colors"
-            >
-              {theme === 'dark' ? (
-                <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zm8-8a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zM5 11H4a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm11.95-6.364a1 1 0 0 1 0 1.414l-.707.707a1 1 0 1 1-1.414-1.414l.707-.707a1 1 0 0 1 1.414 0zM8.172 15.828a1 1 0 0 1 0 1.414l-.707.707a1 1 0 1 1-1.414-1.414l.707-.707a1 1 0 0 1 1.414 0zm9.9 1.414a1 1 0 0 1-1.414 0l-.707-.707a1 1 0 1 1 1.414-1.414l.707.707a1 1 0 0 1 0 1.414zM8.172 8.172a1 1 0 0 1-1.414 0l-.707-.707A1 1 0 0 1 7.465 6.05l.707.707a1 1 0 0 1 0 1.414zM12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7z"/>
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-              )}
-            </button>
+      {/* Navbar */}
+      <nav className="glass-nav">
+        <Link href="/" className="glass-logo">
+          Sayeed <span>Fahad</span>
+        </Link>
 
-            <Link href="/admin/login" className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors">
-              Login
-            </Link>
-          </div>
-
-          {/* Mobile Right Side */}
-          <div className="flex md:hidden items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              className="w-8 h-8 rounded-full border border-gray-700 flex items-center justify-center"
-            >
-              {theme === 'dark' ? (
-                <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v1a1 1 0 1 1-2 0v-1a1 1 0 0 1 1-1zm8-8a1 1 0 0 1-1 1h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 1 1zM5 11H4a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2zm11.95-6.364a1 1 0 0 1 0 1.414l-.707.707a1 1 0 1 1-1.414-1.414l.707-.707a1 1 0 0 1 1.414 0zM8.172 15.828a1 1 0 0 1 0 1.414l-.707.707a1 1 0 1 1-1.414-1.414l.707-.707a1 1 0 0 1 1.414 0zm9.9 1.414a1 1 0 0 1-1.414 0l-.707-.707a1 1 0 1 1 1.414-1.414l.707.707a1 1 0 0 1 0 1.414zM8.172 8.172a1 1 0 0 1-1.414 0l-.707-.707A1 1 0 0 1 7.465 6.05l.707.707a1 1 0 0 1 0 1.414zM12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7z"/>
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-              )}
-            </button>
-
-            {/* Hamburger */}
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="w-8 h-8 flex flex-col items-center justify-center gap-1.5"
-            >
-              <span className={`block w-5 h-0.5 bg-white transition-all ${menuOpen ? 'rotate-45 translate-y-2' : ''}`}/>
-              <span className={`block w-5 h-0.5 bg-white transition-all ${menuOpen ? 'opacity-0' : ''}`}/>
-              <span className={`block w-5 h-0.5 bg-white transition-all ${menuOpen ? '-rotate-45 -translate-y-2' : ''}`}/>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile Menu */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-40 bg-gray-950 flex flex-col pt-20 px-6" style={{top: '65px'}}>
+        {/* Desktop */}
+        <div className="glass-desktop-links">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className={`py-4 text-lg border-b border-gray-800 transition-colors ${
-                pathname === link.href ? 'text-blue-400 font-medium' : 'text-gray-300'
-              }`}
+              className={pathname === link.href ? 'active' : ''}
             >
               {link.label}
             </Link>
           ))}
-          <Link
-            href="/admin/login"
-            onClick={() => setMenuOpen(false)}
-            className="mt-6 text-center bg-blue-600 text-white py-3 rounded-full text-sm font-medium"
+          <button onClick={toggleTheme} className="glass-toggle-btn">
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <Link href="/admin/login" className="glass-login-btn">Login</Link>
+        </div>
+
+        {/* Mobile */}
+        <div className="glass-mobile-right">
+          <button onClick={toggleTheme} className="glass-toggle-btn">
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button
+            className={`glass-ham-btn ${menuOpen ? 'open' : ''}`}
+            onClick={() => setMenuOpen(!menuOpen)}
           >
-            Login
-          </Link>
+            <span /><span />
+          </button>
+        </div>
+      </nav>
+
+      {/* Glass Overlay Menu */}
+      {menuOpen && (
+        <div className="glass-overlay">
+          {links.map((link) => {
+            const isActive = pathname === link.href;
+            const subs: Record<string, string> = {
+              '/': 'ফিরে যান',
+              '/portfolio': 'আমার কাজ দেখুন',
+              '/tutorial': 'শেখার ভিডিও',
+              '/about': 'আমার পরিচয়',
+              '/contact': 'যোগাযোগ করুন',
+            };
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="glass-overlay-item"
+                onClick={() => setMenuOpen(false)}
+              >
+                <div className={`glass-icon-wrap ${isActive ? 'active-icon' : ''}`}>
+                  {link.icon}
+                </div>
+                <div className="glass-item-text">
+                  <span className={`glass-item-label ${isActive ? 'active-label' : ''}`}>
+                    {link.label}
+                  </span>
+                  <span className="glass-item-sub">{subs[link.href]}</span>
+                </div>
+                <span className={`glass-item-arrow ${isActive ? 'active-arrow' : ''}`}>›</span>
+              </Link>
+            );
+          })}
+
+          <div className="glass-overlay-bottom">
+            <Link
+              href="/admin/login"
+              className="glass-login-full"
+              onClick={() => setMenuOpen(false)}
+            >
+              🔐 Admin Login
+            </Link>
+            <button className="glass-theme-full" onClick={toggleTheme}>
+              {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            </button>
+          </div>
         </div>
       )}
     </>
