@@ -27,6 +27,9 @@ export default function HomePage() {
   const [portfolioVideos, setPortfolioVideos] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [heroTitleStyle, setHeroTitleStyle] = useState<any>({});
+  const [heroSubtitleStyle, setHeroSubtitleStyle] = useState<any>({});
+  const [namStyle, setNamStyle] = useState<any>({});
 
   const bg = dark ? '#080808' : '#f9f9f9';
   const text = dark ? '#fff' : '#111';
@@ -48,8 +51,8 @@ export default function HomePage() {
     if (settings) {
       settings.forEach((s: any) => {
         if (s.key === 'showreel_url') setShowreel(s.value);
-        if (s.key === 'hero_title') setHeroTitle(s.value);
-        if (s.key === 'hero_subtitle') setHeroSubtitle(s.value);
+        if (s.key === 'hero_title') { try { const d=JSON.parse(s.value); setHeroTitle(d.value||s.value); setHeroTitleStyle({fontSize:d.fontSize,fontWeight:d.fontWeight,color:d.color,fontFamily:d.fontFamily}); } catch(e){ setHeroTitle(s.value); } }
+        if (s.key === 'hero_subtitle') { try { const d=JSON.parse(s.value); setHeroSubtitle(d.value||s.value); setHeroSubtitleStyle({fontSize:d.fontSize,fontWeight:d.fontWeight,color:d.color,fontFamily:d.fontFamily}); } catch(e){ setHeroSubtitle(s.value); } }
         if (s.key === 'hero_image') setHeroImage(s.value);
         if (s.key === 'hero_image_mobile') setHeroImageMobile(s.value);
         if (s.key === 'stat_clients') setStatClients(parseInt(s.value) || 50);
@@ -89,7 +92,7 @@ export default function HomePage() {
           </div>
 
           <h1 style={{ fontSize: isMobile ? '36px' : 'clamp(36px, 5vw, 66px)', fontWeight: 800, letterSpacing: '-2px', lineHeight: 1.05, margin: '0 0 22px', color: text, maxWidth: 580 }}>
-            {heroTitle}
+            <span style={heroTitleStyle}>{heroTitle}</span>
           </h1>
 
           <p style={{ fontSize: 16, color: sub, maxWidth: 460, margin: '0 0 40px', lineHeight: 1.8 }}>
@@ -305,7 +308,7 @@ export default function HomePage() {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: isMobile ? 28 : 40, marginBottom: 40 }}>
             <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
               <div style={{ fontWeight: 800, fontSize: 24, marginBottom: 10 }}>
-                <span style={{ color: text }}>Sayeed</span><span style={{ color: '#3b82f6' }}>.</span>
+                <span style={{ color: text }}>Minhajul</span><span style={{ color: '#3b82f6' }}>.</span>
               </div>
               <p style={{ color: sub, fontSize: 14, lineHeight: 1.7 }}>Video Editor & Graphic Designer</p>
             </div>
@@ -340,7 +343,7 @@ export default function HomePage() {
             </div>
           </div>
           <div style={{ borderTop: `1px solid ${border}`, paddingTop: 24, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <div style={{ fontSize: 13, color: sub }}>© 2025 Sayeed Fahad. All rights reserved.</div>
+            <div style={{ fontSize: 13, color: sub }}>© 2025 Md. Minhajul Hoque. All rights reserved.</div>
             <div style={{ fontSize: 13, color: sub }}>Made with ❤️ in Bangladesh</div>
           </div>
         </div>

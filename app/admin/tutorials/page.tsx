@@ -62,7 +62,7 @@ export default function TutorialPage() {
       {/* Navbar */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(8,8,8,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 40px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: '-0.5px', cursor: 'pointer' }} onClick={() => router.push('/')}>
-          <span style={{ color: '#fff' }}>Sayeed</span><span style={{ color: '#3b82f6' }}>.</span>
+          <span style={{ color: '#fff' }}>Minhajul</span><span style={{ color: '#3b82f6' }}>.</span>
         </div>
         <div style={{ display: 'flex', gap: 32, fontSize: 14, alignItems: 'center' }}>
           {[

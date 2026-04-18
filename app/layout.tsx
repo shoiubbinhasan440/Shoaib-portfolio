@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
-  title: 'Sayeed Fahad | Video Editor & Motion Designer',
+  title: 'Md. Minhajul Hoque | Video Editor & Graphics Designer',
   description: 'Professional video editing and motion graphics portfolio',
 };
 

@@ -58,6 +58,7 @@ export default function AdminDashboard() {
     { label: 'ক্যাটাগরি ম্যানেজার', desc: 'ক্যাটাগরি যোগ ও এডিট করুন', icon: '📂', href: '/admin/categories' },
     { label: 'হোম পেজ এডিটর', desc: 'Hero, Showreel, Stats আপডেট করুন', icon: '🏠', href: '/admin/settings' },
     { label: 'নেভিগেশন এডিটর', desc: 'মেনু আইটেম ম্যানেজ করুন', icon: '🧭', href: '/admin/navigation' },
+    { label: 'Visual Editor', desc: 'Website এর সব text, font, color এডিট করুন', icon: '✏️', href: '/admin/editor' },
     { label: 'পোর্টফোলিও দেখুন', desc: 'লাইভ সাইট দেখুন', icon: '🌐', href: '/' },
   ];
 
@@ -70,7 +71,7 @@ export default function AdminDashboard() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">SF</div>
           <div>
             <div className="font-semibold text-sm">Admin Panel</div>
-            <div className="text-xs text-gray-500">Sayeed Fahad Portfolio</div>
+            <div className="text-xs text-gray-500">Md. Minhajul Hoque Portfolio</div>
           </div>
         </div>
         <button

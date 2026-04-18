@@ -68,7 +68,7 @@ export default function AboutPage() {
                 <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-[#ff6b35] to-[#ff8555] flex items-center justify-center text-5xl mb-6 mx-auto">
                   👨‍🎨
                 </div>
-                <h2 className="text-2xl font-bold text-center mb-1">Sayeed Fahad</h2>
+                <h2 className="text-2xl font-bold text-center mb-1">Md. Minhajul Hoque</h2>
                 <p className="text-[#ff6b35] text-center text-sm mb-6">Video Editor & Graphic Designer</p>
 
                 <div className="grid grid-cols-3 gap-4 text-center border-t border-white/10 pt-6">
@@ -180,7 +180,7 @@ export default function AboutPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 py-8 px-6 text-center text-white/30 text-sm">
-        <p>© 2024 Sayeed Fahad. All rights reserved.</p>
+        <p>© 2024 Md. Minhajul Hoque. All rights reserved.</p>
       </footer>
     </div>
   );

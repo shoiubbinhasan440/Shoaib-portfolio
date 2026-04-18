@@ -150,9 +150,9 @@ export default function ContactPage() {
       {/* Footer */}
       <footer style={{ borderTop: '1px solid #111', padding: '28px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontWeight: 800, fontSize: 18 }}>
-          <span>Sayeed</span><span style={{ color: '#3b82f6' }}>.</span>
+          <span>Minhajul</span><span style={{ color: '#3b82f6' }}>.</span>
         </div>
-        <div style={{ fontSize: 13, color: '#333' }}>© 2025 Sayeed Fahad. All rights reserved.</div>
+        <div style={{ fontSize: 13, color: '#333' }}>© 2025 Md. Minhajul Hoque. All rights reserved.</div>
       </footer>
     </div>
   );

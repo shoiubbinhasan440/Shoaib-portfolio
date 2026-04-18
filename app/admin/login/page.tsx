@@ -37,7 +37,7 @@ export default function AdminLogin() {
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-xl font-bold mx-auto mb-4">SF</div>
           <h1 className="text-xl font-bold text-white">Admin Login</h1>
-          <p className="text-gray-500 text-sm mt-1">Sayeed Fahad Portfolio</p>
+          <p className="text-gray-500 text-sm mt-1">Md. Minhajul Hoque Portfolio</p>
         </div>
 
         <form onSubmit={handleLogin} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">

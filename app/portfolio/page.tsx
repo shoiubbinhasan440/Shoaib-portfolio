@@ -18,6 +18,14 @@ interface Video {
   visible: boolean;
 }
 
+interface Graphic {
+  id: string;
+  title: string;
+  category: string;
+  image_url: string;
+  visible: boolean;
+}
+
 interface Category {
   id: number;
   name: string;
@@ -29,6 +37,7 @@ interface Category {
 export default function PortfolioPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [graphics, setGraphics] = useState<Graphic[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'video' | 'graphic'>('all');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -42,9 +51,11 @@ export default function PortfolioPage() {
     const [{ data: vids }, { data: cats }] = await Promise.all([
       supabase.from('videos').select('*').eq('visible', true).order('order_num', { ascending: true }),
       supabase.from('categories').select('*').eq('active', true).order('order_num', { ascending: true }),
+      supabase.from('graphics').select('*').eq('visible', true),
     ]);
     setVideos(vids || []);
     setCategories(cats || []);
+    setGraphics((await supabase.from('graphics').select('*').eq('visible', true)).data || []);
     setLoading(false);
   }
 
@@ -135,10 +146,19 @@ export default function PortfolioPage() {
         {/* Grid */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 80, color: '#333' }}>লোড হচ্ছে...</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 80, color: '#333' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🎬</div>
-            <p>এই বিভাগে এখনও কোনো কাজ নেই।</p>
+        ) : activeTab === 'graphic' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+            {graphics.map(g => (
+              <div key={g.id} style={{ borderRadius: 12, overflow: 'hidden', background: '#111', border: '1px solid #1a1a1a', transition: 'all 0.2s', cursor: 'pointer' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 40px rgba(0,0,0,0.6)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}>
+                <img src={g.image_url} alt={g.title} style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} />
+                <div style={{ padding: '12px 16px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: '#fff' }}>{g.title}</div>
+                  {g.category && <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>{g.category}</div>}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))', gap: 20 }}>

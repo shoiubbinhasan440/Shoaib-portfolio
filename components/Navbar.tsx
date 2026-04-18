@@ -224,7 +224,7 @@ export default function Navbar() {
       {/* Navbar */}
       <nav className="glass-nav">
         <Link href="/" className="glass-logo">
-          Sayeed <span>Fahad</span>
+          Md. Minhajul <span>Hoque</span>
         </Link>
 
         {/* Desktop */}
