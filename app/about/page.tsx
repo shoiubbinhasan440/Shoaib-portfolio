@@ -2,185 +2,252 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type S = { value: string; fontSize: number; fontWeight: string; color: string; fontFamily: string };
+
+const DEF: Record<string, S> = {
+  about_eyebrow:     { value: 'About Me',           fontSize: 11, fontWeight: '600', color: '#444444', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_title:       { value: 'আমি কে?',             fontSize: 56, fontWeight: '800', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_bio:         { value: 'আমি একজন পেশাদার ভিডিও এডিটর ও গ্রাফিক্স ডিজাইনার। বিভিন্ন ব্র্যান্ড ও ব্যক্তিত্বের জন্য কাজ করেছি।', fontSize: 16, fontWeight: '400', color: '#666666', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_skill_title: { value: 'আমার দক্ষতা',         fontSize: 28, fontWeight: '700', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_skill1:      { value: 'Video Editing',       fontSize: 14, fontWeight: '600', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_skill2:      { value: 'Motion Graphics',     fontSize: 14, fontWeight: '600', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_skill3:      { value: 'Poster Design',       fontSize: 14, fontWeight: '600', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_skill4:      { value: 'Logo Design',         fontSize: 14, fontWeight: '600', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+  about_cta:         { value: 'যোগাযোগ করুন',        fontSize: 15, fontWeight: '700', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
+};
 
 export default function AboutPage() {
-  const [scrollY, setScrollY] = useState(0);
+  const [settings, setSettings] = useState<Record<string, S>>(DEF);
+  const [aboutImage, setAboutImage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [dark, setDark] = useState(true);
 
   useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const saved = localStorage.getItem('about_theme');
+    if (saved) setDark(saved === 'dark');
+
+    async function load() {
+      const { data } = await supabase.from('site_settings').select('*');
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach((r: any) => { map[r.key] = r.value; });
+        if (map['about_image']) setAboutImage(map['about_image']);
+        const merged: Record<string, S> = { ...DEF };
+        Object.keys(DEF).forEach(key => {
+          if (map[key]) {
+            try { merged[key] = { ...DEF[key], ...JSON.parse(map[key]) }; }
+            catch { merged[key] = { ...DEF[key], value: map[key] }; }
+          }
+        });
+        setSettings(merged);
+      }
+      setLoading(false);
+    }
+    load();
   }, []);
 
-  const skills = [
-    { name: 'Video Editing', level: 95, icon: '🎬' },
-    { name: 'Color Grading', level: 90, icon: '🎨' },
-    { name: 'Motion Graphics', level: 85, icon: '✨' },
-    { name: 'Graphic Design', level: 88, icon: '🖌️' },
-    { name: 'Poster Design', level: 92, icon: '📐' },
-    { name: 'Logo Design', level: 80, icon: '💡' },
-  ];
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    localStorage.setItem('about_theme', next ? 'dark' : 'light');
+  }
 
-  const timeline = [
-    { year: '2019', title: 'যাত্রা শুরু', desc: 'ভিডিও এডিটিং-এর প্রতি আগ্রহ জন্মায়, প্রথম প্রজেক্ট শুরু।' },
-    { year: '2020', title: 'প্রথম ক্লায়েন্ট', desc: 'প্রথম পেশাদার ক্লায়েন্টের সাথে কাজ শুরু।' },
-    { year: '2021', title: 'গ্রাফিক্স যোগ', desc: 'গ্রাফিক ডিজাইন স্কিল ডেভেলপ করা শুরু।' },
-    { year: '2022', title: 'টিম গঠন', desc: 'নিজস্ব ছোট টিম তৈরি, বড় প্রজেক্টে কাজ।' },
-    { year: '2023', title: 'বড় মাইলস্টোন', desc: '১০০+ সফল প্রজেক্ট সম্পন্ন।' },
-    { year: '2024', title: 'নতুন উচ্চতা', desc: 'আন্তর্জাতিক ক্লায়েন্টদের সাথে কাজ শুরু।' },
-  ];
+  const s = (key: string) => settings[key] || DEF[key];
+
+  // theme tokens
+  const bg       = dark ? '#080808' : '#f0f4f8';
+  const cardBg   = dark ? '#0d0d0d' : '#ffffff';
+  const border   = dark ? '#1a1a1a' : '#e2e8f0';
+  const textPri  = dark ? '#ffffff' : '#0f172a';
+  const textSec  = dark ? '#888888' : '#475569';
+  const textMut  = dark ? '#444444' : '#94a3b8';
+  const accent   = '#3b82f6';
+  const tagBg    = dark ? '#111111' : '#e8f0fe';
+  const tagColor = dark ? '#888888' : '#3b5bdb';
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textMut, fontFamily: 'Inter, system-ui, sans-serif' }}>
+      লোড হচ্ছে...
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden">
-      {/* Navbar */}
-      <section className="pt-32 pb-20 px-6 relative">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 right-20 w-96 h-96 bg-[#ff6b35]/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#ff6b35]/3 rounded-full blur-3xl" />
-        </div>
-        <div className="max-w-7xl mx-auto relative">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
+    <div style={{ minHeight: '100vh', background: bg, color: textPri, fontFamily: 'Inter, system-ui, sans-serif', transition: 'background 0.3s, color 0.3s' }}>
+
+      {/* Floating theme toggle */}
+      <button onClick={toggleTheme}
+        style={{
+          position: 'fixed', bottom: 28, right: 28, zIndex: 50,
+          width: 48, height: 48, borderRadius: '50%',
+          background: dark ? '#1e1e1e' : '#ffffff',
+          border: `1px solid ${border}`,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          cursor: 'pointer', fontSize: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.3s',
+        }}>
+        {dark ? '☀️' : '🌙'}
+      </button>
+
+      {/* ── About Hero ── */}
+      <section style={{ padding: 'clamp(80px,10vw,120px) clamp(20px,6vw,80px) 80px' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+
+          <p style={{ color: accent, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 40, textAlign: 'center' }}>
+            {s('about_eyebrow').value}
+          </p>
+
+          {/* Two-column */}
+          <div style={{ display: 'flex', gap: 56, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+            {/* Photo */}
+            <div style={{ flexShrink: 0, width: 'clamp(200px, 28vw, 280px)' }}>
+              <div style={{
+                width: '100%', aspectRatio: '4/5', borderRadius: 20,
+                overflow: 'hidden', border: `1px solid ${border}`,
+                background: aboutImage
+                  ? `url(${aboutImage}) center/cover no-repeat`
+                  : (dark ? '#111' : '#e2e8f0'),
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: dark ? '0 20px 60px rgba(0,0,0,0.5)' : '0 20px 60px rgba(0,0,0,0.1)',
+              }}>
+                {!aboutImage && <span style={{ fontSize: 64 }}>👨‍🎨</span>}
+              </div>
+            </div>
+
             {/* Text */}
-            <div>
-              <p className="text-[#ff6b35] text-sm tracking-widest uppercase mb-4 font-medium">আমার সম্পর্কে</p>
-              <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
-                আমি একজন<br />
-                <span className="text-[#ff6b35]">ক্রিয়েটিভ</span><br />
-                ডিজাইনার
+            <div style={{ flex: 1, minWidth: 240, paddingTop: 8 }}>
+              <h1 style={{
+                fontSize: `clamp(30px, 5vw, ${s('about_title').fontSize}px)`,
+                fontWeight: s('about_title').fontWeight,
+                fontFamily: s('about_title').fontFamily,
+                color: textPri, letterSpacing: '-1px', lineHeight: 1.1, marginBottom: 10,
+              }}>
+                {s('about_title').value}
               </h1>
-              <p className="text-white/60 text-lg leading-relaxed mb-8">
-                ভিডিও এডিটিং ও গ্রাফিক ডিজাইনে ৫+ বছরের অভিজ্ঞতা নিয়ে কাজ করছি। আমার লক্ষ্য প্রতিটি ক্লায়েন্টের স্বপ্নকে বাস্তবে রূপ দেওয়া।
+
+              <p style={{ color: accent, fontWeight: 700, fontSize: 15, marginBottom: 20 }}>
+                Video Editor &amp; Graphic Designer
               </p>
-              <div className="flex gap-4">
-                <Link href="/contact" className="px-6 py-3 bg-[#ff6b35] rounded-full text-sm font-medium hover:bg-[#ff8555] transition-colors">
-                  যোগাযোগ করুন
+
+              <p style={{
+                fontSize: s('about_bio').fontSize,
+                fontWeight: s('about_bio').fontWeight,
+                fontFamily: s('about_bio').fontFamily,
+                color: textSec, lineHeight: 1.85, marginBottom: 32,
+              }}>
+                {s('about_bio').value}
+              </p>
+
+              {/* Stats */}
+              <div style={{ display: 'flex', gap: 28, marginBottom: 32, flexWrap: 'wrap' }}>
+                {[['5+','বছরের অভিজ্ঞতা'],['100+','প্রজেক্ট'],['50+','ক্লায়েন্ট']].map(([v,l]) => (
+                  <div key={l} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: accent }}>{v}</div>
+                    <div style={{ fontSize: 12, color: textMut, marginTop: 3 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <Link href="/contact" style={{
+                  display: 'inline-block', padding: '11px 26px',
+                  background: accent, color: '#fff',
+                  borderRadius: 8, fontWeight: 700, fontSize: 14,
+                  textDecoration: 'none',
+                }}>
+                  {s('about_cta').value} →
                 </Link>
-                <Link href="/portfolio" className="px-6 py-3 border border-white/20 rounded-full text-sm font-medium hover:border-white/40 transition-colors">
+                <Link href="/portfolio" style={{
+                  display: 'inline-block', padding: '11px 26px',
+                  background: 'transparent', border: `1px solid ${border}`,
+                  color: textSec, borderRadius: 8, fontWeight: 600, fontSize: 14,
+                  textDecoration: 'none',
+                }}>
                   কাজ দেখুন
                 </Link>
               </div>
             </div>
-
-            {/* Profile Card */}
-            <div className="relative">
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-sm">
-                {/* Avatar placeholder */}
-                <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-[#ff6b35] to-[#ff8555] flex items-center justify-center text-5xl mb-6 mx-auto">
-                  👨‍🎨
-                </div>
-                <h2 className="text-2xl font-bold text-center mb-1">Md. Minhajul Hoque</h2>
-                <p className="text-[#ff6b35] text-center text-sm mb-6">Video Editor & Graphic Designer</p>
-
-                <div className="grid grid-cols-3 gap-4 text-center border-t border-white/10 pt-6">
-                  <div>
-                    <div className="text-2xl font-bold text-[#ff6b35]">5+</div>
-                    <div className="text-white/50 text-xs mt-1">বছরের অভিজ্ঞতা</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-[#ff6b35]">100+</div>
-                    <div className="text-white/50 text-xs mt-1">প্রজেক্ট</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-[#ff6b35]">50+</div>
-                    <div className="text-white/50 text-xs mt-1">ক্লায়েন্ট</div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-3 justify-center">
-                  {['YouTube', 'Instagram', 'Facebook'].map(s => (
-                    <span key={s} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-white/60">{s}</span>
-                  ))}
-                </div>
-              </div>
-              {/* Decorative */}
-              <div className="absolute -top-4 -right-4 w-24 h-24 bg-[#ff6b35]/20 rounded-2xl blur-xl" />
-              <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-[#ff6b35]/10 rounded-full blur-lg" />
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Skills */}
-      <section className="py-20 px-6 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-[#ff6b35] text-sm tracking-widest uppercase mb-3 font-medium">দক্ষতা</p>
-          <h2 className="text-4xl font-bold mb-12">আমার <span className="text-[#ff6b35]">স্কিলস</span></h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {skills.map((skill, i) => (
-              <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-[#ff6b35]/30 transition-colors">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{skill.icon}</span>
-                    <span className="font-medium">{skill.name}</span>
-                  </div>
-                  <span className="text-[#ff6b35] font-bold">{skill.level}%</span>
-                </div>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-[#ff6b35] to-[#ff8555] rounded-full transition-all duration-1000"
-                    style={{ width: `${skill.level}%` }}
-                  />
-                </div>
-              </div>
+      {/* ── Skills ── */}
+      <section style={{ background: dark ? 'rgba(255,255,255,0.02)' : '#e8edf2', padding: '60px clamp(20px,6vw,80px)', transition: 'background 0.3s' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <h2 style={{ fontSize: s('about_skill_title').fontSize, fontWeight: s('about_skill_title').fontWeight, color: textPri, marginBottom: 24 }}>
+            {s('about_skill_title').value}
+          </h2>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {['about_skill1','about_skill2','about_skill3','about_skill4'].map(key => (
+              <span key={key} style={{
+                fontSize: s(key).fontSize, fontWeight: s(key).fontWeight,
+                color: tagColor, background: tagBg,
+                border: `1px solid ${border}`,
+                padding: '9px 20px', borderRadius: 8, transition: 'all 0.3s',
+              }}>
+                {s(key).value}
+              </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Timeline */}
-      <section className="py-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-[#ff6b35] text-sm tracking-widest uppercase mb-3 font-medium">যাত্রা</p>
-          <h2 className="text-4xl font-bold mb-12">আমার <span className="text-[#ff6b35]">গল্প</span></h2>
-          <div className="relative">
-            {/* Line */}
-            <div className="absolute left-[39px] top-0 bottom-0 w-px bg-white/10 hidden md:block" />
-            <div className="space-y-8">
-              {timeline.map((item, i) => (
-                <div key={i} className="flex gap-6 items-start group">
-                  <div className="flex-shrink-0 w-20 h-20 rounded-2xl bg-white/5 border border-white/10 group-hover:border-[#ff6b35]/40 group-hover:bg-[#ff6b35]/5 transition-all flex items-center justify-center">
-                    <span className="text-[#ff6b35] font-bold text-sm">{item.year}</span>
-                  </div>
-                  <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex-1 group-hover:border-[#ff6b35]/20 transition-colors">
-                    <h3 className="font-semibold mb-2 text-lg">{item.title}</h3>
-                    <p className="text-white/50 text-sm leading-relaxed">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Tools */}
-      <section className="py-20 px-6 bg-white/[0.02]">
-        <div className="max-w-7xl mx-auto text-center">
-          <p className="text-[#ff6b35] text-sm tracking-widest uppercase mb-3 font-medium">টুলস</p>
-          <h2 className="text-4xl font-bold mb-12">যে সফটওয়্যার <span className="text-[#ff6b35]">ব্যবহার করি</span></h2>
-          <div className="flex flex-wrap justify-center gap-4">
-            {['Adobe Premiere Pro', 'After Effects', 'Photoshop', 'Illustrator', 'DaVinci Resolve', 'Canva', 'Figma', 'CapCut'].map(tool => (
-              <div key={tool} className="px-5 py-3 bg-white/5 border border-white/10 rounded-full text-sm hover:border-[#ff6b35]/40 hover:bg-[#ff6b35]/5 transition-all cursor-default">
+      {/* ── Tools ── */}
+      <section style={{ padding: '60px clamp(20px,6vw,80px)', transition: 'background 0.3s' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+          <p style={{ color: accent, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10 }}>টুলস</p>
+          <h2 style={{ fontSize: 30, fontWeight: 800, color: textPri, marginBottom: 24 }}>যে সফটওয়্যার ব্যবহার করি</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
+            {['Adobe Premiere Pro','After Effects','Photoshop','Illustrator','DaVinci Resolve','Canva','Figma','CapCut'].map(tool => (
+              <span key={tool} style={{
+                padding: '8px 18px', background: cardBg,
+                border: `1px solid ${border}`, borderRadius: 100,
+                fontSize: 13, color: textSec, transition: 'all 0.3s',
+              }}>
                 {tool}
-              </div>
+              </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20 px-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-4">কাজ করতে <span className="text-[#ff6b35]">আগ্রহী?</span></h2>
-          <p className="text-white/50 mb-8">আপনার প্রজেক্ট নিয়ে আলোচনা করতে যোগাযোগ করুন</p>
-          <Link href="/contact" className="inline-block px-8 py-4 bg-[#ff6b35] rounded-full font-medium hover:bg-[#ff8555] transition-colors">
+      {/* ── CTA ── */}
+      <section style={{ padding: '56px clamp(20px,6vw,80px) 80px', textAlign: 'center' }}>
+        <div style={{
+          maxWidth: 600, margin: '0 auto',
+          background: dark ? 'linear-gradient(135deg,#0f172a,#1e1b4b)' : 'linear-gradient(135deg,#dbeafe,#ede9fe)',
+          border: `1px solid ${dark ? '#1e3a8a' : '#bfdbfe'}`,
+          borderRadius: 20, padding: '48px 32px',
+        }}>
+          <h2 style={{ fontSize: 30, fontWeight: 800, color: textPri, marginBottom: 10 }}>
+            কাজ করতে <span style={{ color: accent }}>আগ্রহী?</span>
+          </h2>
+          <p style={{ color: textSec, marginBottom: 24, fontSize: 15 }}>আপনার প্রজেক্ট নিয়ে আলোচনা করতে যোগাযোগ করুন</p>
+          <Link href="/contact" style={{
+            display: 'inline-block', padding: '12px 28px',
+            background: accent, color: '#fff',
+            borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: 15,
+          }}>
             যোগাযোগ করুন →
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-8 px-6 text-center text-white/30 text-sm">
-        <p>© 2024 Md. Minhajul Hoque. All rights reserved.</p>
+      {/* ── Footer ── */}
+      <footer style={{ borderTop: `1px solid ${dark ? '#111' : '#e2e8f0'}`, padding: '24px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ fontWeight: 800, fontSize: 18, color: textPri }}>
+          Minhajul<span style={{ color: accent }}>.</span>
+        </div>
+        <p style={{ fontSize: 13, color: dark ? '#333' : '#94a3b8' }}>© 2025 Md. Minhajul Hoque. All rights reserved.</p>
       </footer>
     </div>
   );
