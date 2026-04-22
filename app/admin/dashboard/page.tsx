@@ -20,24 +20,25 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    async function load() {
+      const [videos, graphics, categories, views] = await Promise.all([
+        supabase.from('videos').select('id', { count: 'exact' }),
+        supabase.from('graphics').select('id', { count: 'exact' }),
+        supabase.from('categories').select('id', { count: 'exact' }),
+        supabase.from('page_views').select('id', { count: 'exact' }),
+      ]);
 
-  const fetchStats = async () => {
-    const [videos, graphics, categories, views] = await Promise.all([
-      supabase.from('videos').select('id', { count: 'exact' }),
-      supabase.from('graphics').select('id', { count: 'exact' }),
-      supabase.from('categories').select('id', { count: 'exact' }),
-      supabase.from('page_views').select('id', { count: 'exact' }),
-    ]);
-    setStats({
-      videos: videos.count || 0,
-      graphics: graphics.count || 0,
-      categories: categories.count || 0,
-      views: views.count || 0,
-    });
-    setLoading(false);
-  };
+      setStats({
+        videos: videos.count || 0,
+        graphics: graphics.count || 0,
+        categories: categories.count || 0,
+        views: views.count || 0,
+      });
+      setLoading(false);
+    }
+
+    void load();
+  }, []);
 
   const handleLogout = () => {
     document.cookie = 'admin_token=; path=/; max-age=0';

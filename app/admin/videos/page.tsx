@@ -3,6 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import {
+  findHomepageOrderConflict,
+  getHomepageConfigForItem,
+  getHomepageConfigForVideo,
+  getHomepagePortfolioItemKey,
+  HOMEPAGE_PORTFOLIO_SETTING_KEYS,
+  parseHomepagePortfolioItemConfig,
+  serializeHomepagePortfolioItemConfig,
+  toPortfolioPreviewItems,
+  type PortfolioGraphic,
+  type PortfolioPreviewItem,
+  type HomepagePortfolioConfigMap,
+} from '@/lib/portfolio-content';
+import { writeSiteSetting } from '@/lib/site-settings';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,15 +45,19 @@ const EMPTY_FORM = {
   category: '',
   youtube_url: '',
   thumbnail: '',
-  tier: 'standard',
   order_num: 0,
   visible: true,
+  showOnHomepage: true,
+  homepageOrder: 0,
+  homepageFeatured: false,
 };
 
 export default function AdminVideos() {
   const router = useRouter();
   const [videos, setVideos] = useState<Video[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [homepageConfig, setHomepageConfig] = useState<HomepagePortfolioConfigMap>({});
+  const [homepageItems, setHomepageItems] = useState<PortfolioPreviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -48,26 +66,103 @@ export default function AdminVideos() {
   const [msg, setMsg] = useState('');
   const [filterCat, setFilterCat] = useState('all');
 
-  useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) { router.push('/admin/login'); return; }
-    fetchData();
-  }, []);
+  async function upsertSetting(key: string, value: string) {
+    await writeSiteSetting(supabase, key, value);
+  }
 
-  async function fetchData() {
-    setLoading(true);
-    const [{ data: vids }, { data: cats }] = await Promise.all([
+  async function saveHomepageConfig(nextConfig: HomepagePortfolioConfigMap) {
+    await upsertSetting(
+      HOMEPAGE_PORTFOLIO_SETTING_KEYS.itemConfig,
+      serializeHomepagePortfolioItemConfig(nextConfig)
+    );
+    setHomepageConfig(nextConfig);
+  }
+
+  function getVideoHomepageState(video: Video) {
+    return getHomepageConfigForVideo(video, homepageConfig);
+  }
+
+  async function getVideoData() {
+    const [{ data: vids }, { data: cats }, { data: homepageSettings }, { data: graphicsData }] = await Promise.all([
       supabase.from('videos').select('*').order('order_num', { ascending: true }),
       supabase.from('categories').select('*').order('order_num', { ascending: true }),
+      supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', HOMEPAGE_PORTFOLIO_SETTING_KEYS.itemConfig)
+        .maybeSingle(),
+      supabase.from('graphics').select('*').order('created_at', { ascending: false }),
     ]);
-    setVideos(vids || []);
-    setCategories(cats || []);
+
+    const graphics = ((graphicsData || []) as Array<Omit<PortfolioGraphic, 'order_num'>>).map(
+      (graphic, index) => ({
+        ...graphic,
+        order_num: 1000 + index,
+      })
+    );
+
+    return {
+      videos: vids || [],
+      categories: cats || [],
+      homepageConfig: parseHomepagePortfolioItemConfig(homepageSettings?.value),
+      homepageItems: toPortfolioPreviewItems((vids || []) as Video[], graphics),
+    };
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
+
+    async function load() {
+      const data = await getVideoData();
+      setVideos(data.videos);
+      setCategories(data.categories);
+      setHomepageConfig(data.homepageConfig);
+      setHomepageItems(data.homepageItems);
+      setLoading(false);
+    }
+
+    void load();
+  }, [router]);
+
+  async function refreshData() {
+    setLoading(true);
+    const data = await getVideoData();
+    setVideos(data.videos);
+    setCategories(data.categories);
+    setHomepageConfig(data.homepageConfig);
+    setHomepageItems(data.homepageItems);
     setLoading(false);
+  }
+
+  function getHomepageOrderConflictMessage(
+    conflictItem: Pick<PortfolioPreviewItem, 'sourceType' | 'title'>,
+    attemptedOrder: number
+  ) {
+    const itemTypeLabel = conflictItem.sourceType === 'video' ? 'ভিডিও' : 'গ্রাফিক';
+    return `❌ Homepage order ${attemptedOrder} আগে থেকেই "${conflictItem.title}" (${itemTypeLabel}) ব্যবহার করছে। অন্য order দিন।`;
+  }
+
+  function getNextHomepageOrder() {
+    const usedOrders = homepageItems
+      .filter(item => item.visible)
+      .map(item => getHomepageConfigForItem(item, homepageConfig))
+      .filter(config => config.showOnHomepage)
+      .map(config => config.homepageOrder);
+
+    return usedOrders.length > 0 ? Math.max(...usedOrders) + 1 : 1;
   }
 
   function getYouTubeId(url: string) {
     const match = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
     return match ? match[1] : null;
+  }
+
+  function normalizeHomepageOrder(homepageOrder: number) {
+    return homepageOrder > 0 ? homepageOrder : getNextHomepageOrder();
   }
 
   function handleYouTubeUrl(url: string) {
@@ -85,49 +180,94 @@ export default function AdminVideos() {
       setMsg('❌ টাইটেল, ক্যাটাগরি এবং YouTube URL আবশ্যক।');
       return;
     }
+
     setSaving(true);
-    const videoId = getYouTubeId(form.youtube_url);
-    const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : form.youtube_url;
+    try {
+      const nextHomepageOrder = normalizeHomepageOrder(form.homepageOrder || form.order_num);
+      const homepageConflict = findHomepageOrderConflict(
+        homepageItems,
+        homepageConfig,
+        {
+          sourceType: 'video',
+          id: String(editingId ?? `new-video-${Date.now()}`),
+          order_num: form.order_num,
+        },
+        nextHomepageOrder,
+        form.showOnHomepage
+      );
 
-    const payload = {
-      title: form.title,
-      category: form.category,
-      youtube_url: embedUrl,
-      thumbnail: form.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-      tier: form.tier,
-      order_num: form.order_num,
-      visible: form.visible,
-    };
+      if (homepageConflict) {
+        setMsg(getHomepageOrderConflictMessage(homepageConflict, nextHomepageOrder));
+        return;
+      }
 
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from('videos').update(payload).eq('id', editingId));
-    } else {
-      ({ error } = await supabase.from('videos').insert([payload]));
-    }
+      const videoId = getYouTubeId(form.youtube_url);
+      const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : form.youtube_url;
+      const existingVideo = editingId ? videos.find(video => video.id === editingId) : null;
 
-    setSaving(false);
-    if (error) {
-      setMsg('❌ সমস্যা হয়েছে: ' + error.message);
-    } else {
+      const payload = {
+        title: form.title,
+        category: form.category,
+        youtube_url: embedUrl,
+        thumbnail: form.thumbnail || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        tier: existingVideo?.tier || 'standard',
+        order_num: form.order_num,
+        visible: form.visible,
+      };
+
+      let error;
+      let savedVideoId = editingId;
+      if (editingId) {
+        ({ error } = await supabase.from('videos').update(payload).eq('id', editingId));
+      } else {
+        const insertResult = await supabase.from('videos').insert([payload]).select('id').single();
+        error = insertResult.error;
+        savedVideoId = insertResult.data?.id ?? null;
+      }
+
+      if (error) {
+        setMsg('❌ সমস্যা হয়েছে: ' + error.message);
+        return;
+      }
+
+      if (savedVideoId) {
+        const nextHomepageConfig = {
+          ...homepageConfig,
+          [getHomepagePortfolioItemKey('video', savedVideoId)]: {
+            showOnHomepage: form.showOnHomepage,
+            homepageOrder: nextHomepageOrder,
+            homepageFeatured: form.homepageFeatured,
+          },
+        };
+        await saveHomepageConfig(nextHomepageConfig);
+      }
+
       setMsg(editingId ? '✅ ভিডিও আপডেট হয়েছে!' : '✅ ভিডিও যোগ হয়েছে!');
       setShowForm(false);
       setEditingId(null);
-      setForm(EMPTY_FORM);
-      fetchData();
+      setForm({ ...EMPTY_FORM, homepageOrder: getNextHomepageOrder() });
+      void refreshData();
       setTimeout(() => setMsg(''), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'ভিডিও সেভ করা যায়নি।';
+      setMsg(`❌ ${message}`);
+    } finally {
+      setSaving(false);
     }
   }
 
   function handleEdit(v: Video) {
+    const homepageState = getVideoHomepageState(v);
     setForm({
       title: v.title,
       category: v.category,
       youtube_url: v.youtube_url,
       thumbnail: v.thumbnail,
-      tier: v.tier,
       order_num: v.order_num,
       visible: v.visible,
+      showOnHomepage: homepageState.showOnHomepage,
+      homepageOrder: homepageState.homepageOrder,
+      homepageFeatured: homepageState.homepageFeatured,
     });
     setEditingId(v.id);
     setShowForm(true);
@@ -136,15 +276,122 @@ export default function AdminVideos() {
 
   async function handleDelete(id: number) {
     if (!confirm('এই ভিডিওটি ডিলিট করবেন?')) return;
-    await supabase.from('videos').delete().eq('id', id);
-    setMsg('🗑️ ভিডিও ডিলিট হয়েছে।');
-    fetchData();
-    setTimeout(() => setMsg(''), 3000);
+    try {
+      const { error } = await supabase.from('videos').delete().eq('id', id);
+      if (error) {
+        throw error;
+      }
+
+      const nextHomepageConfig = { ...homepageConfig };
+      delete nextHomepageConfig[getHomepagePortfolioItemKey('video', id)];
+      delete nextHomepageConfig[String(id)];
+      await saveHomepageConfig(nextHomepageConfig);
+      setMsg('🗑️ ভিডিও ডিলিট হয়েছে।');
+      void refreshData();
+      setTimeout(() => setMsg(''), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'ভিডিও ডিলিট করা যায়নি।';
+      setMsg(`❌ ${message}`);
+    }
   }
 
   async function toggleVisible(v: Video) {
-    await supabase.from('videos').update({ visible: !v.visible }).eq('id', v.id);
-    fetchData();
+    try {
+      const { error } = await supabase.from('videos').update({ visible: !v.visible }).eq('id', v.id);
+      if (error) {
+        throw error;
+      }
+
+      void refreshData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'ভিডিও visibility বদলানো যায়নি।';
+      setMsg(`❌ ${message}`);
+    }
+  }
+
+  async function toggleHomepageVisible(video: Video) {
+    try {
+      const currentHomepageState = getVideoHomepageState(video);
+      const nextShowOnHomepage = !currentHomepageState.showOnHomepage;
+      const nextHomepageOrder = normalizeHomepageOrder(currentHomepageState.homepageOrder);
+      const homepageConflict = findHomepageOrderConflict(
+        homepageItems,
+        homepageConfig,
+        {
+          sourceType: 'video',
+          id: String(video.id),
+          order_num: video.order_num,
+        },
+        nextHomepageOrder,
+        nextShowOnHomepage
+      );
+
+      if (homepageConflict) {
+        setMsg(getHomepageOrderConflictMessage(homepageConflict, nextHomepageOrder));
+        setTimeout(() => setMsg(''), 3000);
+        return;
+      }
+
+      const nextHomepageConfig = {
+        ...homepageConfig,
+        [getHomepagePortfolioItemKey('video', video.id)]: {
+          ...currentHomepageState,
+          showOnHomepage: nextShowOnHomepage,
+          homepageOrder: nextHomepageOrder,
+        },
+      };
+
+      await saveHomepageConfig(nextHomepageConfig);
+      setMsg(
+        nextShowOnHomepage
+          ? '🏠 ভিডিওটি homepage preview-তে দেখানো হবে।'
+          : '🙈 ভিডিওটি homepage preview থেকে লুকানো হয়েছে।'
+      );
+      setTimeout(() => setMsg(''), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Homepage visibility আপডেট করা যায়নি।';
+      setMsg(`❌ ${message}`);
+    }
+  }
+
+  async function updateHomepageOrder(video: Video, homepageOrder: number) {
+    try {
+      const nextHomepageOrder = normalizeHomepageOrder(homepageOrder);
+      const currentHomepageState = getVideoHomepageState(video);
+      const homepageConflict = findHomepageOrderConflict(
+        homepageItems,
+        homepageConfig,
+        {
+          sourceType: 'video',
+          id: String(video.id),
+          order_num: video.order_num,
+        },
+        nextHomepageOrder,
+        currentHomepageState.showOnHomepage
+      );
+
+      if (homepageConflict) {
+        setMsg(getHomepageOrderConflictMessage(homepageConflict, nextHomepageOrder));
+        void refreshData();
+        setTimeout(() => setMsg(''), 3000);
+        return;
+      }
+
+      const nextHomepageConfig = {
+        ...homepageConfig,
+        [getHomepagePortfolioItemKey('video', video.id)]: {
+          ...currentHomepageState,
+          homepageOrder: nextHomepageOrder,
+        },
+      };
+
+      await saveHomepageConfig(nextHomepageConfig);
+      setMsg('↕️ Homepage order আপডেট হয়েছে।');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Homepage order আপডেট করা যায়নি।';
+      setMsg(`❌ ${message}`);
+    }
   }
 
   const filtered = filterCat === 'all' ? videos : videos.filter(v => v.category === filterCat);
@@ -164,7 +411,11 @@ export default function AdminVideos() {
           </span>
         </div>
         <button
-          onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(EMPTY_FORM); }}
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditingId(null);
+            setForm({ ...EMPTY_FORM, homepageOrder: getNextHomepageOrder() });
+          }}
           style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
           {showForm ? '✕ বন্ধ করুন' : '+ নতুন ভিডিও'}
         </button>
@@ -223,16 +474,6 @@ export default function AdminVideos() {
                 </div>
               )}
               <div>
-                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>টায়ার</label>
-                <select
-                  value={form.tier}
-                  onChange={e => setForm(f => ({ ...f, tier: e.target.value }))}
-                  style={{ width: '100%', background: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14 }}>
-                  <option value="standard">Standard</option>
-                  <option value="premium">Premium ⭐</option>
-                </select>
-              </div>
-              <div>
                 <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>ক্রম নম্বর (ছোট মানে আগে)</label>
                 <input
                   type="number"
@@ -251,6 +492,36 @@ export default function AdminVideos() {
                 />
                 <label htmlFor="visible" style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }}>পোর্টফোলিওতে দেখাবে</label>
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <input
+                  type="checkbox"
+                  id="showOnHomepage"
+                  checked={form.showOnHomepage}
+                  onChange={e => setForm(f => ({ ...f, showOnHomepage: e.target.checked }))}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <label htmlFor="showOnHomepage" style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }}>Homepage preview-তে দেখাবে</label>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>Homepage order</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.homepageOrder}
+                  onChange={e => setForm(f => ({ ...f, homepageOrder: parseInt(e.target.value, 10) || 0 }))}
+                  style={{ width: '100%', background: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <input
+                  type="checkbox"
+                  id="homepageFeatured"
+                  checked={form.homepageFeatured}
+                  onChange={e => setForm(f => ({ ...f, homepageFeatured: e.target.checked }))}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <label htmlFor="homepageFeatured" style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }}>Homepage-এ featured priority দিন</label>
+              </div>
             </div>
             <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
               <button
@@ -260,7 +531,7 @@ export default function AdminVideos() {
                 {saving ? '⏳ সেভ হচ্ছে...' : editingId ? '✅ আপডেট করুন' : '✅ ভিডিও যোগ করুন'}
               </button>
               <button
-                onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }}
+                onClick={() => { setShowForm(false); setEditingId(null); setForm({ ...EMPTY_FORM, homepageOrder: getNextHomepageOrder() }); }}
                 style={{ background: '#1a1a1a', color: '#aaa', border: '1px solid #333', padding: '12px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 15 }}>
                 বাতিল
               </button>
@@ -291,11 +562,14 @@ export default function AdminVideos() {
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60, color: '#555', background: '#111', borderRadius: 16, border: '1px dashed #222' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🎬</div>
-            <p>এখনও কোনো ভিডিও নেই। উপরের "+ নতুন ভিডিও" বাটনে ক্লিক করুন।</p>
+            <p>এখনও কোনো ভিডিও নেই। উপরের &quot;+ নতুন ভিডিও&quot; বাটনে ক্লিক করুন।</p>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
-            {filtered.map(v => (
+            {filtered.map(v => {
+              const homepageState = getVideoHomepageState(v);
+
+              return (
               <div key={v.id} style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 16, opacity: v.visible ? 1 : 0.5 }}>
                 <img
                   src={v.thumbnail}
@@ -305,15 +579,33 @@ export default function AdminVideos() {
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontWeight: 600, fontSize: 16 }}>{v.title}</span>
-                    {v.tier === 'premium' && <span style={{ background: '#2a1f00', color: '#fbbf24', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #3d2e00' }}>⭐ Premium</span>}
                     {!v.visible && <span style={{ background: '#1a1a1a', color: '#666', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #333' }}>লুকানো</span>}
+                    {homepageState.showOnHomepage && <span style={{ background: '#10233a', color: '#7dd3fc', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #1e3a5f' }}>🏠 Homepage</span>}
+                    {homepageState.homepageFeatured && <span style={{ background: '#1b2542', color: '#a5b4fc', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #312e81' }}>✨ Featured</span>}
                   </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#666' }}>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#666', flexWrap: 'wrap' }}>
                     <span>📁 {categories.find(c => c.slug === v.category)?.name || v.category}</span>
                     <span>🔢 ক্রম: {v.order_num}</span>
+                    <span>🏠 Homepage ক্রম: {homepageState.homepageOrder}</span>
+                    <span>{homepageState.showOnHomepage ? '👁 Homepage visible' : '🙈 Homepage hidden'}</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>
+                  <input
+                    key={`${v.id}-${homepageState.homepageOrder}`}
+                    type="number"
+                    min="1"
+                    defaultValue={homepageState.homepageOrder}
+                    onBlur={e => void updateHomepageOrder(v, parseInt(e.target.value, 10) || 0)}
+                    title="Homepage order"
+                    style={{ width: 74, background: '#1a1a1a', color: '#fff', border: '1px solid #333', padding: '8px 10px', borderRadius: 8, fontSize: 13 }}
+                  />
+                  <button
+                    onClick={() => void toggleHomepageVisible(v)}
+                    title={homepageState.showOnHomepage ? 'Homepage থেকে লুকান' : 'Homepage-এ দেখান'}
+                    style={{ background: '#1a1a1a', color: homepageState.showOnHomepage ? '#7dd3fc' : '#666', border: '1px solid #333', width: 36, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}>
+                    🏠
+                  </button>
                   <button
                     onClick={() => toggleVisible(v)}
                     title={v.visible ? 'লুকিয়ে রাখুন' : 'দেখান'}
@@ -332,7 +624,8 @@ export default function AdminVideos() {
                   </button>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

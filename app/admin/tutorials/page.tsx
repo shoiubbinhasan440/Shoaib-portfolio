@@ -9,6 +9,7 @@ const supabase = createClient(
 );
 
 type S = { value: string; fontSize: number; fontWeight: string; color: string; fontFamily: string };
+type SettingRow = { key: string; value: string };
 
 const DEF: Record<string, S> = {
   tutorial_title:    { value: 'Tutorial',                       fontSize: 56, fontWeight: '800', color: '#ffffff', fontFamily: 'Inter, system-ui, sans-serif' },
@@ -49,7 +50,9 @@ export default function TutorialPage() {
 
       if (settingsData) {
         const map: Record<string, string> = {};
-        settingsData.forEach((r: any) => { map[r.key] = r.value; });
+        settingsData.forEach((row: SettingRow) => {
+          map[row.key] = row.value;
+        });
         const merged: Record<string, S> = { ...DEF };
         Object.keys(DEF).forEach(key => {
           if (map[key]) {
@@ -63,7 +66,7 @@ export default function TutorialPage() {
       setTutorials(tutorialsData || []);
       setLoading(false);
     }
-    load();
+    void load();
   }, []);
 
   const s = (key: string) => settings[key] || DEF[key];

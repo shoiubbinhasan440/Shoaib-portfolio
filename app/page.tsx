@@ -4,11 +4,36 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { useTheme } from '@/components/ThemeProvider';
+import PortfolioShowcase from '@/components/portfolio/PortfolioShowcase';
+import {
+  HERO_SETTING_KEYS,
+  getFirstSetting,
+  getHeroImages,
+  parseStyledSetting,
+  toSettingMap,
+} from '@/lib/hero-settings';
+import {
+  DEFAULT_PORTFOLIO_PAGE_SETTINGS,
+  DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS,
+  fetchPortfolioDataset,
+  getHomepagePortfolioPreviewItems,
+  getHomepagePortfolioSettings,
+  getPortfolioPageSettings,
+  toPortfolioPreviewItems,
+  type PortfolioGraphic,
+  type HomepagePortfolioSectionSettings,
+  type PortfolioCategory,
+  type PortfolioPageSettings,
+  type PortfolioPreviewItem,
+  type PortfolioVideo,
+} from '@/lib/portfolio-content';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+type TextStyleState = React.CSSProperties;
 
 export default function HomePage() {
   const router = useRouter();
@@ -17,185 +42,460 @@ export default function HomePage() {
   const contactRef = useRef<HTMLDivElement>(null);
 
   const [showreel, setShowreel] = useState('https://www.youtube.com/embed/dQw4w9WgXcQ');
+  const [heroBadge, setHeroBadge] = useState('Available for work');
   const [heroTitle, setHeroTitle] = useState('Visual Storyteller & Creative Director');
   const [heroSubtitle, setHeroSubtitle] = useState('ভিডিও এডিটিং ও গ্রাফিক্স ডিজাইনের মাধ্যমে আপনার গল্প বলি।');
-  const [heroImage, setHeroImage] = useState('');
-  const [heroImageMobile, setHeroImageMobile] = useState('');
+  const [desktopHeroImage, setDesktopHeroImage] = useState('');
+  const [mobileHeroImage, setMobileHeroImage] = useState('');
   const [statClients, setStatClients] = useState(50);
   const [statYears, setStatYears] = useState(3);
-  const [videoCount, setVideoCount] = useState(0);
-  const [portfolioVideos, setPortfolioVideos] = useState<any[]>([]);
+  const [portfolioCount, setPortfolioCount] = useState(0);
+  const [portfolioVideos, setPortfolioVideos] = useState<PortfolioVideo[]>([]);
+  const [portfolioGraphics, setPortfolioGraphics] = useState<PortfolioGraphic[]>([]);
+  const [portfolioCategories, setPortfolioCategories] = useState<PortfolioCategory[]>([]);
+  const [homepagePortfolioSettings, setHomepagePortfolioSettings] = useState<HomepagePortfolioSectionSettings>(
+    DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS
+  );
+  const [portfolioPageSettings, setPortfolioPageSettings] = useState<PortfolioPageSettings>(
+    DEFAULT_PORTFOLIO_PAGE_SETTINGS
+  );
   const [showModal, setShowModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [heroTitleStyle, setHeroTitleStyle] = useState<any>({});
-  const [heroSubtitleStyle, setHeroSubtitleStyle] = useState<any>({});
-  const [namStyle, setNamStyle] = useState<any>({});
+  const [primaryCtaLabel, setPrimaryCtaLabel] = useState('Portfolio দেখুন');
+  const [statProjectsLabel, setStatProjectsLabel] = useState('Projects');
+  const [statClientsLabel, setStatClientsLabel] = useState('Clients');
+  const [statYearsLabel, setStatYearsLabel] = useState('Years Crafting');
+  const [heroBadgeStyle, setHeroBadgeStyle] = useState<TextStyleState>({});
+  const [heroTitleStyle, setHeroTitleStyle] = useState<TextStyleState>({});
+  const [heroSubtitleStyle, setHeroSubtitleStyle] = useState<TextStyleState>({});
 
   const bg = dark ? '#080808' : '#f9f9f9';
   const text = dark ? '#fff' : '#111';
   const sub = dark ? '#555' : '#888';
   const card = dark ? '#0d0d0d' : '#fff';
   const border = dark ? '#1a1a1a' : '#e5e5e5';
-  const muted = dark ? '#333' : '#ccc';
 
   useEffect(() => {
-    fetchData();
+    async function load() {
+      const [{ data: settings }, { videos, categories, graphics }] = await Promise.all([
+        supabase.from('site_settings').select('*'),
+        fetchPortfolioDataset(supabase),
+      ]);
+
+      if (settings) {
+        const map = toSettingMap(settings);
+        const badge = parseStyledSetting(map[HERO_SETTING_KEYS.badge], 'Available for work');
+        const title = parseStyledSetting(
+          map[HERO_SETTING_KEYS.title],
+          'Visual Storyteller & Creative Director'
+        );
+        const subtitle = parseStyledSetting(
+          map[HERO_SETTING_KEYS.subtitle],
+          'ভিডিও এডিটিং ও গ্রাফিক্স ডিজাইনের মাধ্যমে আপনার গল্প বলি।'
+        );
+        const primaryCta = parseStyledSetting(map[HERO_SETTING_KEYS.primaryCta], 'Portfolio দেখুন');
+        const statProjects = parseStyledSetting(map.stat1_label, 'Projects');
+        const statClientsLabelSetting = parseStyledSetting(map.stat2_label, 'Clients');
+        const statYearsLabelSetting = parseStyledSetting(map.stat3_label, 'Years Crafting');
+        const heroImages = getHeroImages(map);
+
+        setHeroBadge(badge.value);
+        setHeroBadgeStyle(badge.style);
+        setHeroTitle(title.value);
+        setHeroTitleStyle(title.style);
+        setHeroSubtitle(subtitle.value);
+        setHeroSubtitleStyle(subtitle.style);
+        setPrimaryCtaLabel(primaryCta.value);
+        setDesktopHeroImage(heroImages.desktop);
+        setMobileHeroImage(heroImages.mobile);
+        setHomepagePortfolioSettings(getHomepagePortfolioSettings(map));
+        setPortfolioPageSettings(getPortfolioPageSettings(map));
+        setStatProjectsLabel(statProjects.value);
+        setStatClientsLabel(statClientsLabelSetting.value);
+        setStatYearsLabel(statYearsLabelSetting.value);
+
+        const savedShowreel = getFirstSetting(map, HERO_SETTING_KEYS.showreelUrl);
+        if (savedShowreel) {
+          setShowreel(savedShowreel);
+        }
+
+        const savedClients = getFirstSetting(map, HERO_SETTING_KEYS.statClients);
+        if (savedClients) {
+          setStatClients(parseInt(savedClients, 10) || 50);
+        }
+
+        const savedYears = getFirstSetting(map, HERO_SETTING_KEYS.statYears);
+        if (savedYears) {
+          setStatYears(parseInt(savedYears, 10) || 3);
+        }
+      }
+
+      setPortfolioCount(videos.length + graphics.length);
+      setPortfolioVideos(videos);
+      setPortfolioGraphics(graphics);
+      setPortfolioCategories(categories);
+    }
+
+    void load();
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  async function fetchData() {
-    const { data: settings } = await supabase.from('site_settings').select('*');
-    if (settings) {
-      settings.forEach((s: any) => {
-        if (s.key === 'showreel_url') setShowreel(s.value);
-        if (s.key === 'hero_title') { try { const d=JSON.parse(s.value); setHeroTitle(d.value||s.value); setHeroTitleStyle({fontSize:d.fontSize,fontWeight:d.fontWeight,color:d.color,fontFamily:d.fontFamily}); } catch(e){ setHeroTitle(s.value); } }
-        if (s.key === 'hero_subtitle') { try { const d=JSON.parse(s.value); setHeroSubtitle(d.value||s.value); setHeroSubtitleStyle({fontSize:d.fontSize,fontWeight:d.fontWeight,color:d.color,fontFamily:d.fontFamily}); } catch(e){ setHeroSubtitle(s.value); } }
-        if (s.key === 'hero_image') setHeroImage(s.value);
-        if (s.key === 'hero_image_mobile') setHeroImageMobile(s.value);
-        if (s.key === 'stat_clients') setStatClients(parseInt(s.value) || 50);
-        if (s.key === 'stat_years') setStatYears(parseInt(s.value) || 3);
-      });
-    }
-    const { count } = await supabase.from('videos').select('*', { count: 'exact', head: true }).eq('visible', true);
-    setVideoCount(count || 0);
-    const { data: vids } = await supabase.from('videos').select('*').eq('visible', true).order('order_num', { ascending: true }).limit(6);
-    setPortfolioVideos(vids || []);
-  }
-
   const scrollToContact = () => {
     contactRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const getThumb = (url: string) => {
-    const match = url?.match(/(?:v=|embed\/|youtu\.be\/)([^&?/]+)/);
-    return match ? `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg` : '';
-  };
-
-  // Mobile-এ mobile image, Desktop-এ desktop image
-  const currentHeroImage = isMobile && heroImageMobile ? heroImageMobile : heroImage;
+  const currentHeroImage = isMobile
+    ? mobileHeroImage || desktopHeroImage
+    : desktopHeroImage || mobileHeroImage;
+  const allPortfolioItems: PortfolioPreviewItem[] = toPortfolioPreviewItems(
+    portfolioVideos,
+    portfolioGraphics,
+    portfolioCategories
+  );
+  const homepagePreviewItems = getHomepagePortfolioPreviewItems(
+    allPortfolioItems,
+    homepagePortfolioSettings
+  );
+  const heroShellBackground = '#020617';
+  const heroPanelBackground = dark
+    ? 'linear-gradient(180deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.82) 100%)'
+    : 'linear-gradient(180deg, rgba(15,23,42,0.46) 0%, rgba(15,23,42,0.72) 100%)';
+  const heroPanelBorder = dark ? 'rgba(148,163,184,0.16)' : 'rgba(255,255,255,0.22)';
+  const heroEyebrowColor = dark ? '#bae6fd' : '#e0f2fe';
+  const heroHeadingColor = dark ? '#f8fafc' : '#ffffff';
+  const heroSubtitleColor = dark ? 'rgba(226,232,240,0.82)' : 'rgba(255,255,255,0.82)';
+  const heroSecondaryButtonBorder = dark ? 'rgba(148,163,184,0.26)' : 'rgba(255,255,255,0.24)';
+  const heroOverlay = isMobile
+    ? 'linear-gradient(180deg, rgba(15,23,42,0.1) 0%, rgba(2,6,23,0.58) 50%, rgba(2,6,23,0.96) 100%)'
+    : 'linear-gradient(96deg, rgba(2,6,23,0.9) 0%, rgba(2,6,23,0.76) 30%, rgba(15,23,42,0.34) 58%, rgba(14,165,233,0.16) 78%, rgba(2,6,23,0.76) 100%)';
+  const heroBottomFade = isMobile
+    ? 'linear-gradient(180deg, rgba(2,6,23,0) 0%, rgba(15,23,42,0.12) 24%, rgba(8,47,73,0.26) 52%, rgba(2,6,23,0.78) 78%, rgba(2,6,23,0.96) 100%)'
+    : 'linear-gradient(180deg, rgba(2,6,23,0) 0%, rgba(15,23,42,0.08) 20%, rgba(8,47,73,0.2) 48%, rgba(2,6,23,0.6) 74%, rgba(2,6,23,0.84) 100%)';
 
   return (
-    <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: "'Inter', system-ui, sans-serif", overflowX: 'hidden', transition: 'background 0.3s, color 0.3s' }}>
+    <div style={{ minHeight: '100vh', background: bg, color: text, fontFamily: "'Inter', system-ui, sans-serif", overflowX: 'hidden' }}>
 
       {/* ── HERO ── */}
-      <section style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', padding: isMobile ? '40px 20px' : '60px 40px', maxWidth: 1300, margin: '0 auto', gap: 60, flexWrap: 'wrap', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '25%', left: '45%', width: 600, height: 600, background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <section
+        style={{
+          position: 'relative',
+          minHeight: isMobile ? 'calc(100svh - 72px)' : 'calc(100vh - 74px)',
+          display: 'flex',
+          alignItems: isMobile ? 'flex-end' : 'stretch',
+          overflow: 'hidden',
+          isolation: 'isolate',
+          background: heroShellBackground,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: '#020617',
+            backgroundImage: currentHeroImage
+              ? `url(${currentHeroImage})`
+              : 'linear-gradient(135deg, #020617 0%, #0f172a 60%, #1d4ed8 100%)',
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            transform: isMobile ? 'scale(1.02)' : 'scale(1.01)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: heroOverlay,
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(circle at 76% 28%, rgba(59,130,246,0.28), transparent 34%), radial-gradient(circle at 14% 18%, rgba(14,165,233,0.16), transparent 24%)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 'auto 0 0 0',
+            height: isMobile ? '48%' : '38%',
+            background: heroBottomFade,
+          }}
+        />
 
-        {/* Left — Text */}
-        <div style={{ flex: 1, minWidth: 280, position: 'relative', zIndex: 2 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', color: '#93c5fd', fontSize: 11, fontWeight: 700, padding: '6px 16px', borderRadius: 20, marginBottom: 28, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            <span style={{ width: 6, height: 6, background: '#3b82f6', borderRadius: '50%', display: 'inline-block' }} />
-            Available for work
-          </div>
-
-          <h1 style={{ fontSize: isMobile ? '36px' : 'clamp(36px, 5vw, 66px)', fontWeight: 800, letterSpacing: '-2px', lineHeight: 1.05, margin: '0 0 22px', color: text, maxWidth: 580 }}>
-            <span style={heroTitleStyle}>{heroTitle}</span>
-          </h1>
-
-          <p style={{ fontSize: 16, color: sub, maxWidth: 460, margin: '0 0 40px', lineHeight: 1.8 }}>
-            {heroSubtitle}
-          </p>
-
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button onClick={() => router.push('/portfolio')}
-              style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}
-              onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#2563eb'}
-              onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = '#3b82f6'}>
-              Portfolio দেখুন →
-            </button>
-            <button onClick={scrollToContact}
-              style={{ background: 'transparent', color: text, border: `1px solid ${muted}`, padding: '14px 28px', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer', transition: 'all 0.2s' }}>
-              Hire Me 🤝
-            </button>
-            <button onClick={() => setShowModal(true)}
-              style={{ background: 'transparent', color: sub, border: `1px solid ${border}`, padding: '14px 24px', borderRadius: 10, fontWeight: 500, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 24, height: 24, background: dark ? '#1a1a1a' : '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>▶</span>
-              Showreel
-            </button>
-          </div>
-
-          <div style={{ marginTop: 60, display: 'flex', alignItems: 'center', gap: 10, color: muted }}>
-            <div style={{ width: 40, height: 1, background: muted }} />
-            <span style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Scroll to explore</span>
-          </div>
-        </div>
-
-        {/* Right — Hero Image (Desktop-এ দেখাবে) */}
-        {!isMobile && (
-          <div style={{ width: 400, height: 500, flexShrink: 0, position: 'relative' }}>
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: 24,
-              border: `1px solid ${border}`,
-              background: currentHeroImage
-                ? `url(${currentHeroImage}) center/cover no-repeat`
-                : (dark ? 'linear-gradient(135deg, #0f172a, #111827)' : 'linear-gradient(135deg, #e0f2fe, #ede9fe)'),
-              overflow: 'hidden',
-            }}>
-              {!currentHeroImage && (
-                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                  <div style={{ fontSize: 56 }}>🎬</div>
-                  <div style={{ fontSize: 12, color: sub, textAlign: 'center' }}>Admin Settings থেকে ছবি যোগ করুন</div>
-                </div>
-              )}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            maxWidth: 1360,
+            margin: '0 auto',
+            minHeight: isMobile ? 'calc(100svh - 72px)' : 'calc(100vh - 74px)',
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 560px) minmax(0, 1fr)',
+            alignItems: isMobile ? 'end' : 'center',
+            gap: isMobile ? 20 : 40,
+            padding: isMobile ? '36px 14px calc(10px + env(safe-area-inset-bottom))' : '56px clamp(24px, 6vw, 72px) 60px',
+          }}
+        >
+          <div
+            style={{
+              width: isMobile ? 'min(100%, 360px)' : '100%',
+              maxWidth: isMobile ? 360 : 540,
+              justifySelf: isMobile ? 'center' : 'start',
+              alignSelf: isMobile ? 'end' : 'auto',
+              padding: isMobile ? '18px 14px 16px' : '34px 32px 28px',
+              borderRadius: isMobile ? 22 : 30,
+              border: `1px solid ${heroPanelBorder}`,
+              background: heroPanelBackground,
+              backdropFilter: 'blur(18px)',
+              boxShadow: dark
+                ? '0 30px 90px rgba(2,6,23,0.38)'
+                : '0 30px 90px rgba(15,23,42,0.22)',
+            }}
+          >
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.08)',
+                border: `1px solid ${heroPanelBorder}`,
+                color: heroEyebrowColor,
+                padding: isMobile ? '6px 13px' : '7px 16px',
+                borderRadius: 999,
+                marginBottom: isMobile ? 16 : 22,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  background: '#38bdf8',
+                  borderRadius: '50%',
+                  display: 'inline-block',
+                  boxShadow: '0 0 18px rgba(56,189,248,0.75)',
+                }}
+              />
+              <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, ...heroBadgeStyle }}>
+                {heroBadge}
+              </span>
             </div>
 
-            {/* Floating badges */}
-            <div style={{ position: 'absolute', bottom: -16, left: -24, background: card, border: `1px solid ${border}`, borderRadius: 14, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: dark ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(0,0,0,0.1)' }}>
-              <div style={{ width: 36, height: 36, background: 'rgba(59,130,246,0.15)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🎬</div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: text }}>{videoCount}+</div>
-                <div style={{ fontSize: 11, color: sub }}>Projects Done</div>
+            <h1
+              style={{
+                fontSize: isMobile ? 'clamp(2.1rem, 9.8vw, 3.15rem)' : 'clamp(3.5rem, 6vw, 5.4rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.06em',
+                lineHeight: isMobile ? 0.98 : 0.95,
+                margin: isMobile ? '0 0 14px' : '0 0 18px',
+                color: heroHeadingColor,
+                maxWidth: isMobile ? '100%' : 520,
+              }}
+            >
+              <span style={heroTitleStyle}>{heroTitle}</span>
+            </h1>
+
+            <p
+              style={{
+                fontSize: isMobile ? 14 : 17,
+                color: heroSubtitleColor,
+                maxWidth: 470,
+                margin: isMobile ? '0 0 22px' : '0 0 28px',
+                lineHeight: isMobile ? 1.62 : 1.78,
+                ...heroSubtitleStyle,
+              }}
+            >
+              {heroSubtitle}
+            </p>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'minmax(0, 1.12fr) minmax(0, 0.88fr) minmax(0, 1fr)' : 'repeat(3, max-content)',
+                justifyContent: isMobile ? 'stretch' : 'flex-start',
+                gap: isMobile ? 6 : 12,
+                marginBottom: isMobile ? 16 : 22,
+              }}
+            >
+              <button
+                onClick={() => router.push('/portfolio')}
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  width: isMobile ? '100%' : 'auto',
+                  minWidth: 0,
+                  padding: isMobile ? '10px 8px' : '14px 26px',
+                  borderRadius: isMobile ? 12 : 14,
+                  fontWeight: 700,
+                  fontSize: isMobile ? 12 : 15,
+                  lineHeight: 1.15,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  cursor: 'pointer',
+                  boxShadow: '0 18px 40px rgba(37,99,235,0.35)',
+                }}
+              >
+                {isMobile ? primaryCtaLabel : `${primaryCtaLabel} →`}
+              </button>
+              <button
+                onClick={scrollToContact}
+                style={{
+                  background: 'rgba(2,6,23,0.18)',
+                  color: '#f8fafc',
+                  border: `1px solid ${heroSecondaryButtonBorder}`,
+                  width: isMobile ? '100%' : 'auto',
+                  minWidth: 0,
+                  padding: isMobile ? '10px 8px' : '14px 24px',
+                  borderRadius: isMobile ? 12 : 14,
+                  fontWeight: 600,
+                  fontSize: isMobile ? 12 : 15,
+                  lineHeight: 1.15,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  cursor: 'pointer',
+                  backdropFilter: 'blur(12px)',
+                }}
+              >
+                Hire Me
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                style={{
+                  background: 'rgba(2,6,23,0.14)',
+                  color: '#f8fafc',
+                  border: `1px solid ${heroSecondaryButtonBorder}`,
+                  width: isMobile ? '100%' : 'auto',
+                  minWidth: 0,
+                  padding: isMobile ? '10px 8px' : '14px 20px',
+                  borderRadius: isMobile ? 12 : 14,
+                  fontWeight: 600,
+                  fontSize: isMobile ? 12 : 15,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: isMobile ? 4 : 10,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  backdropFilter: 'blur(12px)',
+                }}
+              >
+                <span
+                  style={{
+                    width: isMobile ? 18 : 26,
+                    height: isMobile ? 18 : 26,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.14)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    fontSize: isMobile ? 7 : 10,
+                  }}
+                >
+                  ▶
+                </span>
+                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  Showreel
+                </span>
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'repeat(3, minmax(0, 1fr))' : 'repeat(3, max-content)',
+                gap: isMobile ? 6 : 10,
+              }}
+            >
+              {[
+                { value: `${portfolioCount}+`, label: statProjectsLabel },
+                { value: `${statClients}+`, label: statClientsLabel },
+                {
+                  value: `${statYears}+`,
+                  label: isMobile ? statYearsLabel.replace(/crafting/i, '').trim() || statYearsLabel : statYearsLabel,
+                },
+              ].map(item => (
+                <div
+                  key={item.label}
+                  style={{
+                    minWidth: 0,
+                    padding: isMobile ? '9px 8px' : '12px 14px',
+                    borderRadius: isMobile ? 14 : 16,
+                    background: dark ? 'rgba(15,23,42,0.52)' : 'rgba(255,255,255,0.12)',
+                    border: `1px solid ${heroPanelBorder}`,
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, color: '#f8fafc', marginBottom: isMobile ? 2 : 4 }}>
+                    {item.value}
+                  </div>
+                  <div style={{ fontSize: isMobile ? 9 : 11, color: 'rgba(226,232,240,0.72)', letterSpacing: isMobile ? '0.05em' : '0.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {!isMobile && (
+            <div
+              style={{
+                minHeight: '100%',
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'flex-end',
+                paddingBottom: 18,
+              }}
+            >
+              <div
+                style={{
+                  maxWidth: 340,
+                  padding: '18px 18px 16px',
+                  borderRadius: 24,
+                  border: `1px solid ${heroPanelBorder}`,
+                  background: dark ? 'rgba(2,6,23,0.4)' : 'rgba(15,23,42,0.24)',
+                  color: '#e2e8f0',
+                  backdropFilter: 'blur(14px)',
+                }}
+              >
+                <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#7dd3fc', marginBottom: 10 }}>
+                  Cinematic Editing
+                </div>
+                <div style={{ fontSize: 18, lineHeight: 1.55, fontWeight: 600 }}>
+                  Strong visuals, layered motion, and premium storytelling in the first frame.
+                </div>
               </div>
             </div>
-
-            <div style={{ position: 'absolute', top: -16, right: -16, background: card, border: `1px solid ${border}`, borderRadius: 14, padding: '12px 18px', boxShadow: dark ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(0,0,0,0.1)' }}>
-              <div style={{ fontSize: 11, color: sub, marginBottom: 4 }}>Experience</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: text }}>{statYears}+ yrs</div>
-            </div>
-          </div>
-        )}
-
-        {/* Mobile Hero Image — full width */}
-        {isMobile && currentHeroImage && (
-          <div style={{ width: '100%', borderRadius: 16, overflow: 'hidden', border: `1px solid ${border}` }}>
-            <img src={currentHeroImage} alt="hero" style={{ width: '100%', display: 'block', objectFit: 'cover' }} />
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
       {/* ── PORTFOLIO PREVIEW ── */}
-      {portfolioVideos.length > 0 && (
-        <section style={{ padding: isMobile ? '40px 20px' : '60px 40px', maxWidth: 1300, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32 }}>
-            <div>
-              <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>Featured Work</div>
-              <h2 style={{ fontSize: isMobile ? '24px' : 'clamp(24px, 3vw, 38px)', fontWeight: 800, letterSpacing: '-0.5px', margin: 0, color: text }}>সাম্প্রতিক কাজ</h2>
-            </div>
-            <a href="/portfolio" style={{ color: '#3b82f6', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>সব দেখুন →</a>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-            {portfolioVideos.map((vid, i) => {
-              const thumb = vid.thumbnail || getThumb(vid.youtube_url || '');
-              return (
-                <div key={i} onClick={() => router.push('/portfolio')}
-                  style={{ borderRadius: 12, overflow: 'hidden', background: card, border: `1px solid ${border}`, cursor: 'pointer', transition: 'all 0.2s' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-4px)'}
-                  onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'none'}>
-                  <div style={{ paddingBottom: '56.25%', position: 'relative', background: dark ? '#111' : '#f0f0f0' }}>
-                    {thumb && <img src={thumb} alt={vid.title} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-                  </div>
-                  <div style={{ padding: '10px 14px' }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: text, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vid.title}</div>
-                    <div style={{ fontSize: 11, color: sub }}>{vid.category || 'Video'}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+      {homepagePortfolioSettings.enabled && homepagePreviewItems.length > 0 && (
+        <PortfolioShowcase
+          variant="homepage"
+          items={homepagePreviewItems}
+          categories={portfolioCategories}
+          pageSettings={portfolioPageSettings}
+          badge={homepagePortfolioSettings.badge}
+          title={homepagePortfolioSettings.title}
+          subtitle={homepagePortfolioSettings.subtitle}
+          buttonText={homepagePortfolioSettings.buttonText}
+          buttonLink={homepagePortfolioSettings.buttonLink}
+        />
       )}
 
       {/* ── ABOUT ── */}
@@ -267,9 +567,9 @@ export default function HomePage() {
       <section style={{ padding: isMobile ? '40px 20px' : '60px 40px', maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', background: card, border: `1px solid ${border}`, borderRadius: 20, overflow: 'hidden' }}>
           {[
-            { value: videoCount + '+', label: 'প্রজেক্ট সম্পন্ন', icon: '🎬' },
-            { value: statClients + '+', label: 'সন্তুষ্ট ক্লায়েন্ট', icon: '🤝' },
-            { value: statYears + '+', label: 'বছরের অভিজ্ঞতা', icon: '⚡' },
+            { value: portfolioCount + '+', label: statProjectsLabel, icon: '🎬' },
+            { value: statClients + '+', label: statClientsLabel, icon: '🤝' },
+            { value: statYears + '+', label: statYearsLabel, icon: '⚡' },
             { value: '100%', label: 'ক্লায়েন্ট সন্তুষ্টি', icon: '⭐' },
           ].map((s, i) => (
             <div key={i} style={{ padding: isMobile ? '28px 16px' : '44px 24px', textAlign: 'center', borderRight: isMobile ? (i % 2 === 0 ? `1px solid ${border}` : 'none') : (i < 3 ? `1px solid ${border}` : 'none'), borderBottom: isMobile && i < 2 ? `1px solid ${border}` : 'none' }}>

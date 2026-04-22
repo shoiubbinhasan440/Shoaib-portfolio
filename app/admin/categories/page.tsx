@@ -34,16 +34,31 @@ export default function AdminCategories() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
+  async function getCategories() {
+    const { data } = await supabase.from('categories').select('*').order('order_num', { ascending: true });
+    return data || [];
+  }
+
   useEffect(() => {
     const token = localStorage.getItem('admin_token');
-    if (!token) { router.push('/admin/login'); return; }
-    fetchCats();
-  }, []);
+    if (!token) {
+      router.push('/admin/login');
+      return;
+    }
 
-  async function fetchCats() {
+    async function load() {
+      const data = await getCategories();
+      setCats(data);
+      setLoading(false);
+    }
+
+    void load();
+  }, [router]);
+
+  async function refreshCats() {
     setLoading(true);
-    const { data } = await supabase.from('categories').select('*').order('order_num', { ascending: true });
-    setCats(data || []);
+    const data = await getCategories();
+    setCats(data);
     setLoading(false);
   }
 
@@ -68,7 +83,7 @@ export default function AdminCategories() {
       setShowForm(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
-      fetchCats();
+      void refreshCats();
       setTimeout(() => setMsg(''), 3000);
     }
   }
@@ -84,13 +99,13 @@ export default function AdminCategories() {
     if (!confirm('এই ক্যাটাগরিটি ডিলিট করবেন? এর সাথে যুক্ত ভিডিওগুলো প্রভাবিত হবে না।')) return;
     await supabase.from('categories').delete().eq('id', id);
     setMsg('🗑️ ক্যাটাগরি ডিলিট হয়েছে।');
-    fetchCats();
+    void refreshCats();
     setTimeout(() => setMsg(''), 3000);
   }
 
   async function toggleActive(c: Category) {
     await supabase.from('categories').update({ active: !c.active }).eq('id', c.id);
-    fetchCats();
+    void refreshCats();
   }
 
   return (

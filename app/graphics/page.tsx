@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -24,23 +25,24 @@ export default function GraphicsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchGraphics();
-  }, []);
+    async function load() {
+      const { data } = await supabase
+        .from('graphics')
+        .select('*')
+        .eq('visible', true)
+        .order('created_at', { ascending: false });
 
-  async function fetchGraphics() {
-    const { data } = await supabase
-      .from('graphics')
-      .select('*')
-      .eq('visible', true)
-      .order('created_at', { ascending: false });
+      if (data) {
+        setGraphics(data);
+        const cats = Array.from(new Set(data.map((graphic: Graphic) => graphic.category).filter(Boolean)));
+        setCategories(cats);
+      }
 
-    if (data) {
-      setGraphics(data);
-      const cats = Array.from(new Set(data.map((g: Graphic) => g.category).filter(Boolean)));
-      setCategories(cats);
+      setLoading(false);
     }
-    setLoading(false);
-  }
+
+    void load();
+  }, []);
 
   const filtered = activeCategory === 'সব'
     ? graphics
@@ -57,10 +59,10 @@ export default function GraphicsPage() {
         padding: '0 40px', height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <a href="/" style={{ fontWeight: 800, fontSize: 22, textDecoration: 'none' }}>
+        <Link href="/" style={{ fontWeight: 800, fontSize: 22, textDecoration: 'none' }}>
           <span style={{ color: '#fff' }}>Minhajul</span>
           <span style={{ color: '#3b82f6' }}>.</span>
-        </a>
+        </Link>
         <div style={{ display: 'flex', gap: 32, fontSize: 14 }}>
           {[
             { label: 'Home', href: '/' },
@@ -69,17 +71,17 @@ export default function GraphicsPage() {
             { label: 'About', href: '/about' },
             { label: 'Contact', href: '/contact' },
           ].map(item => (
-            <a key={item.label} href={item.href}
+            <Link key={item.label} href={item.href}
               style={{ color: '#555', textDecoration: 'none', transition: 'color 0.2s' }}
               onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.color = '#fff'}
               onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.color = '#555'}>
               {item.label}
-            </a>
+            </Link>
           ))}
         </div>
-        <a href="/portfolio" style={{ background: '#3b82f6', color: '#fff', padding: '8px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+        <Link href="/portfolio" style={{ background: '#3b82f6', color: '#fff', padding: '8px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
           Visit Portfolio →
-        </a>
+        </Link>
       </nav>
 
       {/* Header */}

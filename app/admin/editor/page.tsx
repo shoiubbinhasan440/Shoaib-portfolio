@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { getHeroImageUpdates, getStoredHeroImages, toSettingMap } from '@/lib/hero-settings';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,11 @@ type Block = {
   fontFamily: string;
   section: string;
   page: string;
+};
+
+type SettingRow = {
+  key: string;
+  value: string;
 };
 
 const FONT_FAMILIES = [
@@ -111,36 +117,52 @@ export default function VisualEditor() {
   const [saved, setSaved] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [loading, setLoading] = useState(true);
-  const [heroImage, setHeroImage] = useState('');
+  const [desktopHeroImage, setDesktopHeroImage] = useState('');
+  const [mobileHeroImage, setMobileHeroImage] = useState('');
   const [aboutImage, setAboutImage] = useState('');
 
-  useEffect(() => { loadFromSupabase(); }, []);
-
-  async function loadFromSupabase() {
-    const { data } = await supabase.from('site_settings').select('*');
-    if (data) {
-      const map: Record<string, string> = {};
-      data.forEach((s: any) => { map[s.key] = s.value; });
-      if (map['hero_image']) setHeroImage(map['hero_image']);
-      if (map['about_image']) setAboutImage(map['about_image']);
-      setBlocks(prev => prev.map(b => {
-        const raw = map[b.key];
-        if (!raw) return b;
-        try { return { ...b, ...JSON.parse(raw) }; }
-        catch { return { ...b, value: raw }; }
-      }));
+  async function upsertSetting(key: string, value: string) {
+    const { data: existing } = await supabase.from('site_settings').select('id').eq('key', key).maybeSingle();
+    if (existing) {
+      await supabase.from('site_settings').update({ value }).eq('key', key);
+      return;
     }
-    setLoading(false);
+
+    await supabase.from('site_settings').insert({ key, value });
   }
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase.from('site_settings').select('*');
+      if (data) {
+        const map = toSettingMap(data as SettingRow[]);
+        const heroImages = getStoredHeroImages(map);
+        setDesktopHeroImage(heroImages.desktop);
+        setMobileHeroImage(heroImages.mobile);
+        if (map['about_image']) setAboutImage(map['about_image']);
+        setBlocks(prev => prev.map(b => {
+          const raw = map[b.key];
+          if (!raw) return b;
+          try { return { ...b, ...JSON.parse(raw) }; }
+          catch { return { ...b, value: raw }; }
+        }));
+      }
+      setLoading(false);
+    }
+
+    void load();
+  }, []);
 
   async function saveAll() {
     setSaving(true);
     for (const b of blocks) {
       const val = JSON.stringify({ value: b.value, fontSize: b.fontSize, fontWeight: b.fontWeight, color: b.color, fontFamily: b.fontFamily });
-      const {data:ex1}=await supabase.from("site_settings").select("id").eq("key",b.key).maybeSingle();if(ex1){await supabase.from("site_settings").update({value:val}).eq("key",b.key);}else{await supabase.from("site_settings").insert({key:b.key,value:val});}
+      await upsertSetting(b.key, val);
     }
-    const {data:ex2}=await supabase.from("site_settings").select("id").eq("key","hero_image").maybeSingle();if(ex2){await supabase.from("site_settings").update({value:heroImage}).eq("key","hero_image");}else{await supabase.from("site_settings").insert({key:"hero_image",value:heroImage});}
-    const {data:ex3}=await supabase.from("site_settings").select("id").eq("key","about_image").maybeSingle();if(ex3){await supabase.from("site_settings").update({value:aboutImage}).eq("key","about_image");}else{await supabase.from("site_settings").insert({key:"about_image",value:aboutImage});}
+    for (const update of getHeroImageUpdates(desktopHeroImage, mobileHeroImage)) {
+      await upsertSetting(update.key, update.value);
+    }
+    await upsertSetting('about_image', aboutImage);
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -320,8 +342,11 @@ export default function VisualEditor() {
           {/* Image URLs */}
           {activePage === 'home' && (
             <div style={{ borderTop: '1px solid #0a0a0a', padding: '8px 10px' }}>
-              <div style={{ fontSize: 9, color: '#2a2a2a', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 5 }}>HERO IMAGE</div>
-              <input value={heroImage} onChange={e => setHeroImage(e.target.value)} placeholder="https://i.imgur.com/..."
+              <div style={{ fontSize: 9, color: '#2a2a2a', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 5 }}>DESKTOP HERO</div>
+              <input value={desktopHeroImage} onChange={e => setDesktopHeroImage(e.target.value)} placeholder="https://i.imgur.com/desktop-hero.jpg"
+                style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 6, padding: '7px 9px', color: '#fff', fontSize: 11, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
+              <div style={{ fontSize: 9, color: '#2a2a2a', fontWeight: 700, letterSpacing: '0.1em', marginBottom: 5 }}>MOBILE HERO</div>
+              <input value={mobileHeroImage} onChange={e => setMobileHeroImage(e.target.value)} placeholder="https://i.imgur.com/mobile-hero.jpg"
                 style={{ width: '100%', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 6, padding: '7px 9px', color: '#fff', fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
             </div>
           )}
@@ -364,30 +389,83 @@ export default function VisualEditor() {
             {/* ══ HOME PAGE ══ */}
             {activePage === 'home' && (
               <div>
-                <div style={{ padding: previewMode === 'mobile' ? '48px 20px 36px' : '64px 48px 48px', display: 'flex', gap: 32, alignItems: 'center', flexWrap: previewMode === 'mobile' ? 'wrap' : 'nowrap' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div onClick={() => sel('hero_badge')} style={{ ...bs('hero_badge'), display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: '4px 12px', borderRadius: 20, marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                      <span style={{ width: 5, height: 5, background: '#3b82f6', borderRadius: '50%' }} />{b('hero_badge').value}
-                    </div>
-                    <div onClick={() => sel('hero_title')} style={{ ...bs('hero_title'), lineHeight: 1.05, marginBottom: 16, letterSpacing: '-2px', display: 'block' }}>{b('hero_title').value}</div>
-                    <div onClick={() => sel('hero_subtitle')} style={{ ...bs('hero_subtitle'), lineHeight: 1.8, marginBottom: 28, display: 'block', maxWidth: 420 }}>{b('hero_subtitle').value}</div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <div onClick={() => sel('cta_button')} style={{ ...bs('cta_button'), background: '#fff', padding: '10px 22px', borderRadius: 8 }}>{b('cta_button').value} →</div>
-                      <div style={{ border: '1px solid #222', color: '#fff', padding: '10px 18px', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>▶ Showreel</div>
-                    </div>
-                  </div>
-                  {previewMode === 'desktop' && (
-                    <div style={{ width: 280, height: 340, flexShrink: 0, borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(59,130,246,0.12)', background: heroImage ? `url(${heroImage}) center/cover` : '#0d0d0d', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                      {!heroImage && <div style={{ color: '#1a2a3a', fontSize: 11, textAlign: 'center' }}>Hero Image<br />(বাম থেকে URL দিন)</div>}
-                      <div style={{ position: 'absolute', bottom: -10, left: -14, background: '#0d0d0d', border: '1px solid #1a1a1a', borderRadius: 10, padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <div style={{ fontSize: 14 }}>🎬</div>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 800 }}>0+</div>
-                          <div onClick={() => sel('hero_badge2_text')} style={bs('hero_badge2_text')}>{b('hero_badge2_text').value}</div>
+                <div style={{
+                  minHeight: previewMode === 'mobile' ? 720 : 560,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: '#020617',
+                }}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: (previewMode === 'mobile'
+                        ? (mobileHeroImage || desktopHeroImage)
+                        : (desktopHeroImage || mobileHeroImage))
+                        ? `url(${previewMode === 'mobile' ? (mobileHeroImage || desktopHeroImage) : (desktopHeroImage || mobileHeroImage)}) center/cover no-repeat`
+                        : 'linear-gradient(135deg, #020617, #0f172a 55%, #1d4ed8)',
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: previewMode === 'mobile'
+                      ? 'linear-gradient(180deg, rgba(15,23,42,0.12) 0%, rgba(2,6,23,0.6) 58%, rgba(2,6,23,0.96) 100%)'
+                      : 'linear-gradient(90deg, rgba(2,6,23,0.9) 0%, rgba(2,6,23,0.72) 38%, rgba(15,23,42,0.22) 76%, rgba(2,6,23,0.7) 100%)',
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'radial-gradient(circle at 75% 28%, rgba(59,130,246,0.26), transparent 32%), radial-gradient(circle at 12% 18%, rgba(14,165,233,0.14), transparent 26%)',
+                  }} />
+                  <div style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    minHeight: previewMode === 'mobile' ? 720 : 560,
+                    display: 'grid',
+                    gridTemplateColumns: previewMode === 'mobile' ? '1fr' : 'minmax(0, 500px) minmax(0, 1fr)',
+                    alignItems: previewMode === 'mobile' ? 'end' : 'center',
+                    padding: previewMode === 'mobile' ? '36px 18px 22px' : '56px 48px',
+                  }}>
+                    <div style={{
+                      maxWidth: 500,
+                      padding: previewMode === 'mobile' ? '24px 20px 20px' : '30px 28px 26px',
+                      borderRadius: previewMode === 'mobile' ? 24 : 28,
+                      border: '1px solid rgba(148,163,184,0.2)',
+                      background: 'linear-gradient(180deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.82) 100%)',
+                      boxShadow: '0 24px 90px rgba(2,6,23,0.28)',
+                      backdropFilter: 'blur(18px)',
+                    }}>
+                      <div onClick={() => sel('hero_badge')} style={{ ...bs('hero_badge'), display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,0.56)', border: '1px solid rgba(148,163,184,0.22)', padding: '6px 14px', borderRadius: 999, marginBottom: 20, textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+                        <span style={{ width: 6, height: 6, background: '#38bdf8', borderRadius: '50%' }} />
+                        {b('hero_badge').value}
+                      </div>
+                      <div onClick={() => sel('hero_title')} style={{ ...bs('hero_title'), lineHeight: 1.02, letterSpacing: '-2px', display: 'block', marginBottom: 16 }}>
+                        {b('hero_title').value}
+                      </div>
+                      <div onClick={() => sel('hero_subtitle')} style={{ ...bs('hero_subtitle'), lineHeight: 1.8, display: 'block', maxWidth: 420, marginBottom: 24 }}>
+                        {b('hero_subtitle').value}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                        <div onClick={() => sel('cta_button')} style={{ ...bs('cta_button'), background: 'linear-gradient(135deg, #2563eb, #0ea5e9)', padding: '12px 22px', borderRadius: 12, color: '#fff', boxShadow: '0 16px 36px rgba(37,99,235,0.35)' }}>
+                          {b('cta_button').value} →
                         </div>
+                        <div style={{ border: '1px solid rgba(148,163,184,0.26)', color: '#f8fafc', padding: '12px 18px', borderRadius: 12, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(2,6,23,0.28)' }}>▶ Showreel</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {[
+                          { value: '120+', label: 'Projects' },
+                          { value: '50+', label: 'Clients' },
+                          { value: '3+', label: 'Years' },
+                        ].map(item => (
+                          <div key={item.label} style={{ minWidth: 92, padding: '10px 12px', borderRadius: 14, background: 'rgba(15,23,42,0.52)', border: '1px solid rgba(148,163,184,0.18)' }}>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc', marginBottom: 3 }}>{item.value}</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.label}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
                 {/* Stats */}
                 <div style={{ margin: '0 32px 44px', background: '#0d0d0d', border: '1px solid #111', borderRadius: 14, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', overflow: 'hidden' }}>

@@ -1,6 +1,17 @@
 @import "tailwindcss";
 
+html,
 body {
   font-family: Arial, Helvetica, sans-serif;
-  transition: background 0.3s, color 0.3s;
+  background: #020617;
+}
+
+body {
+  min-height: 100vh;
+}
+
+html[data-theme-switching],
+html[data-theme-switching] * {
+  transition: none !important;
+  animation: none !important;
 }

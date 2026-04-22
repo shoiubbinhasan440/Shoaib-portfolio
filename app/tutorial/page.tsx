@@ -36,17 +36,19 @@ export default function TutorialPage() {
   const [activeLevel, setActiveLevel] = useState('all');
   const [selected, setSelected] = useState<Tutorial | null>(null);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from('tutorials')
+        .select('*')
+        .eq('visible', true)
+        .order('order_num', { ascending: true });
+      setTutorials(data || []);
+      setLoading(false);
+    }
 
-  async function fetchData() {
-    const { data } = await supabase
-      .from('tutorials')
-      .select('*')
-      .eq('visible', true)
-      .order('order_num', { ascending: true });
-    setTutorials(data || []);
-    setLoading(false);
-  }
+    void load();
+  }, []);
 
   const categories = ['all', ...Array.from(new Set(tutorials.map(t => t.category).filter(Boolean)))];
 

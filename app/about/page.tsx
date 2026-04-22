@@ -10,6 +10,7 @@ const supabase = createClient(
 );
 
 type S = { value: string; fontSize: number; fontWeight: string; color: string; fontFamily: string };
+type SettingRow = { key: string; value: string };
 
 const DEF: Record<string, S> = {
   about_eyebrow:     { value: 'About Me',           fontSize: 11, fontWeight: '600', color: '#444444', fontFamily: 'Inter, system-ui, sans-serif' },
@@ -27,30 +28,46 @@ export default function AboutPage() {
   const [settings, setSettings] = useState<Record<string, S>>(DEF);
   const [aboutImage, setAboutImage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    const saved = localStorage.getItem('about_theme');
+    return saved ? saved === 'dark' : true;
+  });
 
   useEffect(() => {
-    const saved = localStorage.getItem('about_theme');
-    if (saved) setDark(saved === 'dark');
-
     async function load() {
       const { data } = await supabase.from('site_settings').select('*');
       if (data) {
         const map: Record<string, string> = {};
-        data.forEach((r: any) => { map[r.key] = r.value; });
-        if (map['about_image']) setAboutImage(map['about_image']);
+        data.forEach((row: SettingRow) => {
+          map[row.key] = row.value;
+        });
+
+        if (map['about_image']) {
+          setAboutImage(map['about_image']);
+        }
+
         const merged: Record<string, S> = { ...DEF };
         Object.keys(DEF).forEach(key => {
           if (map[key]) {
-            try { merged[key] = { ...DEF[key], ...JSON.parse(map[key]) }; }
-            catch { merged[key] = { ...DEF[key], value: map[key] }; }
+            try {
+              merged[key] = { ...DEF[key], ...JSON.parse(map[key]) };
+            } catch {
+              merged[key] = { ...DEF[key], value: map[key] };
+            }
           }
         });
+
         setSettings(merged);
       }
+
       setLoading(false);
     }
-    load();
+
+    void load();
   }, []);
 
   function toggleTheme() {
