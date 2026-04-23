@@ -65,9 +65,29 @@ export const PAYMENT_STATUS_OPTIONS = [
   'Refunded',
 ] as const;
 
+export function formatProjectSerial(value: number) {
+  return String(Math.max(1, Math.floor(value || 0))).padStart(4, '0');
+}
+
+export function buildProjectAccessCode(projectSerial: number) {
+  return `PRJ-${formatProjectSerial(projectSerial)}`;
+}
+
 export function normalizeWhatsAppNumber(value: string) {
-  const digits = value.replace(/\D/g, '');
-  return digits.replace(/^00/, '');
+  const digits = value.replace(/\D/g, '').replace(/^00/, '');
+  if (digits.startsWith('880') && digits.length >= 13) {
+    return digits;
+  }
+
+  if (digits.startsWith('01') && digits.length === 11) {
+    return `88${digits}`;
+  }
+
+  if (digits.startsWith('1') && digits.length === 10) {
+    return `880${digits}`;
+  }
+
+  return digits;
 }
 
 export function buildWhatsAppUrl(number: string, message: string) {

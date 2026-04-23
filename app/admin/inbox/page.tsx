@@ -13,6 +13,7 @@ import {
   SERVICE_TYPE_OPTIONS,
 } from '@/lib/crm-shared';
 import type {
+  ClientAccount,
   ClientProject,
   ContactLead,
   CreativeBrief,
@@ -22,6 +23,7 @@ import type {
 
 type InboxState = {
   briefs: CreativeBrief[];
+  clients: ClientAccount[];
   leads: ContactLead[];
   loading: boolean;
   messageTemplates: MessageTemplate[];
@@ -62,6 +64,7 @@ function createProjectForm(lead?: ContactLead | null): ProjectFormState {
 export default function AdminInboxPage() {
   const [state, setState] = useState<InboxState>({
     briefs: [],
+    clients: [],
     leads: [],
     loading: true,
     messageTemplates: [],
@@ -103,11 +106,15 @@ export default function AdminInboxPage() {
         ? ((await briefResponse.json()) as { briefs: CreativeBrief[] })
         : { briefs: [] };
       const projectData = projectResponse.ok
-        ? ((await projectResponse.json()) as { projects: ClientProject[] })
-        : { projects: [] };
+        ? ((await projectResponse.json()) as {
+            clients: ClientAccount[];
+            projects: ClientProject[];
+          })
+        : { clients: [], projects: [] };
 
       setState({
         briefs: briefData.briefs || [],
+        clients: projectData.clients || [],
         leads: leadData.leads || [],
         loading: false,
         messageTemplates: templateData.messageTemplates || [],
@@ -184,6 +191,15 @@ export default function AdminInboxPage() {
       ) || null
     : null;
 
+  const selectedClient =
+    (selectedProject
+      ? state.clients.find(client => client.id === selectedProject.clientId)
+      : null) ||
+    (selectedLead
+      ? state.clients.find(client => client.id === selectedLead.clientId)
+      : null) ||
+    null;
+
   useEffect(() => {
     if (selectedLead) {
       setProjectForm(current => {
@@ -198,7 +214,7 @@ export default function AdminInboxPage() {
 
   const baseVariables = selectedLead
     ? {
-        access_code: '',
+        access_code: selectedClient?.portalAccessCode || '',
         brief_link:
           selectedBrief && typeof window !== 'undefined'
             ? `${window.location.origin}/brief/${selectedBrief.token}`
@@ -266,6 +282,63 @@ export default function AdminInboxPage() {
     }
 
     setWhatsAppDraft(renderTemplate(template.body, baseVariables));
+  }
+
+  async function prepareProjectAcceptedDraft(forceRegenerate = false) {
+    if (!selectedLead || !baseVariables) {
+      return;
+    }
+
+    if (!selectedProject) {
+      pushNotice('Create the project first to prepare portal access.');
+      return;
+    }
+
+    const response = await fetch('/api/admin/projects', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'portal-access',
+        forceRegenerate,
+        leadId: selectedLead.id,
+      }),
+    });
+    const result = (await response.json()) as {
+      accessCode?: string;
+      error?: string;
+      project?: ClientProject;
+    };
+
+    if (!response.ok || !result.accessCode) {
+      throw new Error(result.error || 'Failed to prepare portal access.');
+    }
+
+    await loadInbox();
+    const template = state.messageTemplates.find(
+      item => item.key === 'project_accepted'
+    );
+    const body = template
+      ? renderTemplate(template.body, {
+          ...baseVariables,
+          access_code: result.accessCode,
+          portal_login_url:
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/client/login`
+              : '/client/login',
+          progress_percentage:
+            result.project?.progressPercentage ?? selectedProject.progressPercentage,
+          project_status: result.project?.currentStatus || selectedProject.currentStatus,
+          project_title: result.project?.projectTitle || selectedProject.projectTitle,
+          service_type: result.project?.serviceType || selectedProject.serviceType,
+        })
+      : `Hi ${selectedLead.name}, your project has been accepted. Login here: ${window.location.origin}/client/login Access code: ${result.accessCode}`;
+
+    setWhatsAppDraft(body);
+    pushNotice(
+      forceRegenerate
+        ? 'New portal access code generated.'
+        : 'Portal access message prepared.'
+    );
   }
 
   function applyRateTemplate(rateTemplateId: string) {
@@ -998,7 +1071,7 @@ export default function AdminInboxPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => applyMessageTemplate('project_accepted')}
+                    onClick={() => void prepareProjectAcceptedDraft()}
                     style={quickButtonStyle()}
                   >
                     Acceptance message

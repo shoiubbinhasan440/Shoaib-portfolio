@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { formatProjectSerial } from '@/lib/crm-shared';
 import { writeSiteSetting } from '@/lib/site-settings';
 
 export const CRM_LEADS_SETTING_KEY = 'contact_messages_store';
@@ -243,11 +244,18 @@ export type ClientAccount = {
   lastLeadId: string;
   lastLoginAt: string;
   mobileNumber: string;
+  portalAccessCode: string;
+  portalAccessIssuedAt: string;
   projectIds: string[];
   updatedAt: string;
   whatsappNumber: string;
   accessCodeHash: string;
 };
+
+export type ClientPortalProfile = Pick<
+  ClientAccount,
+  'email' | 'fullName' | 'id' | 'lastLoginAt'
+>;
 
 export type ProjectResource = {
   clientVisible: boolean;
@@ -274,6 +282,7 @@ export type ClientProject = {
   paymentStatus: PaymentStatus;
   privateAdminNotes: string;
   progressPercentage: number;
+  projectSerial: number;
   projectTitle: string;
   requirements: string;
   resources: ProjectResource[];
@@ -469,8 +478,41 @@ function hashAccessCode(code: string) {
   return createHash('sha256').update(`${secret}:${code}`).digest('hex');
 }
 
-export function generateClientAccessCode() {
-  return randomBytes(4).toString('hex').toUpperCase();
+const ACCESS_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function getServiceAccessPrefix(serviceType: ServiceType | string) {
+  switch (serviceType) {
+    case 'Video Editing':
+      return 'VED';
+    case 'Motion Graphics':
+      return 'MOG';
+    case 'Graphic Design':
+      return 'GRD';
+    case 'Branding':
+      return 'BRN';
+    case 'Social Media Content':
+      return 'SMC';
+    default:
+      return 'PRJ';
+  }
+}
+
+function createAccessCodeSegment(length: number) {
+  return Array.from(randomBytes(length), byte =>
+    ACCESS_CODE_ALPHABET[byte % ACCESS_CODE_ALPHABET.length]
+  ).join('');
+}
+
+export function generateClientAccessCode(
+  projectSerial?: number,
+  serviceType?: ServiceType | string
+) {
+  if (typeof projectSerial === 'number' && Number.isFinite(projectSerial) && projectSerial > 0) {
+    const prefix = getServiceAccessPrefix(serviceType || 'Other');
+    return `${prefix}-${formatProjectSerial(projectSerial)}-${createAccessCodeSegment(4)}`;
+  }
+
+  return `CLT-${createAccessCodeSegment(4)}-${createAccessCodeSegment(4)}`;
 }
 
 export function verifyClientAccessCode(code: string, hash: string) {
@@ -482,8 +524,20 @@ export function getLeadPreferredNumber(lead: Pick<ContactLead, 'mobileNumber' | 
 }
 
 export function normalizeWhatsAppNumber(value: string) {
-  const digits = value.replace(/\D/g, '');
-  return digits.replace(/^00/, '');
+  const digits = value.replace(/\D/g, '').replace(/^00/, '');
+  if (digits.startsWith('880') && digits.length >= 13) {
+    return digits;
+  }
+
+  if (digits.startsWith('01') && digits.length === 11) {
+    return `88${digits}`;
+  }
+
+  if (digits.startsWith('1') && digits.length === 10) {
+    return `880${digits}`;
+  }
+
+  return digits;
 }
 
 export function buildWhatsAppUrl(number: string, message: string) {
@@ -730,6 +784,8 @@ function sanitizeClient(value: unknown): ClientAccount | null {
     lastLeadId: sanitizeSingleLine(value.lastLeadId, 120),
     lastLoginAt: sanitizeIsoDate(value.lastLoginAt),
     mobileNumber: sanitizePhone(value.mobileNumber),
+    portalAccessCode: sanitizeSingleLine(value.portalAccessCode, 40).toUpperCase(),
+    portalAccessIssuedAt: sanitizeIsoDate(value.portalAccessIssuedAt),
     projectIds: Array.isArray(value.projectIds)
       ? dedupeStrings(
           value.projectIds.map(item => sanitizeSingleLine(item, 120)).filter(Boolean)
@@ -776,6 +832,7 @@ function sanitizeProject(value: unknown): ClientProject | null {
   }
 
   const createdAt = sanitizeIsoDate(value.createdAt, nowIso());
+  const projectSerial = Math.max(0, numberValue(value.projectSerial, 0));
 
   return {
     budgetPrice: sanitizeSingleLine(value.budgetPrice, 120),
@@ -793,6 +850,7 @@ function sanitizeProject(value: unknown): ClientProject | null {
     paymentStatus: enumValue(value.paymentStatus, PAYMENT_STATUSES, 'Pending'),
     privateAdminNotes: sanitizeMultiline(value.privateAdminNotes, 4000),
     progressPercentage: Math.min(100, Math.max(0, numberValue(value.progressPercentage, 0))),
+    projectSerial,
     projectTitle: sanitizeSingleLine(value.projectTitle, 180),
     requirements: sanitizeMultiline(value.requirements, 4000),
     resources: Array.isArray(value.resources)
@@ -1521,7 +1579,8 @@ export async function findClientAccountById(
 
 export async function createOrRefreshClientPortalAccess(
   supabase: SupabaseClient,
-  lead: ContactLead
+  lead: ContactLead,
+  preferredAccessCode?: string
 ) {
   const clients = await getClientAccounts(supabase);
   const email = lead.email.toLowerCase();
@@ -1530,7 +1589,9 @@ export async function createOrRefreshClientPortalAccess(
     clients.find(client => client.email && client.email === email) ||
     clients.find(client => getLeadPreferredNumber(client) === phone);
 
-  const accessCode = generateClientAccessCode();
+  const accessCode =
+    preferredAccessCode || existingClient?.portalAccessCode || generateClientAccessCode();
+  const issuedAt = nowIso();
 
   const nextClient: ClientAccount = existingClient
     ? {
@@ -1542,6 +1603,8 @@ export async function createOrRefreshClientPortalAccess(
         fullName: lead.name,
         lastLeadId: lead.id,
         mobileNumber: lead.mobileNumber,
+        portalAccessCode: accessCode,
+        portalAccessIssuedAt: issuedAt,
         updatedAt: nowIso(),
         whatsappNumber: lead.whatsappNumber || lead.mobileNumber,
       }
@@ -1556,6 +1619,8 @@ export async function createOrRefreshClientPortalAccess(
         lastLeadId: lead.id,
         lastLoginAt: '',
         mobileNumber: lead.mobileNumber,
+        portalAccessCode: accessCode,
+        portalAccessIssuedAt: issuedAt,
         projectIds: [],
         updatedAt: nowIso(),
         whatsappNumber: lead.whatsappNumber || lead.mobileNumber,
@@ -1637,10 +1702,20 @@ export async function createProjectFromLead(
     throw new Error('Lead not found.');
   }
 
-  const { client, accessCode } = await createOrRefreshClientPortalAccess(
-    supabase,
-    lead
+  const serviceType = enumValue(
+    input.serviceType,
+    SERVICE_TYPES,
+    lead.serviceType || 'Other'
   );
+  const existingProjects = await getProjects(supabase);
+  const nextProjectSerial =
+    existingProjects.reduce(
+      (highestSerial, project, index) =>
+        Math.max(highestSerial, project.projectSerial || 0, index + 1),
+      0
+    ) + 1;
+  const accessCode = generateClientAccessCode(nextProjectSerial, serviceType);
+  const { client } = await createOrRefreshClientPortalAccess(supabase, lead, accessCode);
   const project: ClientProject = {
     budgetPrice: sanitizeSingleLine(input.budgetPrice, 120) || lead.budgetRange,
     clientEmail: lead.email,
@@ -1662,26 +1737,22 @@ export async function createProjectFromLead(
       100,
       Math.max(0, numberValue(input.progressPercentage, 10))
     ),
+    projectSerial: nextProjectSerial,
     projectTitle: sanitizeSingleLine(input.projectTitle, 180),
     requirements: sanitizeMultiline(input.requirements, 4000),
     resources: [],
-    serviceType: enumValue(
-      input.serviceType,
-      SERVICE_TYPES,
-      lead.serviceType || 'Other'
-    ),
+    serviceType,
     updatedAt: nowIso(),
     whatsappNumber: lead.whatsappNumber || lead.mobileNumber,
   };
 
-  const [projects, milestones, updates, clients] = await Promise.all([
-    getProjects(supabase),
+  const [milestones, updates, clients] = await Promise.all([
     getProjectMilestones(supabase),
     getProjectUpdates(supabase),
     getClientAccounts(supabase),
   ]);
 
-  const nextProjects = [project, ...projects];
+  const nextProjects = [project, ...existingProjects];
   const nextMilestones: ProjectMilestone[] = [
     {
       clientVisible: true,
@@ -1738,6 +1809,93 @@ export async function createProjectFromLead(
     accessCode,
     client,
     project,
+  };
+}
+
+export async function ensureLeadPortalAccess(
+  supabase: SupabaseClient,
+  leadId: string,
+  forceRegenerate = false
+) {
+  const lead = await getLeadById(supabase, leadId);
+  if (!lead) {
+    throw new Error('Lead not found.');
+  }
+
+  const [clients, projects] = await Promise.all([
+    getClientAccounts(supabase),
+    getProjects(supabase),
+  ]);
+
+  const project =
+    projects.find(item => item.id === lead.projectId) ||
+    projects.find(item => item.leadId === lead.id) ||
+    null;
+
+  if (!project) {
+    throw new Error('Create the project before sending portal access.');
+  }
+
+  const client =
+    clients.find(item => item.id === project.clientId || item.id === lead.clientId) ||
+    clients.find(item => item.email && item.email === lead.email.toLowerCase()) ||
+    clients.find(item => getLeadPreferredNumber(item) === getLeadPreferredNumber(lead)) ||
+    null;
+
+  if (client?.portalAccessCode && !forceRegenerate) {
+    return {
+      accessCode: client.portalAccessCode,
+      client,
+      project,
+    };
+  }
+
+  const accessCode = generateClientAccessCode(
+    project.projectSerial || 1,
+    project.serviceType || lead.serviceType
+  );
+  const { client: refreshedClient } = await createOrRefreshClientPortalAccess(
+    supabase,
+    lead,
+    accessCode
+  );
+
+  const projectNeedsLinkUpdate = project.clientId !== refreshedClient.id;
+  const leadNeedsLinkUpdate =
+    lead.clientId !== refreshedClient.id || lead.projectId !== project.id;
+
+  if (projectNeedsLinkUpdate) {
+    await saveProjects(
+      supabase,
+      projects.map(item =>
+        item.id === project.id
+          ? {
+              ...item,
+              clientId: refreshedClient.id,
+              updatedAt: nowIso(),
+            }
+          : item
+      )
+    );
+  }
+
+  if (leadNeedsLinkUpdate) {
+    await updateContactLead(supabase, lead.id, {
+      clientId: refreshedClient.id,
+      projectId: project.id,
+    });
+  }
+
+  return {
+    accessCode,
+    client: refreshedClient,
+    project: projectNeedsLinkUpdate
+      ? {
+          ...project,
+          clientId: refreshedClient.id,
+          updatedAt: nowIso(),
+        }
+      : project,
   };
 }
 
@@ -1923,7 +2081,12 @@ export async function getClientPortalData(
   const clientProjects = projects.filter(project => project.clientId === clientId);
 
   return {
-    client,
+    client: {
+      email: client.email,
+      fullName: client.fullName,
+      id: client.id,
+      lastLoginAt: client.lastLoginAt,
+    } satisfies ClientPortalProfile,
     milestones: milestones.filter(
       milestone =>
         clientProjects.some(project => project.id === milestone.projectId) &&

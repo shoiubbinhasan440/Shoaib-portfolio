@@ -5,6 +5,7 @@ import {
   createProjectFromLead,
   createProjectUpdate,
   deleteProjectMilestone,
+  ensureLeadPortalAccess,
   getClientAccounts,
   getProjectMilestones,
   getProjects,
@@ -90,6 +91,11 @@ export async function PATCH(request: NextRequest) {
       | {
           action: 'update-entry';
           entry: Omit<ProjectUpdate, 'createdAt' | 'id'>;
+        }
+      | {
+          action: 'portal-access';
+          forceRegenerate?: boolean;
+          leadId: string;
         };
 
     const supabase = getSupabaseAdminClient();
@@ -123,6 +129,19 @@ export async function PATCH(request: NextRequest) {
     if (body.action === 'update-entry') {
       const update = await createProjectUpdate(supabase, body.entry);
       return NextResponse.json({ ok: true, update });
+    }
+
+    if (body.action === 'portal-access') {
+      if (!body.leadId) {
+        return NextResponse.json({ error: 'Lead id is required.' }, { status: 400 });
+      }
+
+      const result = await ensureLeadPortalAccess(
+        supabase,
+        body.leadId,
+        body.forceRegenerate
+      );
+      return NextResponse.json({ ok: true, ...result });
     }
 
     return NextResponse.json({ error: 'Invalid action.' }, { status: 400 });

@@ -5,14 +5,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
 import type {
-  ClientAccount,
+  ClientPortalProfile,
   ClientProject,
   ProjectMilestone,
   ProjectUpdate,
 } from '@/lib/crm';
 
 type PortalPayload = {
-  client: ClientAccount;
+  client: ClientPortalProfile;
   milestones: ProjectMilestone[];
   projects: ClientProject[];
   updates: ProjectUpdate[];

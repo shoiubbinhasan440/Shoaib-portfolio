@@ -171,7 +171,7 @@ export default function ClientLoginPage() {
               <input
                 value={accessCode}
                 onChange={event => setAccessCode(event.target.value.toUpperCase())}
-                placeholder="ABC123EF"
+                placeholder="VED-0001-X7QK"
                 required
                 style={fieldStyle(dark)}
               />
