@@ -1,157 +1,1119 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
+import { useTheme } from '@/components/ThemeProvider';
+import GlobalFooter from '@/components/shared/GlobalFooter';
+import { getContactPageConfig, type ContactPageConfig } from '@/lib/contact-content';
+import { getGlobalFooterConfig } from '@/lib/footer-content';
+import { toSettingMap, type SettingRow } from '@/lib/hero-settings';
+import { createDefaultHomepageBuilderConfig } from '@/lib/homepage-content';
+import { fetchPortfolioDataset } from '@/lib/portfolio-content';
 
-export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSending(true);
-    // ২ সেকেন্ড delay (পরে real email service যোগ করা যাবে)
-    await new Promise(r => setTimeout(r, 2000));
-    setSending(false);
-    setSent(true);
+type ContactFormState = {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+};
+
+function getMaxWidth(width: ContactPageConfig['hero']['width']) {
+  switch (width) {
+    case 'normal':
+      return 980;
+    case 'full':
+      return 1360;
+    case 'wide':
+    default:
+      return 1220;
+  }
+}
+
+function getSectionPadding(
+  spacing: ContactPageConfig['hero']['spacing'],
+  isMobile: boolean
+) {
+  if (spacing === 'compact') {
+    return isMobile ? '42px 16px' : '56px 28px';
   }
 
-  const contacts = [
-    { icon: '📧', label: 'Email', value: 'sayeedfahad@gmail.com', href: 'mailto:sayeedfahad@gmail.com' },
-    { icon: '📱', label: 'WhatsApp', value: '+880 1XXX-XXXXXX', href: 'https://wa.me/880XXXXXXXXXX' },
-    { icon: '🎬', label: 'YouTube', value: '@SayeedFahad', href: 'https://youtube.com/@SayeedFahad' },
-    { icon: '📸', label: 'Instagram', value: '@sayeedfahad', href: 'https://instagram.com/sayeedfahad' },
-  ];
+  if (spacing === 'spacious') {
+    return isMobile ? '62px 16px' : '88px 28px';
+  }
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#080808', color: '#fff', fontFamily: "'Inter', system-ui, sans-serif" }}>
+  return isMobile ? '52px 16px' : '72px 28px';
+}
 
-      {/* Hero */}
-      <div style={{ textAlign: 'center', padding: '72px 24px 60px' }}>
-        <div style={{ display: 'inline-block', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#93c5fd', fontSize: 11, fontWeight: 700, padding: '5px 16px', borderRadius: 20, marginBottom: 20, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-          যোগাযোগ
-        </div>
-        <h1 style={{ fontSize: 'clamp(28px, 5vw, 52px)', fontWeight: 800, letterSpacing: '-1px', margin: '0 0 14px' }}>
-          কাজ করতে চান?
-        </h1>
-        <p style={{ color: '#555', fontSize: 15, maxWidth: 440, margin: '0 auto' }}>
-          যেকোনো প্রজেক্ট বা কোলাবোরেশনের জন্য আমার সাথে যোগাযোগ করুন।
-        </p>
+export default function ContactPage() {
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
+  const [pageConfig, setPageConfig] = useState<ContactPageConfig>(() =>
+    getContactPageConfig({})
+  );
+  const [footerConfig, setFooterConfig] = useState(() => createDefaultHomepageBuilderConfig().footer);
+  const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitState, setSubmitState] = useState<{
+    type: 'success' | 'error' | '';
+    message: string;
+  }>({ type: '', message: '' });
+  const [sent, setSent] = useState(false);
+  const [form, setForm] = useState<ContactFormState>({
+    name: '',
+    email: '',
+    subject: '',
+    message: '',
+  });
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: settingsRows }, dataset] = await Promise.all([
+        supabase.from('site_settings').select('*'),
+        fetchPortfolioDataset(supabase),
+      ]);
+
+      const map = toSettingMap((settingsRows || []) as SettingRow[]);
+      setPageConfig(getContactPageConfig(map));
+      setFooterConfig(
+        getGlobalFooterConfig(map, {
+          projectCount: dataset.videos.length + dataset.graphics.length,
+        })
+      );
+      setLoading(false);
+    }
+
+    void load();
+
+    const syncViewport = () => setIsMobile(window.innerWidth < 768);
+    syncViewport();
+    window.addEventListener('resize', syncViewport);
+    return () => window.removeEventListener('resize', syncViewport);
+  }, []);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setSubmitState({ type: '', message: '' });
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          subject: pageConfig.formSection.showSubjectField ? form.subject : '',
+          message: form.message,
+        }),
+      });
+
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error || 'বার্তা পাঠানো যায়নি।');
+      }
+
+      setSent(true);
+      setSubmitState({
+        type: 'success',
+        message: pageConfig.formSection.successMessage,
+      });
+      setForm({
+        name: '',
+        email: '',
+        subject: '',
+        message: '',
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'বার্তা পাঠানো যায়নি।';
+      setSubmitState({ type: 'error', message });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const bg = dark ? '#080808' : '#f8fbff';
+  const text = dark ? '#f8fafc' : '#0f172a';
+  const muted = dark ? 'rgba(226,232,240,0.7)' : '#475569';
+  const soft = dark ? 'rgba(148,163,184,0.16)' : 'rgba(15,23,42,0.1)';
+  const glass = dark
+    ? 'linear-gradient(150deg, rgba(15,23,42,0.7), rgba(2,6,23,0.88))'
+    : 'linear-gradient(150deg, rgba(255,255,255,0.95), rgba(239,246,255,0.82))';
+  const panel = dark
+    ? 'linear-gradient(180deg, rgba(2,6,23,0.9), rgba(15,23,42,0.72))'
+    : 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92))';
+
+  const orderedSections = useMemo(
+    () =>
+      [
+        { key: 'hero', order: pageConfig.hero.order, enabled: pageConfig.hero.enabled },
+        {
+          key: 'formSection',
+          order: pageConfig.formSection.order,
+          enabled: pageConfig.formSection.enabled,
+        },
+        {
+          key: 'extraSection',
+          order: pageConfig.extraSection.order,
+          enabled: pageConfig.extraSection.enabled,
+        },
+        { key: 'cta', order: pageConfig.cta.order, enabled: pageConfig.cta.enabled },
+      ]
+        .filter(section => section.enabled)
+        .sort((leftItem, rightItem) => leftItem.order - rightItem.order),
+    [pageConfig]
+  );
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#020617',
+          color: '#64748b',
+          display: 'grid',
+          placeItems: 'center',
+          fontFamily: "'Inter', system-ui, sans-serif",
+        }}
+      >
+        Contact page loading...
       </div>
+    );
+  }
 
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px 100px', display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 40 }}>
+  if (!pageConfig.pageEnabled) {
+    return (
+      <main
+        style={{
+          minHeight: '100vh',
+          background: bg,
+          color: text,
+          fontFamily: "'Inter', system-ui, sans-serif",
+          display: 'grid',
+          placeItems: 'center',
+          padding: '120px 24px',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 620,
+            textAlign: 'center',
+            borderRadius: 28,
+            padding: '38px 28px',
+            border: `1px solid ${soft}`,
+            background: glass,
+          }}
+        >
+          <div
+            style={{
+              color: '#38bdf8',
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              marginBottom: 14,
+            }}
+          >
+            Contact Hidden
+          </div>
+          <h1
+            style={{
+              margin: '0 0 12px',
+              fontSize: 34,
+              fontWeight: 800,
+              letterSpacing: '-0.05em',
+            }}
+          >
+            Contact page is currently disabled.
+          </h1>
+          <p style={{ margin: 0, color: muted, lineHeight: 1.75 }}>
+            Admin থেকে Contact Builder ব্যবহার করে visibility চালু করুন।
+          </p>
+        </div>
+      </main>
+    );
+  }
 
-        {/* Left — Contact Info */}
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, color: '#fff' }}>সরাসরি যোগাযোগ</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {contacts.map(c => (
-              <a key={c.label} href={c.href} target="_blank" rel="noopener noreferrer"
-                style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, textDecoration: 'none', transition: 'all 0.2s' }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor = '#2a2a2a';
-                  (e.currentTarget as HTMLAnchorElement).style.background = '#141414';
+  function renderHero() {
+    const section = pageConfig.hero;
+    const center = section.alignment === 'center';
+
+    return (
+      <section
+        key="hero"
+        style={{
+          position: 'relative',
+          padding: getSectionPadding(section.spacing, isMobile),
+          background: dark
+            ? 'radial-gradient(circle at 84% 18%, rgba(37,99,235,0.22), transparent 28%), radial-gradient(circle at 12% 26%, rgba(14,165,233,0.14), transparent 30%), #080808'
+            : 'radial-gradient(circle at 84% 18%, rgba(37,99,235,0.12), transparent 28%), radial-gradient(circle at 12% 26%, rgba(14,165,233,0.12), transparent 30%), #f8fbff',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: getMaxWidth(section.width),
+            margin: '0 auto',
+            textAlign: section.alignment,
+            display: 'grid',
+            justifyItems: center ? 'center' : 'stretch',
+            gap: 18,
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '7px 14px',
+              borderRadius: 999,
+              border: `1px solid ${dark ? 'rgba(56,189,248,0.22)' : 'rgba(37,99,235,0.18)'}`,
+              background: dark ? 'rgba(14,165,233,0.08)' : 'rgba(219,234,254,0.82)',
+              color: dark ? '#7dd3fc' : '#2563eb',
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38bdf8' }} />
+            {section.label}
+          </div>
+
+          <h1
+            style={{
+              margin: 0,
+              color: text,
+              fontSize: isMobile ? 'clamp(2.7rem, 13vw, 4rem)' : 'clamp(4rem, 8vw, 6.4rem)',
+              lineHeight: 0.94,
+              letterSpacing: '-0.07em',
+              fontWeight: 900,
+              maxWidth: center ? 980 : 860,
+            }}
+          >
+            {section.title}
+          </h1>
+
+          {section.subtitle ? (
+            <div
+              style={{
+                color: '#38bdf8',
+                fontSize: isMobile ? 15 : 18,
+                fontWeight: 850,
+                maxWidth: center ? 880 : 760,
+              }}
+            >
+              {section.subtitle}
+            </div>
+          ) : null}
+
+          {section.description ? (
+            <p
+              style={{
+                margin: 0,
+                color: muted,
+                fontSize: isMobile ? 15 : 17,
+                lineHeight: 1.9,
+                maxWidth: center ? 860 : 780,
+              }}
+            >
+              {section.description}
+            </p>
+          ) : null}
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: center ? 'center' : 'flex-start',
+              gap: 12,
+              flexWrap: 'wrap',
+              marginTop: 10,
+            }}
+          >
+            {section.showPrimaryButton ? (
+              <Link
+                href={section.primaryButtonLink || '#contact-form'}
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  color: '#fff',
+                  borderRadius: 14,
+                  padding: '14px 22px',
+                  textDecoration: 'none',
+                  fontSize: 14,
+                  fontWeight: 850,
+                  boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
                 }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLAnchorElement).style.borderColor = '#1a1a1a';
-                  (e.currentTarget as HTMLAnchorElement).style.background = '#111';
-                }}>
-                <div style={{ width: 44, height: 44, background: '#1a1a1a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                  {c.icon}
+              >
+                {section.primaryButtonText} →
+              </Link>
+            ) : null}
+            {section.showSecondaryButton ? (
+              <Link
+                href={section.secondaryButtonLink || '/portfolio'}
+                style={{
+                  background: dark ? 'rgba(15,23,42,0.52)' : 'rgba(255,255,255,0.8)',
+                  color: text,
+                  border: `1px solid ${soft}`,
+                  borderRadius: 14,
+                  padding: '14px 20px',
+                  textDecoration: 'none',
+                  fontSize: 14,
+                  fontWeight: 760,
+                }}
+              >
+                {section.secondaryButtonText}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  function renderFormSection() {
+    const section = pageConfig.formSection;
+    const infoCards = section.infoCards.filter(item => item.enabled);
+    const socials = section.socialLinks.filter(item => item.enabled);
+    const stacked = isMobile || section.layout === 'stacked' || section.layout === 'centered';
+    const infoFirst = section.layout !== 'card-right';
+
+    const infoPanel = (
+      <div
+        style={{
+          display: 'grid',
+          gap: 18,
+          order: infoFirst ? 1 : 2,
+        }}
+      >
+        <div
+          style={{
+            padding: isMobile ? 22 : 28,
+            borderRadius: 30,
+            border: `1px solid ${soft}`,
+            background: glass,
+            boxShadow: dark
+              ? '0 26px 64px rgba(2,6,23,0.26)'
+              : '0 20px 50px rgba(15,23,42,0.08)',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 12px',
+              borderRadius: 999,
+              marginBottom: 14,
+              background: dark ? 'rgba(15,23,42,0.56)' : 'rgba(255,255,255,0.74)',
+              border: `1px solid ${soft}`,
+              color: '#38bdf8',
+              fontSize: 11,
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+            }}
+          >
+            {section.label}
+          </div>
+          <h2
+            style={{
+              margin: '0 0 10px',
+              fontSize: isMobile ? 28 : 40,
+              letterSpacing: '-0.05em',
+              color: text,
+            }}
+          >
+            {section.title}
+          </h2>
+          {section.subtitle ? (
+            <div style={{ color: '#38bdf8', fontSize: 15, fontWeight: 800, marginBottom: 12 }}>
+              {section.subtitle}
+            </div>
+          ) : null}
+          {section.description ? (
+            <p style={{ margin: 0, color: muted, lineHeight: 1.85, fontSize: 15 }}>
+              {section.description}
+            </p>
+          ) : null}
+        </div>
+
+        {section.showInfoCards ? (
+          <div style={{ display: 'grid', gap: 14 }}>
+            {infoCards.map(card => {
+              const cardContent = (
+                <div
+                  style={{
+                    padding: isMobile ? 18 : 20,
+                    borderRadius: 24,
+                    border: `1px solid ${soft}`,
+                    background: panel,
+                    boxShadow: dark
+                      ? '0 20px 44px rgba(2,6,23,0.22)'
+                      : '0 16px 36px rgba(15,23,42,0.06)',
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    <div
+                      style={{
+                        width: 46,
+                        height: 46,
+                        borderRadius: 14,
+                        display: 'grid',
+                        placeItems: 'center',
+                        background: dark ? 'rgba(14,165,233,0.1)' : 'rgba(219,234,254,0.9)',
+                        color: '#38bdf8',
+                        fontSize: 20,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {card.icon || '✦'}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: muted, marginBottom: 6 }}>
+                        {card.title}
+                      </div>
+                      <div
+                        style={{
+                          color: text,
+                          fontSize: 18,
+                          fontWeight: 800,
+                          lineHeight: 1.3,
+                          marginBottom: card.description ? 6 : 0,
+                        }}
+                      >
+                        {card.value}
+                      </div>
+                      {card.description ? (
+                        <p style={{ margin: 0, color: muted, fontSize: 13, lineHeight: 1.7 }}>
+                          {card.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 12, color: '#555', marginBottom: 3 }}>{c.label}</div>
-                  <div style={{ fontSize: 14, color: '#ccc', fontWeight: 500 }}>{c.value}</div>
-                </div>
+              );
+
+              if (card.href) {
+                return (
+                  <a
+                    key={card.id}
+                    href={card.href}
+                    target={card.href.startsWith('http') ? '_blank' : undefined}
+                    rel={card.href.startsWith('http') ? 'noreferrer' : undefined}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    {cardContent}
+                  </a>
+                );
+              }
+
+              return <div key={card.id}>{cardContent}</div>;
+            })}
+          </div>
+        ) : null}
+
+        {section.showAvailabilityCard ? (
+          <div
+            style={{
+              padding: isMobile ? 18 : 20,
+              borderRadius: 24,
+              border: '1px solid rgba(34,197,94,0.22)',
+              background: dark
+                ? 'linear-gradient(180deg, rgba(34,197,94,0.12), rgba(2,6,23,0.72))'
+                : 'linear-gradient(180deg, rgba(220,252,231,0.85), rgba(240,253,244,0.82))',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                color: dark ? '#86efac' : '#15803d',
+                fontSize: 14,
+                fontWeight: 800,
+                marginBottom: 10,
+              }}
+            >
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  background: '#22c55e',
+                }}
+              />
+              {section.availabilityTitle}
+            </div>
+            <p style={{ margin: 0, color: dark ? '#dcfce7' : '#166534', lineHeight: 1.75, fontSize: 14 }}>
+              {section.availabilityText}
+            </p>
+          </div>
+        ) : null}
+
+        {section.showSocialLinks && socials.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            {socials.map(item => (
+              <a
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '11px 16px',
+                  borderRadius: 999,
+                  border: `1px solid ${soft}`,
+                  background: dark ? 'rgba(15,23,42,0.48)' : 'rgba(255,255,255,0.82)',
+                  color: text,
+                  textDecoration: 'none',
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                <span style={{ color: '#38bdf8' }}>{item.icon || '•'}</span>
+                {item.label}
               </a>
             ))}
           </div>
+        ) : null}
+      </div>
+    );
 
-          {/* Availability */}
-          <div style={{ marginTop: 24, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: 12, padding: '16px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 8, height: 8, background: '#22c55e', borderRadius: '50%' }} />
-              <span style={{ fontSize: 14, color: '#86efac', fontWeight: 600 }}>এখন কাজ নেওয়া যাচ্ছে</span>
-            </div>
-            <p style={{ fontSize: 13, color: '#555', marginTop: 8, marginBottom: 0 }}>
-              সাধারণত ২৪ ঘণ্টার মধ্যে reply করি।
-            </p>
-          </div>
+    const formPanel = (
+      <div
+        id="contact-form"
+        style={{
+          padding: isMobile ? 22 : 30,
+          borderRadius: 32,
+          border: `1px solid ${soft}`,
+          background: glass,
+          boxShadow: dark
+            ? '0 28px 74px rgba(2,6,23,0.28)'
+            : '0 24px 64px rgba(15,23,42,0.08)',
+          order: infoFirst ? 2 : 1,
+        }}
+      >
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '6px 12px',
+            borderRadius: 999,
+            marginBottom: 14,
+            background: dark ? 'rgba(15,23,42,0.56)' : 'rgba(255,255,255,0.74)',
+            border: `1px solid ${soft}`,
+            color: '#38bdf8',
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.12em',
+          }}
+        >
+          {section.formLabel}
         </div>
 
-        {/* Right — Contact Form */}
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: 16, padding: 32 }}>
-          {sent ? (
-            <div style={{ textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 56, marginBottom: 20 }}>✅</div>
-              <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>বার্তা পাঠানো হয়েছে!</h3>
-              <p style={{ color: '#555', marginBottom: 28 }}>শীঘ্রই যোগাযোগ করব।</p>
-              <button onClick={() => { setSent(false); setForm({ name: '', email: '', subject: '', message: '' }); }}
-                style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-                আবার পাঠান
-              </button>
-            </div>
-          ) : (
-            <>
-              <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>বার্তা পাঠান</h2>
-              <form onSubmit={handleSubmit}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, color: '#666', marginBottom: 8 }}>আপনার নাম *</label>
-                    <input
-                      value={form.name}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                      required placeholder="Md. Rahim"
-                      style={{ width: '100%', background: '#0d0d0d', border: '1px solid #222', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', outline: 'none' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, color: '#666', marginBottom: 8 }}>ইমেইল *</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                      required placeholder="rahim@gmail.com"
-                      style={{ width: '100%', background: '#0d0d0d', border: '1px solid #222', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', outline: 'none' }}
-                    />
-                  </div>
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, color: '#666', marginBottom: 8 }}>বিষয় *</label>
+        {sent ? (
+          <div style={{ textAlign: section.alignment }}>
+            <div style={{ fontSize: 52, marginBottom: 18 }}>✅</div>
+            <h3
+              style={{
+                color: text,
+                fontSize: isMobile ? 28 : 34,
+                letterSpacing: '-0.05em',
+                margin: '0 0 12px',
+              }}
+            >
+              {section.successTitle}
+            </h3>
+            <p style={{ color: muted, lineHeight: 1.8, margin: '0 0 20px' }}>
+              {submitState.message || section.successMessage}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSent(false);
+                setSubmitState({ type: '', message: '' });
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 14,
+                padding: '13px 22px',
+                cursor: 'pointer',
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              আরেকটি বার্তা পাঠান
+            </button>
+          </div>
+        ) : (
+          <>
+            <h3
+              style={{
+                margin: '0 0 12px',
+                color: text,
+                fontSize: isMobile ? 28 : 38,
+                letterSpacing: '-0.05em',
+              }}
+            >
+              {section.formTitle}
+            </h3>
+            {section.formDescription ? (
+              <p style={{ margin: '0 0 24px', color: muted, lineHeight: 1.8, fontSize: 15 }}>
+                {section.formDescription}
+              </p>
+            ) : null}
+
+            {submitState.type === 'error' ? (
+              <div
+                style={{
+                  marginBottom: 18,
+                  borderRadius: 18,
+                  padding: '12px 14px',
+                  background: dark ? 'rgba(127,29,29,0.34)' : 'rgba(254,226,226,0.92)',
+                  border: '1px solid rgba(248,113,113,0.24)',
+                  color: dark ? '#fecaca' : '#b91c1c',
+                  fontSize: 14,
+                }}
+              >
+                {submitState.message}
+              </div>
+            ) : null}
+
+            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16 }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                  gap: 16,
+                }}
+              >
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>আপনার নাম</span>
+                  <input
+                    value={form.name}
+                    onChange={event =>
+                      setForm(current => ({ ...current, name: event.target.value }))
+                    }
+                    required
+                    placeholder="Md. Rahim"
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>ইমেইল</span>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={event =>
+                      setForm(current => ({ ...current, email: event.target.value }))
+                    }
+                    required
+                    placeholder="rahim@gmail.com"
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </label>
+              </div>
+
+              {section.showSubjectField ? (
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>বিষয়</span>
                   <input
                     value={form.subject}
-                    onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                    required placeholder="যেমন: Wedding Video Editing"
-                    style={{ width: '100%', background: '#0d0d0d', border: '1px solid #222', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', outline: 'none' }}
+                    onChange={event =>
+                      setForm(current => ({ ...current, subject: event.target.value }))
+                    }
+                    required={section.showSubjectField}
+                    placeholder="যেমন: Branding Video Editing"
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
                   />
-                </div>
-                <div style={{ marginBottom: 24 }}>
-                  <label style={{ display: 'block', fontSize: 13, color: '#666', marginBottom: 8 }}>বার্তা *</label>
-                  <textarea
-                    value={form.message}
-                    onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                    required rows={5}
-                    placeholder="আপনার প্রজেক্ট সম্পর্কে বলুন..."
-                    style={{ width: '100%', background: '#0d0d0d', border: '1px solid #222', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', outline: 'none', resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-                </div>
-                <button type="submit" disabled={sending}
-                  style={{ width: '100%', background: sending ? '#1a1a1a' : '#3b82f6', color: sending ? '#555' : '#fff', border: 'none', padding: '13px', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: sending ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}>
-                  {sending ? '⏳ পাঠানো হচ্ছে...' : '📨 বার্তা পাঠান'}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-      </div>
+                </label>
+              ) : null}
 
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid #111', padding: '28px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontWeight: 800, fontSize: 18 }}>
-          <span>Minhajul</span><span style={{ color: '#3b82f6' }}>.</span>
+              <label style={{ display: 'grid', gap: 8 }}>
+                <span style={{ fontSize: 12, color: muted }}>বার্তা</span>
+                <textarea
+                  value={form.message}
+                  onChange={event =>
+                    setForm(current => ({ ...current, message: event.target.value }))
+                  }
+                  required
+                  rows={6}
+                  placeholder="আপনার project, deadline, deliverables, references বা brand direction সম্পর্কে লিখুন..."
+                  style={{
+                    width: '100%',
+                    background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                    border: `1px solid ${soft}`,
+                    borderRadius: 16,
+                    color: text,
+                    padding: '14px',
+                    fontSize: 14,
+                    lineHeight: 1.7,
+                    boxSizing: 'border-box',
+                    resize: 'vertical',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                style={{
+                  border: 'none',
+                  borderRadius: 16,
+                  padding: '15px 20px',
+                  cursor: submitting ? 'not-allowed' : 'pointer',
+                  background: submitting
+                    ? dark
+                      ? 'rgba(15,23,42,0.76)'
+                      : 'rgba(226,232,240,0.92)'
+                    : 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  color: submitting ? muted : '#fff',
+                  fontSize: 15,
+                  fontWeight: 850,
+                  boxShadow: submitting ? 'none' : '0 18px 38px rgba(37,99,235,0.26)',
+                }}
+              >
+                {submitting ? 'পাঠানো হচ্ছে...' : section.submitButtonText}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    );
+
+    return (
+      <section key="formSection" style={{ padding: getSectionPadding(section.spacing, isMobile) }}>
+        <div
+          style={{
+            maxWidth: getMaxWidth(section.width),
+            margin: '0 auto',
+            display: 'grid',
+            gridTemplateColumns: stacked ? '1fr' : 'minmax(0, 0.9fr) minmax(0, 1.1fr)',
+            gap: isMobile ? 24 : 30,
+            alignItems: 'start',
+          }}
+        >
+          {infoPanel}
+          {formPanel}
         </div>
-        <div style={{ fontSize: 13, color: '#333' }}>© 2025 Md. Minhajul Hoque. All rights reserved.</div>
-      </footer>
-    </div>
+      </section>
+    );
+  }
+
+  function renderExtraSection() {
+    const section = pageConfig.extraSection;
+    const stacked = isMobile || section.layout === 'stacked' || section.layout === 'centered';
+    const visualFirst = section.layout === 'card-left';
+
+    return (
+      <section key="extraSection" style={{ padding: getSectionPadding(section.spacing, isMobile) }}>
+        <div
+          style={{
+            maxWidth: getMaxWidth(section.width),
+            margin: '0 auto',
+            display: 'grid',
+            gridTemplateColumns: stacked ? '1fr' : 'minmax(340px, 0.9fr) minmax(0, 1.05fr)',
+            gap: isMobile ? 24 : 36,
+            alignItems: 'center',
+          }}
+        >
+          <div
+            style={{
+              order: visualFirst ? 1 : 2,
+              position: 'relative',
+              minHeight: isMobile ? 320 : 420,
+              borderRadius: 32,
+              overflow: 'hidden',
+              border: `1px solid ${soft}`,
+              background: section.image
+                ? `linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.8)), url(${section.image}) center/cover no-repeat`
+                : dark
+                  ? 'linear-gradient(145deg, #020617, #0f172a 48%, #0ea5e9)'
+                  : 'linear-gradient(145deg, #dbeafe, #eff6ff 48%, #0ea5e9)',
+              boxShadow: dark
+                ? '0 34px 90px rgba(2,6,23,0.28)'
+                : '0 24px 64px rgba(15,23,42,0.08)',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background:
+                  'radial-gradient(circle at 24% 18%, rgba(56,189,248,0.2), transparent 30%), linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.82))',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 18,
+                right: 18,
+                bottom: 18,
+                padding: 22,
+                borderRadius: 24,
+                background: 'linear-gradient(180deg, rgba(2,6,23,0.54), rgba(2,6,23,0.84))',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: '#e2e8f0',
+              }}
+            >
+              <div
+                style={{
+                  color: '#7dd3fc',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  marginBottom: 12,
+                }}
+              >
+                Contact Workflow
+              </div>
+              <p style={{ margin: 0, lineHeight: 1.7, fontSize: 15 }}>
+                {section.subtitle || 'Clear direction, revision-friendly process, and delivery that feels presentation-ready.'}
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              order: visualFirst ? 2 : 1,
+              textAlign: section.alignment,
+            }}
+          >
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '7px 14px',
+                borderRadius: 999,
+                marginBottom: 16,
+                border: `1px solid ${soft}`,
+                background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.8)',
+                color: '#38bdf8',
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {section.label}
+            </div>
+            <h2
+              style={{
+                margin: '0 0 14px',
+                color: text,
+                fontSize: isMobile ? 30 : 46,
+                letterSpacing: '-0.05em',
+              }}
+            >
+              {section.title}
+            </h2>
+            {section.subtitle ? (
+              <div style={{ color: '#38bdf8', fontWeight: 800, marginBottom: 12 }}>
+                {section.subtitle}
+              </div>
+            ) : null}
+            {section.description ? (
+              <p style={{ margin: 0, color: muted, lineHeight: 1.85, fontSize: 15 }}>
+                {section.description}
+              </p>
+            ) : null}
+            {section.showButton ? (
+              <div style={{ marginTop: 24 }}>
+                <Link
+                  href={section.buttonLink || '/portfolio'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    textDecoration: 'none',
+                    color: '#fff',
+                    background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                    padding: '13px 20px',
+                    borderRadius: 14,
+                    fontWeight: 800,
+                    boxShadow: '0 18px 38px rgba(37,99,235,0.22)',
+                  }}
+                >
+                  {section.buttonText}
+                  <span>→</span>
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  function renderCta() {
+    const section = pageConfig.cta;
+
+    return (
+      <section key="cta" style={{ padding: getSectionPadding(section.spacing, isMobile) }}>
+        <div
+          style={{
+            maxWidth: getMaxWidth(section.width),
+            margin: '0 auto',
+            padding: isMobile ? '28px 20px' : '42px 30px',
+            borderRadius: 34,
+            border: `1px solid ${soft}`,
+            background: glass,
+            boxShadow: dark
+              ? '0 28px 74px rgba(2,6,23,0.28)'
+              : '0 24px 64px rgba(15,23,42,0.08)',
+            textAlign: section.alignment,
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '7px 14px',
+              borderRadius: 999,
+              marginBottom: 16,
+              border: `1px solid ${soft}`,
+              background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.8)',
+              color: '#38bdf8',
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {section.label}
+          </div>
+          <h2
+            style={{
+              margin: '0 0 12px',
+              color: text,
+              fontSize: isMobile ? 28 : 42,
+              letterSpacing: '-0.05em',
+            }}
+          >
+            {section.title}
+          </h2>
+          {section.description ? (
+            <p style={{ margin: '0 auto', color: muted, lineHeight: 1.85, fontSize: 15, maxWidth: 760 }}>
+              {section.description}
+            </p>
+          ) : null}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: section.alignment === 'center' ? 'center' : 'flex-start',
+              gap: 12,
+              flexWrap: 'wrap',
+              marginTop: 24,
+            }}
+          >
+            {section.showPrimaryButton ? (
+              <Link
+                href={section.primaryButtonLink || '#contact-form'}
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  color: '#fff',
+                  borderRadius: 14,
+                  padding: '14px 22px',
+                  textDecoration: 'none',
+                  fontSize: 14,
+                  fontWeight: 850,
+                  boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                }}
+              >
+                {section.primaryButtonText} →
+              </Link>
+            ) : null}
+            {section.showSecondaryButton ? (
+              <Link
+                href={section.secondaryButtonLink || '/'}
+                style={{
+                  background: dark ? 'rgba(15,23,42,0.52)' : 'rgba(255,255,255,0.8)',
+                  color: text,
+                  border: `1px solid ${soft}`,
+                  borderRadius: 14,
+                  padding: '14px 20px',
+                  textDecoration: 'none',
+                  fontSize: 14,
+                  fontWeight: 760,
+                }}
+              >
+                {section.secondaryButtonText}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const renderers: Record<string, () => React.ReactNode> = {
+    hero: renderHero,
+    formSection: renderFormSection,
+    extraSection: renderExtraSection,
+    cta: renderCta,
+  };
+
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        background: bg,
+        color: text,
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
+      {orderedSections.map(section => renderers[section.key]())}
+      <GlobalFooter config={footerConfig} isMobile={isMobile} />
+    </main>
   );
 }

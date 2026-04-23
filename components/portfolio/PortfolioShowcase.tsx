@@ -649,163 +649,168 @@ export default function PortfolioShowcase({
               position: 'relative',
               zIndex: 1,
               padding: variant === 'page' ? '44px 34px 34px' : viewportWidth < 700 ? '24px 18px 20px' : '30px 24px 24px',
+              display: 'grid',
+              gap: variant === 'page' ? 24 : 0,
             }}
           >
-            {(variant === 'page' ? pageBuilder?.hero.enabled ?? true : homepageConfig.showHeader) ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection:
-                    variant === 'page'
-                      ? isMobile || pageBuilder?.hero.layout !== 'split'
-                        ? 'column'
-                        : 'row'
-                      : headerAlignment === 'center'
-                        ? 'column'
-                        : viewportWidth < 860
+            <div style={{ order: variant === 'page' ? pageBuilder?.hero.order || 10 : 10 }}>
+              {(variant === 'page' ? pageBuilder?.hero.enabled ?? true : homepageConfig.showHeader) ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection:
+                      variant === 'page'
+                        ? isMobile || pageBuilder?.hero.layout !== 'split'
                           ? 'column'
-                          : 'row',
-                  alignItems:
-                    variant === 'page'
-                      ? pageBuilder?.hero.alignment === 'left'
-                        ? 'flex-start'
-                        : 'center'
-                      : headerAlignment === 'center'
-                        ? 'center'
-                        : 'flex-end',
-                  justifyContent: 'space-between',
-                  gap: 20,
-                  textAlign: variant === 'page' ? pageBuilder?.hero.alignment || 'center' : headerAlignment,
-                  marginBottom: 28,
-                }}
-              >
-                <div style={{ maxWidth: variant === 'page' ? 760 : 760 }}>
-                  {badgeText ? (
-                    <div
+                          : 'row'
+                        : headerAlignment === 'center'
+                          ? 'column'
+                          : viewportWidth < 860
+                            ? 'column'
+                            : 'row',
+                    alignItems:
+                      variant === 'page'
+                        ? pageBuilder?.hero.alignment === 'left'
+                          ? 'flex-start'
+                          : 'center'
+                        : headerAlignment === 'center'
+                          ? 'center'
+                          : 'flex-end',
+                    justifyContent: 'space-between',
+                    gap: 20,
+                    textAlign: variant === 'page' ? pageBuilder?.hero.alignment || 'center' : headerAlignment,
+                    marginBottom: 28,
+                  }}
+                >
+                  <div style={{ maxWidth: variant === 'page' ? 760 : 760 }}>
+                    {badgeText ? (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '7px 14px',
+                          borderRadius: 999,
+                          marginBottom: 14,
+                          background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.8)',
+                          border: `1px solid ${soft}`,
+                          color: '#38bdf8',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          letterSpacing: '0.12em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: '50%',
+                            background: '#38bdf8',
+                            boxShadow: '0 0 18px rgba(56,189,248,0.65)',
+                          }}
+                        />
+                        {badgeText}
+                      </div>
+                    ) : null}
+
+                    <h2
+                      style={{
+                        margin: '0 0 12px',
+                        fontSize:
+                          variant === 'page'
+                            ? 'clamp(2.4rem, 4vw, 3.75rem)'
+                            : 'clamp(1.9rem, 3vw, 3rem)',
+                        fontWeight: 800,
+                        letterSpacing: '-0.05em',
+                        color: text,
+                        lineHeight: 1.05,
+                      }}
+                    >
+                      {sectionTitle}
+                    </h2>
+
+                    <p
+                      style={{
+                        margin: 0,
+                        color: muted,
+                        fontSize: variant === 'page' ? 16 : 15,
+                        lineHeight: 1.85,
+                        maxWidth: variant === 'page' ? 680 : headerAlignment === 'center' ? 720 : 620,
+                      }}
+                    >
+                      {sectionSubtitle}
+                    </p>
+
+                    {variant === 'page' && pageBuilder?.hero.showIntro && introText ? (
+                      <p
+                        style={{
+                          margin: '14px 0 0',
+                          color: dark ? 'rgba(226,232,240,0.76)' : '#475569',
+                          fontSize: 15,
+                          lineHeight: 1.8,
+                          maxWidth: 720,
+                        }}
+                      >
+                        {introText}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {(variant === 'homepage' && homepageConfig.showButton && buttonText && buttonLink) ||
+                  (variant === 'page' &&
+                    pageBuilder?.hero.showButton &&
+                    pageBuilder.hero.buttonText &&
+                    pageBuilder.hero.buttonLink) ? (
+                    <Link
+                      href={
+                        variant === 'page'
+                          ? pageBuilder?.hero.buttonLink || '/contact'
+                          : buttonLink || '/portfolio'
+                      }
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 8,
-                        padding: '7px 14px',
-                        borderRadius: 999,
-                        marginBottom: 14,
-                        background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.8)',
-                        border: `1px solid ${soft}`,
-                        color: '#38bdf8',
-                        fontSize: 11,
+                        justifyContent: 'center',
+                        gap: 10,
+                        minHeight: 48,
+                        padding: '13px 22px',
+                        borderRadius: 14,
+                        background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+                        color: '#fff',
+                        textDecoration: 'none',
+                        fontSize: 14,
                         fontWeight: 700,
-                        letterSpacing: '0.12em',
-                        textTransform: 'uppercase',
+                        boxShadow: '0 18px 40px rgba(37,99,235,0.22)',
+                        flexShrink: 0,
                       }}
                     >
-                      <span
-                        style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: '50%',
-                          background: '#38bdf8',
-                          boxShadow: '0 0 18px rgba(56,189,248,0.65)',
-                        }}
-                      />
-                      {badgeText}
-                    </div>
-                  ) : null}
-
-                  <h2
-                    style={{
-                      margin: '0 0 12px',
-                      fontSize:
-                        variant === 'page'
-                          ? 'clamp(2.4rem, 4vw, 3.75rem)'
-                          : 'clamp(1.9rem, 3vw, 3rem)',
-                      fontWeight: 800,
-                      letterSpacing: '-0.05em',
-                      color: text,
-                      lineHeight: 1.05,
-                    }}
-                  >
-                    {sectionTitle}
-                  </h2>
-
-                  <p
-                    style={{
-                      margin: 0,
-                      color: muted,
-                      fontSize: variant === 'page' ? 16 : 15,
-                      lineHeight: 1.85,
-                      maxWidth: variant === 'page' ? 680 : headerAlignment === 'center' ? 720 : 620,
-                    }}
-                  >
-                    {sectionSubtitle}
-                  </p>
-
-                  {variant === 'page' && pageBuilder?.hero.showIntro && introText ? (
-                    <p
-                      style={{
-                        margin: '14px 0 0',
-                        color: dark ? 'rgba(226,232,240,0.76)' : '#475569',
-                        fontSize: 15,
-                        lineHeight: 1.8,
-                        maxWidth: 720,
-                      }}
-                    >
-                      {introText}
-                    </p>
+                      {variant === 'page'
+                        ? pageBuilder?.hero.buttonText || 'Contact Me'
+                        : buttonText}
+                      <span>→</span>
+                    </Link>
                   ) : null}
                 </div>
+              ) : null}
+            </div>
 
-                {(variant === 'homepage' && homepageConfig.showButton && buttonText && buttonLink) ||
-                (variant === 'page' &&
-                  pageBuilder?.hero.showButton &&
-                  pageBuilder.hero.buttonText &&
-                  pageBuilder.hero.buttonLink) ? (
-                  <Link
-                    href={
+            <div style={{ order: variant === 'page' ? pageBuilder?.showcase.order || 20 : 20 }}>
+              {tabsVisible ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent:
                       variant === 'page'
-                        ? pageBuilder?.hero.buttonLink || '/contact'
-                        : buttonLink || '/portfolio'
-                    }
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 10,
-                      minHeight: 48,
-                      padding: '13px 22px',
-                      borderRadius: 14,
-                      background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
-                      color: '#fff',
-                      textDecoration: 'none',
-                      fontSize: 14,
-                      fontWeight: 700,
-                      boxShadow: '0 18px 40px rgba(37,99,235,0.22)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {variant === 'page'
-                      ? pageBuilder?.hero.buttonText || 'Contact Me'
-                      : buttonText}
-                    <span>→</span>
-                  </Link>
-                ) : null}
-              </div>
-            ) : null}
-
-            {tabsVisible ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  justifyContent:
-                    variant === 'page'
-                      ? 'center'
-                      : headerAlignment === 'center'
                         ? 'center'
-                        : 'flex-start',
-                  gap: 10,
-                  marginBottom: 18,
-                }}
-              >
+                        : headerAlignment === 'center'
+                          ? 'center'
+                          : 'flex-start',
+                    gap: 10,
+                    marginBottom: 18,
+                  }}
+                >
                 {tabs.map(tab => (
                   <button
                     key={tab.key}
@@ -854,24 +859,24 @@ export default function PortfolioShowcase({
                     </span>
                   </button>
                 ))}
-              </div>
-            ) : null}
+                </div>
+              ) : null}
 
-            {filtersVisible ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  justifyContent:
-                    variant === 'page'
-                      ? 'center'
-                      : homepageConfig.filterAlignment === 'center'
+              {filtersVisible ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent:
+                      variant === 'page'
                         ? 'center'
-                        : 'flex-start',
-                  gap: 10,
-                  marginBottom: 28,
-                }}
-              >
+                        : homepageConfig.filterAlignment === 'center'
+                          ? 'center'
+                          : 'flex-start',
+                    gap: 10,
+                    marginBottom: 28,
+                  }}
+                >
                 {variant === 'page' || homepageConfig.showAllChip ? (
                   <button
                     type="button"
@@ -942,20 +947,20 @@ export default function PortfolioShowcase({
                     </button>
                   );
                 })}
-              </div>
-            ) : null}
+                </div>
+              ) : null}
 
-            {loading ? (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    variant === 'page'
-                      ? `repeat(${columns}, minmax(0, 1fr))`
-                      : `repeat(${columns}, minmax(0, 1fr))`,
-                  gap: cardGap,
-                }}
-              >
+              {loading ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      variant === 'page'
+                        ? `repeat(${columns}, minmax(0, 1fr))`
+                        : `repeat(${columns}, minmax(0, 1fr))`,
+                    gap: cardGap,
+                  }}
+                >
                 {Array.from({ length: variant === 'page' ? 6 : Math.max(3, columns) }).map((_, index) => (
                   <div
                     key={index}
@@ -967,17 +972,17 @@ export default function PortfolioShowcase({
                     }}
                   />
                 ))}
-              </div>
-            ) : displayItems.length === 0 ? (
-              <div
-                style={{
-                  padding: '54px 24px',
-                  borderRadius: 24,
-                  border: `1px dashed ${soft}`,
-                  background: dark ? 'rgba(2,6,23,0.28)' : 'rgba(255,255,255,0.78)',
-                  textAlign: 'center',
-                }}
-              >
+                </div>
+              ) : displayItems.length === 0 ? (
+                <div
+                  style={{
+                    padding: '54px 24px',
+                    borderRadius: 24,
+                    border: `1px dashed ${soft}`,
+                    background: dark ? 'rgba(2,6,23,0.28)' : 'rgba(255,255,255,0.78)',
+                    textAlign: 'center',
+                  }}
+                >
                 <div style={{ fontSize: 40, marginBottom: 16 }}>
                   {variant === 'page' ? '🎞️' : '🏠'}
                 </div>
@@ -998,9 +1003,9 @@ export default function PortfolioShowcase({
                     ? 'ক্যাটাগরি বা tab বদলে আবার দেখুন।'
                     : 'Homepage Portfolio Builder, Video Manager বা Graphics Manager থেকে selection control করুন।'}
                 </div>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: 24 }}>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 24 }}>
                 {groupedSections.map(section => (
                   <div key={section.label} style={{ display: 'grid', gap: 16 }}>
                     {shouldGroupAll && (variant === 'page' || homepageConfig.showGroupingLabels) ? (
@@ -1309,20 +1314,20 @@ export default function PortfolioShowcase({
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
+                </div>
+              )}
 
-            {variant === 'homepage' &&
-            homepageConfig.showViewAllButton &&
-            homepageConfig.viewAllButtonText &&
-            homepageConfig.viewAllButtonLink ? (
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: homepageConfig.alignment === 'center' ? 'center' : 'flex-start',
-                  marginTop: 28,
-                }}
-              >
+              {variant === 'homepage' &&
+              homepageConfig.showViewAllButton &&
+              homepageConfig.viewAllButtonText &&
+              homepageConfig.viewAllButtonLink ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: homepageConfig.alignment === 'center' ? 'center' : 'flex-start',
+                    marginTop: 28,
+                  }}
+                >
                 <Link
                   href={homepageConfig.viewAllButtonLink}
                   style={{
@@ -1344,21 +1349,23 @@ export default function PortfolioShowcase({
                   {homepageConfig.viewAllButtonText}
                   <span>→</span>
                 </Link>
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
 
-            {variant === 'page' && pageBuilder?.cta.enabled ? (
-              <div
-                style={{
-                  marginTop: 30,
-                  paddingTop: 26,
-                  borderTop: `1px solid ${soft}`,
-                  display: 'grid',
-                  justifyItems:
-                    pageBuilder.cta.alignment === 'center' ? 'center' : 'stretch',
-                  textAlign: pageBuilder.cta.alignment,
-                }}
-              >
+            <div style={{ order: variant === 'page' ? pageBuilder?.cta.order || 30 : 30 }}>
+              {variant === 'page' && pageBuilder?.cta.enabled ? (
+                <div
+                  style={{
+                    marginTop: 30,
+                    paddingTop: 26,
+                    borderTop: `1px solid ${soft}`,
+                    display: 'grid',
+                    justifyItems:
+                      pageBuilder.cta.alignment === 'center' ? 'center' : 'stretch',
+                    textAlign: pageBuilder.cta.alignment,
+                  }}
+                >
                 {pageBuilder.cta.label ? (
                   <div
                     style={{
@@ -1464,8 +1471,9 @@ export default function PortfolioShowcase({
                     </Link>
                   ) : null}
                 </div>
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>

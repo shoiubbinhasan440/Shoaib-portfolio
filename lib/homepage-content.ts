@@ -134,6 +134,7 @@ export type HomepageFooterSection = {
   enabled: boolean;
   order: number;
   layout: 'grid' | 'stacked';
+  stylePreset: 'cinematic' | 'minimal' | 'light';
   alignment: HomepageAlignment;
   width: HomepageWidthPreset;
   spacing: HomepageSpacingPreset;
@@ -141,6 +142,10 @@ export type HomepageFooterSection = {
   brandAccent: string;
   description: string;
   showDescription: boolean;
+  showCta: boolean;
+  ctaText: string;
+  ctaLink: string;
+  ctaCaption: string;
   showQuickLinks: boolean;
   showContact: boolean;
   showSocial: boolean;
@@ -249,6 +254,15 @@ function floatingCardPosition(
 
 function footerLayout(value: unknown, fallback: HomepageFooterSection['layout']): HomepageFooterSection['layout'] {
   return value === 'grid' || value === 'stacked' ? value : fallback;
+}
+
+function footerStylePreset(
+  value: unknown,
+  fallback: HomepageFooterSection['stylePreset']
+): HomepageFooterSection['stylePreset'] {
+  return value === 'cinematic' || value === 'minimal' || value === 'light'
+    ? value
+    : fallback;
 }
 
 function sanitizeStats(value: unknown, fallback: HomepageStatItem[]) {
@@ -435,6 +449,7 @@ export function createDefaultHomepageBuilderConfig(
       enabled: true,
       order: 70,
       layout: 'grid',
+      stylePreset: 'cinematic',
       alignment: 'left',
       width: 'full',
       spacing: 'balanced',
@@ -442,6 +457,10 @@ export function createDefaultHomepageBuilderConfig(
       brandAccent: '.',
       description: 'Video Editor & Graphic Designer',
       showDescription: true,
+      showCta: true,
+      ctaText: 'Start a Project',
+      ctaLink: '/contact',
+      ctaCaption: 'Ready for edits, graphics, and premium content systems.',
       showQuickLinks: true,
       showContact: true,
       showSocial: true,
@@ -590,6 +609,7 @@ function sanitizeFooter(value: unknown, fallback: HomepageFooterSection): Homepa
     enabled: bool(value.enabled, fallback.enabled),
     order: num(value.order, fallback.order),
     layout: footerLayout(value.layout, fallback.layout),
+    stylePreset: footerStylePreset(value.stylePreset, fallback.stylePreset),
     alignment: alignment(value.alignment, fallback.alignment),
     width: widthPreset(value.width, fallback.width),
     spacing: spacingPreset(value.spacing, fallback.spacing),
@@ -597,6 +617,10 @@ function sanitizeFooter(value: unknown, fallback: HomepageFooterSection): Homepa
     brandAccent: text(value.brandAccent, fallback.brandAccent),
     description: text(value.description, fallback.description),
     showDescription: bool(value.showDescription, fallback.showDescription),
+    showCta: bool(value.showCta, fallback.showCta),
+    ctaText: text(value.ctaText, fallback.ctaText),
+    ctaLink: text(value.ctaLink, fallback.ctaLink),
+    ctaCaption: text(value.ctaCaption, fallback.ctaCaption),
     showQuickLinks: bool(value.showQuickLinks, fallback.showQuickLinks),
     showContact: bool(value.showContact, fallback.showContact),
     showSocial: bool(value.showSocial, fallback.showSocial),

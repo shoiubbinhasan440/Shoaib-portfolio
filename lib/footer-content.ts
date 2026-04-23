@@ -52,6 +52,15 @@ function footerLayout(
   return value === 'grid' || value === 'stacked' ? value : fallback;
 }
 
+function footerStylePreset(
+  value: unknown,
+  fallback: HomepageFooterSection['stylePreset']
+): HomepageFooterSection['stylePreset'] {
+  return value === 'cinematic' || value === 'minimal' || value === 'light'
+    ? value
+    : fallback;
+}
+
 function sanitizeLinks(
   value: unknown,
   fallback: HomepageFooterSection['quickLinks']
@@ -105,6 +114,7 @@ function sanitizeFooter(
     enabled: bool(value.enabled, fallback.enabled),
     order: num(value.order, fallback.order),
     layout: footerLayout(value.layout, fallback.layout),
+    stylePreset: footerStylePreset(value.stylePreset, fallback.stylePreset),
     alignment: alignment(value.alignment, fallback.alignment),
     width: widthPreset(value.width, fallback.width),
     spacing: spacingPreset(value.spacing, fallback.spacing),
@@ -112,6 +122,10 @@ function sanitizeFooter(
     brandAccent: text(value.brandAccent, fallback.brandAccent),
     description: text(value.description, fallback.description),
     showDescription: bool(value.showDescription, fallback.showDescription),
+    showCta: bool(value.showCta, fallback.showCta),
+    ctaText: text(value.ctaText, fallback.ctaText),
+    ctaLink: text(value.ctaLink, fallback.ctaLink),
+    ctaCaption: text(value.ctaCaption, fallback.ctaCaption),
     showQuickLinks: bool(value.showQuickLinks, fallback.showQuickLinks),
     showContact: bool(value.showContact, fallback.showContact),
     showSocial: bool(value.showSocial, fallback.showSocial),

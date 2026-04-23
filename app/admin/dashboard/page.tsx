@@ -55,7 +55,10 @@ export default function AdminDashboard() {
   const menuItems = [
     { label: 'ভিডিও ম্যানেজার', desc: 'ভিডিও যোগ, এডিট, ডিলিট করুন', icon: '🎬', href: '/admin/videos' },
     { label: 'গ্রাফিক্স ম্যানেজার', desc: 'ছবি আপলোড ও ম্যানেজ করুন', icon: '🎨', href: '/admin/graphics' },
-    { label: 'Tutorial ম্যানেজার', desc: 'Tutorial যোগ ও এডিট করুন', icon: '🎓', href: '/admin/tutorials' },
+    { label: 'Portfolio Builder', desc: 'Portfolio page hero, tabs, filters, items আর CTA control করুন', icon: '🖼️', href: '/admin/portfolio' },
+    { label: 'Global Footer', desc: 'সব page-এর shared footer এক জায়গা থেকে update করুন', icon: '🦶', href: '/admin/footer' },
+    { label: 'Contact System', desc: 'Contact page builder + message inbox manage করুন', icon: '✉️', href: '/admin/contact' },
+    { label: 'Tutorial System', desc: 'Tutorial page builder + tutorial items manage করুন', icon: '🎓', href: '/admin/tutorials' },
     { label: 'ক্যাটাগরি ম্যানেজার', desc: 'ক্যাটাগরি যোগ ও এডিট করুন', icon: '📂', href: '/admin/categories' },
     { label: 'Homepage Builder', desc: 'Hero text/image, stats, showreel, portfolio preview, About, CTA আর footer সহ পুরো homepage control করুন', icon: '🧩', href: '/admin/homepage-portfolio' },
     { label: 'About System', desc: 'Homepage About + full About page customize করুন', icon: '👤', href: '/admin/about' },

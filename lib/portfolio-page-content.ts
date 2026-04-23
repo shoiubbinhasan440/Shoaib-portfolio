@@ -18,6 +18,7 @@ export type PortfolioPageGap = 'small' | 'medium' | 'large';
 
 export type PortfolioPageHeroConfig = {
   enabled: boolean;
+  order: number;
   badge: string;
   title: string;
   subtitle: string;
@@ -36,6 +37,7 @@ export type PortfolioPageHeroConfig = {
 
 export type PortfolioPageShowcaseConfig = {
   enabled: boolean;
+  order: number;
   showTabs: boolean;
   showCategoryFilters: boolean;
   alignment: PortfolioPageAlignment;
@@ -52,6 +54,7 @@ export type PortfolioPageShowcaseConfig = {
 
 export type PortfolioPageCtaConfig = {
   enabled: boolean;
+  order: number;
   label: string;
   title: string;
   description: string;
@@ -180,6 +183,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
     pageEnabled: true,
     hero: {
       enabled: true,
+      order: 10,
       badge: 'Portfolio Showcase',
       title,
       subtitle,
@@ -198,6 +202,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
     },
     showcase: {
       enabled: true,
+      order: 20,
       showTabs: true,
       showCategoryFilters: true,
       alignment: 'center',
@@ -213,6 +218,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
     },
     cta: {
       enabled: true,
+      order: 30,
       label: 'Need a premium edit system?',
       title: 'আপনার next project-এর জন্য ready to collaborate.',
       description:
@@ -273,6 +279,7 @@ function sanitizeHero(
 
   return {
     enabled: bool(value.enabled, fallback.enabled),
+    order: Math.min(100, Math.max(1, number(value.order, fallback.order))),
     badge: text(value.badge, fallback.badge),
     title: text(value.title, fallback.title),
     subtitle: text(value.subtitle, fallback.subtitle),
@@ -300,6 +307,7 @@ function sanitizeShowcase(
 
   return {
     enabled: bool(value.enabled, fallback.enabled),
+    order: Math.min(100, Math.max(1, number(value.order, fallback.order))),
     showTabs: bool(value.showTabs, fallback.showTabs),
     showCategoryFilters: bool(value.showCategoryFilters, fallback.showCategoryFilters),
     alignment: alignment(value.alignment, fallback.alignment),
@@ -325,6 +333,7 @@ function sanitizeCta(
 
   return {
     enabled: bool(value.enabled, fallback.enabled),
+    order: Math.min(100, Math.max(1, number(value.order, fallback.order))),
     label: text(value.label, fallback.label),
     title: text(value.title, fallback.title),
     description: text(value.description, fallback.description),

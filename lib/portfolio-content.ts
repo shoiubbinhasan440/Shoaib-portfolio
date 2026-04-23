@@ -1227,8 +1227,17 @@ export async function fetchPortfolioDataset(
     : supabase.from('videos').select('*').eq('visible', true).order('order_num', { ascending: true });
 
   const graphicQuery = includeHidden
-    ? supabase.from('graphics').select('*').order('created_at', { ascending: false })
-    : supabase.from('graphics').select('*').eq('visible', true).order('created_at', { ascending: false });
+    ? supabase
+        .from('graphics')
+        .select('*')
+        .order('order_num', { ascending: true })
+        .order('created_at', { ascending: false })
+    : supabase
+        .from('graphics')
+        .select('*')
+        .eq('visible', true)
+        .order('order_num', { ascending: true })
+        .order('created_at', { ascending: false });
 
   const [videoResponse, categoryResponse, graphicResponse] = await Promise.all([
     videoQuery,
@@ -1236,12 +1245,13 @@ export async function fetchPortfolioDataset(
     graphicQuery,
   ]);
 
-  const graphics = ((graphicResponse.data || []) as Array<Omit<PortfolioGraphic, 'order_num'>>).map(
-    (graphic, index) => ({
-      ...graphic,
-      order_num: 1000 + index,
-    })
-  );
+  const graphics = ((graphicResponse.data || []) as Array<PortfolioGraphic>).map((graphic, index) => ({
+    ...graphic,
+    order_num:
+      typeof graphic.order_num === 'number' && Number.isFinite(graphic.order_num)
+        ? graphic.order_num
+        : 1000 + index,
+  }));
 
   return {
     videos: (videoResponse.data || []) as PortfolioVideo[],

@@ -73,19 +73,80 @@ export default function GlobalFooter({
     return null;
   }
 
-  const text = dark ? '#f8fafc' : '#0f172a';
-  const muted = dark ? '#94a3b8' : '#64748b';
+  const stylePreset = config.stylePreset || 'cinematic';
+  const text =
+    stylePreset === 'light' && !dark ? '#0f172a' : dark ? '#f8fafc' : '#0f172a';
+  const muted =
+    stylePreset === 'light' && !dark ? '#475569' : dark ? '#94a3b8' : '#64748b';
   const border = dark ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.08)';
+  const background =
+    stylePreset === 'minimal'
+      ? dark
+        ? '#04070f'
+        : '#ffffff'
+      : stylePreset === 'light'
+        ? dark
+          ? '#050505'
+          : 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.96))'
+        : dark
+          ? 'radial-gradient(circle at 12% 0%, rgba(37,99,235,0.12), transparent 32%), #050505'
+          : 'radial-gradient(circle at 12% 0%, rgba(37,99,235,0.08), transparent 28%), #ffffff';
 
   return (
     <footer
       style={{
         borderTop: `1px solid ${border}`,
         padding: getSectionPadding(config.spacing, isMobile),
-        background: dark ? '#050505' : '#fff',
+        background,
       }}
     >
       <div style={{ maxWidth: getSectionMaxWidth(config.width), margin: '0 auto' }}>
+        {config.showCta && config.ctaText && config.ctaLink ? (
+          <div
+            style={{
+              marginBottom: 28,
+              padding: isMobile ? '20px 18px' : '22px 24px',
+              borderRadius: 22,
+              border: `1px solid ${border}`,
+              background: dark
+                ? 'linear-gradient(135deg, rgba(15,23,42,0.7), rgba(2,6,23,0.92))'
+                : 'linear-gradient(135deg, rgba(239,246,255,0.88), rgba(255,255,255,0.96))',
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 16,
+              alignItems: isMobile ? 'flex-start' : 'center',
+              flexDirection: isMobile ? 'column' : 'row',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: text, marginBottom: config.ctaCaption ? 6 : 0 }}>
+                Global Footer CTA
+              </div>
+              {config.ctaCaption ? (
+                <div style={{ fontSize: 14, color: muted, lineHeight: 1.7 }}>{config.ctaCaption}</div>
+              ) : null}
+            </div>
+            <FooterLink href={config.ctaLink}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  minHeight: 46,
+                  padding: '12px 18px',
+                  borderRadius: 14,
+                  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  color: '#fff',
+                  fontWeight: 700,
+                }}
+              >
+                {config.ctaText}
+                <span>→</span>
+              </span>
+            </FooterLink>
+          </div>
+        ) : null}
+
         <div
           style={{
             display: 'grid',
