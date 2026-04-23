@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import {
-  createContactMessage,
-  deleteContactMessage,
-  getContactMessages,
-  updateContactMessage,
-} from '@/lib/contact-messages';
+  createContactLead,
+  deleteContactLead,
+  getContactLeads,
+  updateContactLead,
+  type LeadCategory,
+  type LeadPriority,
+  type LeadStatus,
+  type PreferredContactMethod,
+  type ServiceType,
+  type LeadIntent,
+  type BriefStatus,
+} from '@/lib/crm';
+import { hasAdminSession } from '@/lib/auth-sessions';
 import { getSupabaseAdminClient } from '@/lib/supabase-admin';
 
 function isAdminRequest(request: NextRequest) {
-  return Boolean(request.cookies.get('admin_token')?.value);
+  return hasAdminSession(request);
 }
 
 function badRequest(message: string, status = 400) {
@@ -19,34 +27,81 @@ function badRequest(message: string, status = 400) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
+      attachmentLink?: string;
+      budgetRange?: string;
+      deadline?: string;
       name?: string;
       email?: string;
-      subject?: string;
+      intentCategory?: LeadIntent | string;
       message?: string;
+      mobileNumber?: string;
+      preferredContactMethod?: PreferredContactMethod | string;
+      projectType?: string;
+      serviceType?: ServiceType | string;
+      whatsappNumber?: string;
     };
 
     const name = body.name?.trim() || '';
     const email = body.email?.trim() || '';
-    const subject = body.subject?.trim() || '';
     const message = body.message?.trim() || '';
+    const mobileNumber = body.mobileNumber?.trim() || '';
+    const whatsappNumber = body.whatsappNumber?.trim() || '';
+    const serviceType = body.serviceType?.trim() || '';
+    const projectType = body.projectType?.trim() || '';
+    const budgetRange = body.budgetRange?.trim() || '';
+    const deadline = body.deadline?.trim() || '';
+    const attachmentLink = body.attachmentLink?.trim() || '';
+    const preferredContactMethod = body.preferredContactMethod?.trim() || '';
+    const intentCategory = body.intentCategory?.trim() || '';
 
-    if (!name || !email || !message) {
-      return badRequest('Name, email and message are required.');
+    if (
+      !name ||
+      !email ||
+      !mobileNumber ||
+      !whatsappNumber ||
+      !serviceType ||
+      !projectType ||
+      !budgetRange ||
+      !deadline ||
+      !message ||
+      !preferredContactMethod ||
+      !intentCategory
+    ) {
+      return badRequest('Please complete all required contact form fields.');
     }
 
-    if (name.length > 120 || email.length > 180 || subject.length > 180 || message.length > 4000) {
-      return badRequest('Submitted message is too long.');
+    if (
+      name.length > 120 ||
+      email.length > 180 ||
+      mobileNumber.length > 30 ||
+      whatsappNumber.length > 30 ||
+      serviceType.length > 80 ||
+      projectType.length > 180 ||
+      budgetRange.length > 120 ||
+      deadline.length > 40 ||
+      message.length > 4000 ||
+      attachmentLink.length > 500
+    ) {
+      return badRequest('Submitted form data is too long.');
     }
 
     const supabase = getSupabaseAdminClient();
-    const created = await createContactMessage(supabase, {
+    const created = await createContactLead(supabase, {
+      attachmentLink,
+      budgetRange,
+      deadline,
+      intentCategory,
+      message,
+      mobileNumber,
       name,
       email,
-      subject,
-      message,
+      preferredContactMethod,
+      projectType,
+      serviceType,
+      whatsappNumber,
     });
 
-    return NextResponse.json({ ok: true, message: created });
+    return NextResponse.json({ ok: true, lead: created });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Contact submission failed.';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -60,8 +115,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = getSupabaseAdminClient();
-    const messages = await getContactMessages(supabase);
-    return NextResponse.json({ messages });
+    const leads = await getContactLeads(supabase);
+    return NextResponse.json({ leads });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load messages.';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -75,9 +130,19 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = (await request.json()) as {
-      id?: string;
-      read?: boolean;
       archived?: boolean;
+      briefStatus?: BriefStatus;
+      category?: LeadCategory;
+      id?: string;
+      important?: boolean;
+      lastContactedAt?: string;
+      preferredContactMethod?: PreferredContactMethod;
+      priority?: LeadPriority;
+      projectId?: string;
+      read?: boolean;
+      serviceType?: ServiceType;
+      status?: LeadStatus;
+      whatsappNumber?: string;
     };
 
     if (!body.id) {
@@ -85,12 +150,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = getSupabaseAdminClient();
-    const message = await updateContactMessage(supabase, body.id, {
-      read: typeof body.read === 'boolean' ? body.read : undefined,
+    const lead = await updateContactLead(supabase, body.id, {
       archived: typeof body.archived === 'boolean' ? body.archived : undefined,
+      briefStatus: body.briefStatus,
+      category: body.category,
+      important: typeof body.important === 'boolean' ? body.important : undefined,
+      lastContactedAt: body.lastContactedAt,
+      preferredContactMethod: body.preferredContactMethod,
+      priority: body.priority,
+      projectId: body.projectId,
+      read: typeof body.read === 'boolean' ? body.read : undefined,
+      serviceType: body.serviceType,
+      status: body.status,
+      whatsappNumber: body.whatsappNumber,
     });
 
-    return NextResponse.json({ ok: true, message });
+    return NextResponse.json({ ok: true, lead });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update message.';
     return NextResponse.json({ error: message }, { status: 500 });
@@ -109,7 +184,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = getSupabaseAdminClient();
-    await deleteContactMessage(supabase, id);
+    await deleteContactLead(supabase, id);
 
     return NextResponse.json({ ok: true });
   } catch (error) {

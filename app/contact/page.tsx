@@ -6,6 +6,11 @@ import { createClient } from '@supabase/supabase-js';
 import { useTheme } from '@/components/ThemeProvider';
 import GlobalFooter from '@/components/shared/GlobalFooter';
 import { getContactPageConfig, type ContactPageConfig } from '@/lib/contact-content';
+import {
+  LEAD_INTENT_OPTIONS,
+  PREFERRED_CONTACT_OPTIONS,
+  SERVICE_TYPE_OPTIONS,
+} from '@/lib/crm-shared';
 import { getGlobalFooterConfig } from '@/lib/footer-content';
 import { toSettingMap, type SettingRow } from '@/lib/hero-settings';
 import { createDefaultHomepageBuilderConfig } from '@/lib/homepage-content';
@@ -17,10 +22,18 @@ const supabase = createClient(
 );
 
 type ContactFormState = {
+  attachmentLink: string;
+  budgetRange: string;
+  deadline: string;
   name: string;
   email: string;
-  subject: string;
+  intentCategory: string;
   message: string;
+  mobileNumber: string;
+  preferredContactMethod: string;
+  projectType: string;
+  serviceType: string;
+  whatsappNumber: string;
 };
 
 function getMaxWidth(width: ContactPageConfig['hero']['width']) {
@@ -66,10 +79,18 @@ export default function ContactPage() {
   }>({ type: '', message: '' });
   const [sent, setSent] = useState(false);
   const [form, setForm] = useState<ContactFormState>({
+    attachmentLink: '',
+    budgetRange: '',
+    deadline: '',
     name: '',
     email: '',
-    subject: '',
+    intentCategory: 'Work Inquiry',
     message: '',
+    mobileNumber: '',
+    preferredContactMethod: 'WhatsApp',
+    projectType: '',
+    serviceType: 'Video Editing',
+    whatsappNumber: '',
   });
 
   useEffect(() => {
@@ -107,10 +128,18 @@ export default function ContactPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          attachmentLink: form.attachmentLink,
+          budgetRange: form.budgetRange,
+          deadline: form.deadline,
+          intentCategory: form.intentCategory,
+          mobileNumber: form.mobileNumber,
           name: form.name,
           email: form.email,
-          subject: pageConfig.formSection.showSubjectField ? form.subject : '',
           message: form.message,
+          preferredContactMethod: form.preferredContactMethod,
+          projectType: form.projectType,
+          serviceType: form.serviceType,
+          whatsappNumber: form.whatsappNumber,
         }),
       });
 
@@ -126,10 +155,18 @@ export default function ContactPage() {
         message: pageConfig.formSection.successMessage,
       });
       setForm({
+        attachmentLink: '',
+        budgetRange: '',
+        deadline: '',
         name: '',
         email: '',
-        subject: '',
+        intentCategory: 'Work Inquiry',
         message: '',
+        mobileNumber: '',
+        preferredContactMethod: 'WhatsApp',
+        projectType: '',
+        serviceType: 'Video Editing',
+        whatsappNumber: '',
       });
     } catch (error) {
       const message =
@@ -749,18 +786,15 @@ export default function ContactPage() {
                     }}
                   />
                 </label>
-              </div>
-
-              {section.showSubjectField ? (
                 <label style={{ display: 'grid', gap: 8 }}>
-                  <span style={{ fontSize: 12, color: muted }}>বিষয়</span>
+                  <span style={{ fontSize: 12, color: muted }}>মোবাইল নাম্বার</span>
                   <input
-                    value={form.subject}
+                    value={form.mobileNumber}
                     onChange={event =>
-                      setForm(current => ({ ...current, subject: event.target.value }))
+                      setForm(current => ({ ...current, mobileNumber: event.target.value }))
                     }
-                    required={section.showSubjectField}
-                    placeholder="যেমন: Branding Video Editing"
+                    required
+                    placeholder="+8801XXXXXXXXX"
                     style={{
                       width: '100%',
                       background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
@@ -773,10 +807,205 @@ export default function ContactPage() {
                     }}
                   />
                 </label>
-              ) : null}
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>WhatsApp নাম্বার</span>
+                  <input
+                    value={form.whatsappNumber}
+                    onChange={event =>
+                      setForm(current => ({ ...current, whatsappNumber: event.target.value }))
+                    }
+                    required
+                    placeholder="+8801XXXXXXXXX"
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>Service type</span>
+                  <select
+                    value={form.serviceType}
+                    onChange={event =>
+                      setForm(current => ({ ...current, serviceType: event.target.value }))
+                    }
+                    required
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {SERVICE_TYPE_OPTIONS.map(option => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>Intent / category</span>
+                  <select
+                    value={form.intentCategory}
+                    onChange={event =>
+                      setForm(current => ({ ...current, intentCategory: event.target.value }))
+                    }
+                    required
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {LEAD_INTENT_OPTIONS.map(option => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                  gap: 16,
+                }}
+              >
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>Project type</span>
+                  <input
+                    value={form.projectType}
+                    onChange={event =>
+                      setForm(current => ({ ...current, projectType: event.target.value }))
+                    }
+                    required
+                    placeholder="YouTube campaign, brand reel, logo system..."
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>Budget range</span>
+                  <input
+                    value={form.budgetRange}
+                    onChange={event =>
+                      setForm(current => ({ ...current, budgetRange: event.target.value }))
+                    }
+                    required
+                    placeholder="$300 - $600"
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>Deadline</span>
+                  <input
+                    value={form.deadline}
+                    onChange={event =>
+                      setForm(current => ({ ...current, deadline: event.target.value }))
+                    }
+                    required
+                    placeholder="May 15, 2026"
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: muted }}>Preferred contact method</span>
+                  <select
+                    value={form.preferredContactMethod}
+                    onChange={event =>
+                      setForm(current => ({
+                        ...current,
+                        preferredContactMethod: event.target.value,
+                      }))
+                    }
+                    required
+                    style={{
+                      width: '100%',
+                      background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                      border: `1px solid ${soft}`,
+                      borderRadius: 14,
+                      color: text,
+                      padding: '13px 14px',
+                      fontSize: 14,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {PREFERRED_CONTACT_OPTIONS.map(option => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
               <label style={{ display: 'grid', gap: 8 }}>
-                <span style={{ fontSize: 12, color: muted }}>বার্তা</span>
+                <span style={{ fontSize: 12, color: muted }}>Optional file / link</span>
+                <input
+                  value={form.attachmentLink}
+                  onChange={event =>
+                    setForm(current => ({ ...current, attachmentLink: event.target.value }))
+                  }
+                  placeholder="Google Drive, Figma, Behance, Dropbox..."
+                  style={{
+                    width: '100%',
+                    background: dark ? '#020617' : 'rgba(255,255,255,0.92)',
+                    border: `1px solid ${soft}`,
+                    borderRadius: 14,
+                    color: text,
+                    padding: '13px 14px',
+                    fontSize: 14,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'grid', gap: 8 }}>
+                <span style={{ fontSize: 12, color: muted }}>Project details / message</span>
                 <textarea
                   value={form.message}
                   onChange={event =>

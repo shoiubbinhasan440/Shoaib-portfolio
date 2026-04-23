@@ -15,18 +15,23 @@ export default function AdminLogin() {
     setLoading(true);
     setError('');
 
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (email === adminEmail && password === adminPassword) {
-      // cookie সেট করুন (middleware এটা চেক করে)
-      const token = btoa(email + ':' + Date.now());
-      document.cookie = `admin_token=${token}; path=/; max-age=86400`; // ২৪ ঘণ্টা
-      // localStorage-এও রাখুন (পেজের ভেতরে চেকের জন্য)
-      localStorage.setItem('admin_token', token);
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(result.error || 'লগইন ব্যর্থ হয়েছে।');
+      }
+
+      localStorage.setItem('admin_token', 'active');
       router.push('/admin/dashboard');
-    } else {
-      setError('ইমেইল বা পাসওয়ার্ড ভুল।');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'ইমেইল বা পাসওয়ার্ড ভুল।');
+    } finally {
       setLoading(false);
     }
   };

@@ -1,13 +1,25 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import {
+  CLIENT_SESSION_COOKIE,
+  verifyAdminSessionToken,
+  verifyClientSessionToken,
+} from '@/lib/auth-sessions';
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     const token = request.cookies.get('admin_token')?.value;
-    if (!token) {
+    if (!verifyAdminSessionToken(token)) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
+    }
+  }
+
+  if (pathname.startsWith('/client/dashboard')) {
+    const token = request.cookies.get(CLIENT_SESSION_COOKIE)?.value;
+    if (!verifyClientSessionToken(token)) {
+      return NextResponse.redirect(new URL('/client/login', request.url));
     }
   }
 
@@ -15,5 +27,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/client/dashboard', '/client/dashboard/:path*'],
 };

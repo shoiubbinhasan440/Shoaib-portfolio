@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import {
@@ -13,7 +13,6 @@ import {
   type ContactPageConfig,
   serializeContactPageConfig,
 } from '@/lib/contact-content';
-import type { ContactMessage } from '@/lib/contact-messages';
 import { toSettingMap } from '@/lib/hero-settings';
 import { writeSiteSetting } from '@/lib/site-settings';
 
@@ -227,29 +226,15 @@ function MediaField({
 export default function ContactAdminPage() {
   const router = useRouter();
   const [pageConfig, setPageConfig] = useState<ContactPageConfig | null>(null);
-  const [messages, setMessages] = useState<ContactMessage[]>([]);
-  const [selectedMessageId, setSelectedMessageId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [syncingMessages, setSyncingMessages] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [msg, setMsg] = useState('');
 
   async function loadSystem() {
-    const [settingsResult, messageResult] = await Promise.all([
-      supabase.from('site_settings').select('*'),
-      fetch('/api/contact').then(async response => {
-        if (!response.ok) {
-          throw new Error('Failed to load contact inbox.');
-        }
-
-        return (await response.json()) as { messages: ContactMessage[] };
-      }),
-    ]);
-
-    const map = toSettingMap(settingsResult.data || []);
+    const { data: settingsRows } = await supabase.from('site_settings').select('*');
+    const map = toSettingMap(settingsRows || []);
     setPageConfig(getContactPageConfig(map));
-    setMessages(messageResult.messages || []);
   }
 
   useEffect(() => {
@@ -286,11 +271,6 @@ export default function ContactAdminPage() {
     resize: 'vertical',
     minHeight: 96,
   };
-
-  const selectedMessage = useMemo(
-    () => messages.find(item => item.id === selectedMessageId) || messages[0] || null,
-    [messages, selectedMessageId]
-  );
 
   function updateHero<K extends keyof ContactPageConfig['hero']>(
     key: K,
@@ -386,51 +366,6 @@ export default function ContactAdminPage() {
     }
   }
 
-  async function patchMessage(id: string, patch: { read?: boolean; archived?: boolean }) {
-    setSyncingMessages(true);
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, ...patch }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update contact message.');
-      }
-
-      await loadSystem();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Message update failed.';
-      setMsg(`❌ ${message}`);
-      setTimeout(() => setMsg(''), 4200);
-    } finally {
-      setSyncingMessages(false);
-    }
-  }
-
-  async function removeMessage(id: string) {
-    setSyncingMessages(true);
-    try {
-      const response = await fetch(`/api/contact?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete contact message.');
-      }
-
-      await loadSystem();
-      setSelectedMessageId('');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Message delete failed.';
-      setMsg(`❌ ${message}`);
-      setTimeout(() => setMsg(''), 4200);
-    } finally {
-      setSyncingMessages(false);
-    }
-  }
-
   if (loading || !pageConfig) {
     return (
       <div
@@ -447,8 +382,6 @@ export default function ContactAdminPage() {
       </div>
     );
   }
-
-  const unreadCount = messages.filter(message => !message.read && !message.archived).length;
 
   return (
     <div
@@ -475,10 +408,10 @@ export default function ContactAdminPage() {
             Contact Page Builder
           </div>
           <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-0.05em' }}>
-            Contact page + message inbox
+            Contact page builder
           </h1>
           <p style={{ margin: '8px 0 0', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
-            Contact page content, layout, CTA, info cards, socials এবং submitted messages এক জায়গা থেকে control করুন।
+            Contact page content, layout, CTA, info cards, socials, আর workflow messaging এখান থেকে control করুন।
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -1154,169 +1087,53 @@ export default function ContactAdminPage() {
         </Panel>
 
         <Panel
-          title="Admin Inbox"
-          description="Submitted contact messages read, archive, and delete করুন।"
+          title="Admin Inbox Moved"
+          description="Lead management, WhatsApp replies, briefs, এবং project conversion এখন dedicated inbox page-এ আছে।"
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 0.46fr) minmax(0, 1fr)', gap: 18 }}>
-            <div style={{ display: 'grid', gap: 12 }}>
-              <div
+          <div
+            style={{
+              borderRadius: 24,
+              border: '1px solid rgba(56,189,248,0.18)',
+              background: 'linear-gradient(145deg, rgba(15,23,42,0.82), rgba(8,47,73,0.2))',
+              padding: 22,
+              display: 'grid',
+              gap: 14,
+            }}
+          >
+            <div style={{ color: '#e2e8f0', fontSize: 16, lineHeight: 1.8 }}>
+              Contact page builder এখন public page content-এর জন্য dedicated রয়েছে। সব submitted leads, filters, WhatsApp reply actions, brief links, templates, আর lead-to-project conversion এখন `/admin/inbox` page-এ।
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => router.push('/admin/inbox')}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '12px 14px',
-                  borderRadius: 16,
-                  border: '1px solid rgba(148,163,184,0.14)',
-                  background: '#020617',
+                  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 14,
+                  padding: '11px 16px',
+                  cursor: 'pointer',
+                  fontWeight: 800,
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 800 }}>Messages</div>
-                  <div style={{ color: '#94a3b8', fontSize: 13 }}>
-                    {messages.length} total · {unreadCount} unread
-                  </div>
-                </div>
-                {syncingMessages ? <div style={{ color: '#38bdf8', fontSize: 12 }}>Syncing...</div> : null}
-              </div>
-
-              {messages.length === 0 ? (
-                <div
-                  style={{
-                    background: '#020617',
-                    border: '1px dashed rgba(148,163,184,0.18)',
-                    borderRadius: 18,
-                    padding: 18,
-                    color: '#94a3b8',
-                    fontSize: 14,
-                  }}
-                >
-                  এখনো কোনো message আসেনি।
-                </div>
-              ) : (
-                messages.map(message => (
-                  <button
-                    key={message.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageId(message.id);
-                      if (!message.read) {
-                        void patchMessage(message.id, { read: true });
-                      }
-                    }}
-                    style={{
-                      textAlign: 'left',
-                      background:
-                        selectedMessage?.id === message.id
-                          ? 'rgba(37,99,235,0.18)'
-                          : '#020617',
-                      border: `1px solid ${selectedMessage?.id === message.id ? 'rgba(59,130,246,0.36)' : 'rgba(148,163,184,0.14)'}`,
-                      borderRadius: 18,
-                      padding: 14,
-                      cursor: 'pointer',
-                      color: '#fff',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-                      <div style={{ fontWeight: 800 }}>{message.name}</div>
-                      {!message.read ? (
-                        <span style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                          Unread
-                        </span>
-                      ) : null}
-                    </div>
-                    <div style={{ color: '#cbd5e1', fontSize: 13, marginBottom: 6 }}>{message.email}</div>
-                    <div style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.6 }}>
-                      {(message.subject || message.message).slice(0, 90)}
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: 11, marginTop: 10 }}>
-                      {new Date(message.createdAt).toLocaleString('en-GB')}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <div
-              style={{
-                background: '#020617',
-                border: '1px solid rgba(148,163,184,0.14)',
-                borderRadius: 24,
-                padding: 20,
-                minHeight: 420,
-              }}
-            >
-              {selectedMessage ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 18 }}>
-                    <div>
-                      <h3 style={{ margin: '0 0 6px', fontSize: 24, letterSpacing: '-0.04em' }}>{selectedMessage.name}</h3>
-                      <div style={{ color: '#94a3b8', fontSize: 14 }}>{selectedMessage.email}</div>
-                      <div style={{ color: '#64748b', fontSize: 12, marginTop: 6 }}>
-                        {new Date(selectedMessage.createdAt).toLocaleString('en-GB')}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => void patchMessage(selectedMessage.id, { read: !selectedMessage.read })}
-                        style={{ background: '#111827', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.16)', borderRadius: 12, padding: '9px 12px', cursor: 'pointer' }}
-                      >
-                        {selectedMessage.read ? 'Mark Unread' : 'Mark Read'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void patchMessage(selectedMessage.id, { archived: !selectedMessage.archived })}
-                        style={{ background: '#111827', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.16)', borderRadius: 12, padding: '9px 12px', cursor: 'pointer' }}
-                      >
-                        {selectedMessage.archived ? 'Unarchive' : 'Archive'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void removeMessage(selectedMessage.id)}
-                        style={{ background: '#1f172a', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.18)', borderRadius: 12, padding: '9px 12px', cursor: 'pointer' }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  {selectedMessage.subject ? (
-                    <div
-                      style={{
-                        marginBottom: 16,
-                        padding: '12px 14px',
-                        borderRadius: 16,
-                        background: 'rgba(15,23,42,0.52)',
-                        border: '1px solid rgba(148,163,184,0.12)',
-                      }}
-                    >
-                      <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }}>Subject</div>
-                      <div style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>
-                        {selectedMessage.subject}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div
-                    style={{
-                      padding: '16px 18px',
-                      borderRadius: 20,
-                      background: 'rgba(15,23,42,0.42)',
-                      border: '1px solid rgba(148,163,184,0.12)',
-                      color: '#e2e8f0',
-                      fontSize: 15,
-                      lineHeight: 1.9,
-                      whiteSpace: 'pre-wrap',
-                    }}
-                  >
-                    {selectedMessage.message}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: '#94a3b8', display: 'grid', placeItems: 'center', minHeight: 360 }}>
-                  Select a message to read it here.
-                </div>
-              )}
+                Open Inbox
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/admin/projects')}
+                style={{
+                  background: '#111827',
+                  color: '#e2e8f0',
+                  border: '1px solid rgba(148,163,184,0.16)',
+                  borderRadius: 14,
+                  padding: '11px 16px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                }}
+              >
+                Open Projects
+              </button>
             </div>
           </div>
         </Panel>
