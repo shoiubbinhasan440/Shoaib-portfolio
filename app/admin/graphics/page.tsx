@@ -42,6 +42,7 @@ const BLANK = {
   showOnHomepage: true,
   homepageOrder: 0,
   homepageFeatured: false,
+  previewEnabled: true,
 };
 
 export default function AdminGraphics() {
@@ -188,6 +189,7 @@ export default function AdminGraphics() {
       showOnHomepage: homepageState.showOnHomepage,
       homepageOrder: homepageState.homepageOrder,
       homepageFeatured: homepageState.homepageFeatured,
+      previewEnabled: homepageState.previewEnabled,
     });
     setError('');
     setShowForm(true);
@@ -248,6 +250,7 @@ export default function AdminGraphics() {
             showOnHomepage: form.showOnHomepage,
             homepageOrder: nextHomepageOrder,
             homepageFeatured: form.homepageFeatured,
+            previewEnabled: form.previewEnabled,
           },
         };
         await saveHomepageConfig(nextHomepageConfig);
@@ -483,6 +486,11 @@ export default function AdminGraphics() {
                         ✨ Featured
                       </span>
                     )}
+                    {!homepageState.previewEnabled && (
+                      <span style={{ background: '#2a0f0f', color: '#fca5a5', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #7f1d1d' }}>
+                        🚫 No Preview
+                      </span>
+                    )}
                     <span style={{ fontSize: 11, color: '#666' }}>ক্রম: {homepageState.homepageOrder}</span>
                   </div>
                 </div>
@@ -602,6 +610,12 @@ export default function AdminGraphics() {
                 <input type="checkbox" id="homepageFeatured" checked={form.homepageFeatured} onChange={e => setForm({ ...form, homepageFeatured: e.target.checked })}
                   style={{ width: 16, height: 16, cursor: 'pointer' }} />
                 <label htmlFor="homepageFeatured" style={{ fontSize: 13, color: '#aaa', cursor: 'pointer' }}>Homepage-এ featured priority দিন</label>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input type="checkbox" id="previewEnabled" checked={form.previewEnabled} onChange={e => setForm({ ...form, previewEnabled: e.target.checked })}
+                  style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                <label htmlFor="previewEnabled" style={{ fontSize: 13, color: '#aaa', cursor: 'pointer' }}>Homepage card থেকে preview modal চালু রাখুন</label>
               </div>
             </div>
 

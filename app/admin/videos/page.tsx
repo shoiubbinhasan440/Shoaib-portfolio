@@ -50,6 +50,7 @@ const EMPTY_FORM = {
   showOnHomepage: true,
   homepageOrder: 0,
   homepageFeatured: false,
+  previewEnabled: true,
 };
 
 export default function AdminVideos() {
@@ -237,6 +238,7 @@ export default function AdminVideos() {
             showOnHomepage: form.showOnHomepage,
             homepageOrder: nextHomepageOrder,
             homepageFeatured: form.homepageFeatured,
+            previewEnabled: form.previewEnabled,
           },
         };
         await saveHomepageConfig(nextHomepageConfig);
@@ -268,6 +270,7 @@ export default function AdminVideos() {
       showOnHomepage: homepageState.showOnHomepage,
       homepageOrder: homepageState.homepageOrder,
       homepageFeatured: homepageState.homepageFeatured,
+      previewEnabled: homepageState.previewEnabled,
     });
     setEditingId(v.id);
     setShowForm(true);
@@ -522,6 +525,16 @@ export default function AdminVideos() {
                 />
                 <label htmlFor="homepageFeatured" style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }}>Homepage-এ featured priority দিন</label>
               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <input
+                  type="checkbox"
+                  id="previewEnabled"
+                  checked={form.previewEnabled}
+                  onChange={e => setForm(f => ({ ...f, previewEnabled: e.target.checked }))}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+                <label htmlFor="previewEnabled" style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }}>Homepage card থেকে preview modal চালু রাখুন</label>
+              </div>
             </div>
             <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
               <button
@@ -582,12 +595,14 @@ export default function AdminVideos() {
                     {!v.visible && <span style={{ background: '#1a1a1a', color: '#666', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #333' }}>লুকানো</span>}
                     {homepageState.showOnHomepage && <span style={{ background: '#10233a', color: '#7dd3fc', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #1e3a5f' }}>🏠 Homepage</span>}
                     {homepageState.homepageFeatured && <span style={{ background: '#1b2542', color: '#a5b4fc', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #312e81' }}>✨ Featured</span>}
+                    {!homepageState.previewEnabled && <span style={{ background: '#2a0f0f', color: '#fca5a5', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #7f1d1d' }}>🚫 No Preview</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#666', flexWrap: 'wrap' }}>
                     <span>📁 {categories.find(c => c.slug === v.category)?.name || v.category}</span>
                     <span>🔢 ক্রম: {v.order_num}</span>
                     <span>🏠 Homepage ক্রম: {homepageState.homepageOrder}</span>
                     <span>{homepageState.showOnHomepage ? '👁 Homepage visible' : '🙈 Homepage hidden'}</span>
+                    <span>{homepageState.previewEnabled ? '🎞 Preview enabled' : '🚫 Preview disabled'}</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'center' }}>

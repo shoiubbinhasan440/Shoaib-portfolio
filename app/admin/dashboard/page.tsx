@@ -57,9 +57,9 @@ export default function AdminDashboard() {
     { label: 'গ্রাফিক্স ম্যানেজার', desc: 'ছবি আপলোড ও ম্যানেজ করুন', icon: '🎨', href: '/admin/graphics' },
     { label: 'Tutorial ম্যানেজার', desc: 'Tutorial যোগ ও এডিট করুন', icon: '🎓', href: '/admin/tutorials' },
     { label: 'ক্যাটাগরি ম্যানেজার', desc: 'ক্যাটাগরি যোগ ও এডিট করুন', icon: '📂', href: '/admin/categories' },
-    { label: 'হোম পেজ এডিটর', desc: 'Hero, Showreel, Stats আপডেট করুন', icon: '🏠', href: '/admin/settings' },
+    { label: 'Homepage Builder', desc: 'Hero text/image, stats, showreel, portfolio preview, About, CTA আর footer সহ পুরো homepage control করুন', icon: '🧩', href: '/admin/homepage-portfolio' },
+    { label: 'About System', desc: 'Homepage About + full About page customize করুন', icon: '👤', href: '/admin/about' },
     { label: 'নেভিগেশন এডিটর', desc: 'মেনু আইটেম ম্যানেজ করুন', icon: '🧭', href: '/admin/navigation' },
-    { label: 'Visual Editor', desc: 'Website এর সব text, font, color এডিট করুন', icon: '✏️', href: '/admin/editor' },
     { label: 'পোর্টফোলিও দেখুন', desc: 'লাইভ সাইট দেখুন', icon: '🌐', href: '/' },
   ];
 
