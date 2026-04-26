@@ -1,4 +1,9 @@
 import { parseStyledSetting, type SettingMap } from '@/lib/hero-settings';
+import {
+  createDefaultBuilderSectionStyles,
+  sanitizeBuilderSectionStyles,
+  type BuilderSectionStyles,
+} from '@/lib/page-builder-styles';
 
 export const TUTORIAL_PAGE_SETTING_KEY = 'tutorial_page_config';
 
@@ -39,6 +44,7 @@ export type TutorialPageHeroConfig = {
   primaryButtonText: string;
   primaryButtonLink: string;
   stats: TutorialStatItem[];
+  styles: BuilderSectionStyles;
 };
 
 export type TutorialPageShowcaseConfig = {
@@ -62,6 +68,7 @@ export type TutorialPageShowcaseConfig = {
   allLevelLabel: string;
   emptyTitle: string;
   emptyDescription: string;
+  styles: BuilderSectionStyles;
 };
 
 export type TutorialPageCtaConfig = {
@@ -76,6 +83,7 @@ export type TutorialPageCtaConfig = {
   showButton: boolean;
   buttonText: string;
   buttonLink: string;
+  styles: BuilderSectionStyles;
 };
 
 export type TutorialPageConfig = {
@@ -193,6 +201,7 @@ function sanitizeHero(
     primaryButtonText: text(value.primaryButtonText, fallback.primaryButtonText),
     primaryButtonLink: text(value.primaryButtonLink, fallback.primaryButtonLink),
     stats: sanitizeStats(value.stats, fallback.stats),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -225,6 +234,7 @@ function sanitizeShowcase(
     allLevelLabel: text(value.allLevelLabel, fallback.allLevelLabel),
     emptyTitle: text(value.emptyTitle, fallback.emptyTitle),
     emptyDescription: text(value.emptyDescription, fallback.emptyDescription),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -248,6 +258,7 @@ function sanitizeCta(
     showButton: bool(value.showButton, fallback.showButton),
     buttonText: text(value.buttonText, fallback.buttonText),
     buttonLink: text(value.buttonLink, fallback.buttonLink),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -275,6 +286,7 @@ export function createDefaultTutorialPageConfig(tutorialCount = 0): TutorialPage
         { id: 'free', value: '100%', label: 'Free Content', enabled: true, order: 2 },
         { id: 'language', value: 'বাংলা', label: 'Language', enabled: true, order: 3 },
       ],
+      styles: createDefaultBuilderSectionStyles(),
     },
     showcase: {
       enabled: true,
@@ -297,6 +309,7 @@ export function createDefaultTutorialPageConfig(tutorialCount = 0): TutorialPage
       allLevelLabel: 'সব লেভেল',
       emptyTitle: 'এখনও কোনো tutorial পাওয়া যায়নি',
       emptyDescription: 'Admin panel থেকে tutorial যোগ করুন বা filter বদলে আবার দেখুন।',
+      styles: createDefaultBuilderSectionStyles(),
     },
     cta: {
       enabled: true,
@@ -311,6 +324,7 @@ export function createDefaultTutorialPageConfig(tutorialCount = 0): TutorialPage
       showButton: true,
       buttonText: 'Start a Project',
       buttonLink: '/contact',
+      styles: createDefaultBuilderSectionStyles(),
     },
     categoryConfig: {},
   };

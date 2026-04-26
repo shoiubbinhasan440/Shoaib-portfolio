@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import AdminShell from '@/components/admin/AdminShell';
+import PageStyleEditor from '@/components/admin/PageStyleEditor';
+import { AdminBuilderSection } from '@/components/admin/admin-ui';
 import {
   getTutorialCategoryConfig,
   getTutorialCategoryKey,
@@ -116,28 +119,29 @@ function Field({
 function Panel({
   title,
   description,
+  badge,
   children,
 }: {
   title: string;
   description: string;
+  badge?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section
-      style={{
-        background: '#0f172a',
-        border: '1px solid rgba(148,163,184,0.14)',
-        borderRadius: 24,
-        padding: 22,
-        boxShadow: '0 22px 60px rgba(2,6,23,0.24)',
-      }}
-    >
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: 24, letterSpacing: '-0.04em' }}>{title}</h2>
-        <p style={{ margin: 0, color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{description}</p>
-      </div>
-      {children}
-    </section>
+    <AdminBuilderSection
+      title={title}
+      badge={badge}
+      description={description}
+      tabs={[
+        {
+          id: 'content',
+          label: 'Content',
+          description:
+            'All content, media, layout, and styling controls for this tutorial area stay together here.',
+          content: children,
+        },
+      ]}
+    />
   );
 }
 
@@ -516,69 +520,30 @@ export default function AdminTutorialPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#020617',
-        color: '#fff',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
+    <AdminShell
+      eyebrow="Tutorial System"
+      title="Manage the tutorial page builder and lesson inventory together"
+      description="Hero, filters, CTA, tutorial cards, category controls, visibility, ordering, and thumbnails now stay inside the shared admin shell for cleaner mobile access."
+      actions={
+        <button
+          onClick={saveTutorialSystem}
+          disabled={saving}
+          type="button"
+          style={{
+            background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+            color: '#fff',
+            border: 'none',
+            padding: '11px 18px',
+            borderRadius: 14,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            fontWeight: 800,
+          }}
+        >
+          {saving ? 'Saving...' : 'Save Tutorial System'}
+        </button>
+      }
     >
-      <div
-        style={{
-          borderBottom: '1px solid rgba(148,163,184,0.12)',
-          padding: '18px 28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#38bdf8', marginBottom: 6 }}>
-            Tutorial System
-          </div>
-          <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-0.05em' }}>
-            Tutorial page builder + content manager
-          </h1>
-          <p style={{ margin: '8px 0 0', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
-            Hero, filters, CTA, tutorial cards, category controls, visibility, ordering and thumbnails এক জায়গা থেকে manage করুন।
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            style={{
-              background: '#111827',
-              color: '#cbd5e1',
-              border: '1px solid rgba(148,163,184,0.16)',
-              padding: '10px 16px',
-              borderRadius: 12,
-              cursor: 'pointer',
-            }}
-          >
-            ← Dashboard
-          </button>
-          <button
-            onClick={saveTutorialSystem}
-            disabled={saving}
-            style={{
-              background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
-              color: '#fff',
-              border: 'none',
-              padding: '10px 18px',
-              borderRadius: 12,
-              cursor: 'pointer',
-              fontWeight: 800,
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Tutorial System'}
-          </button>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1360, margin: '0 auto', padding: '28px 22px 56px', display: 'grid', gap: 18 }}>
+      <div style={{ display: 'grid', gap: 18 }}>
         {msg ? (
           <div
             style={{
@@ -594,7 +559,7 @@ export default function AdminTutorialPage() {
         ) : null}
 
         <Panel title="Global Tutorial Visibility" description="Whole page visibility and top-level section order.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <Field label="Page Enabled">
               <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" checked={pageConfig.pageEnabled} onChange={event => setPageConfig({ ...pageConfig, pageEnabled: event.target.checked })} />
@@ -614,7 +579,7 @@ export default function AdminTutorialPage() {
         </Panel>
 
         <Panel title="Hero Section" description="Page label, title, intro, hero stats and CTA.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <Field label="Show Hero">
               <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" checked={pageConfig.hero.enabled} onChange={event => updateHero('enabled', event.target.checked)} />
@@ -687,7 +652,7 @@ export default function AdminTutorialPage() {
               .sort((leftItem, rightItem) => leftItem.order - rightItem.order)
               .map(stat => (
                 <div key={stat.id} style={{ background: '#020617', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 18, padding: 14 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                     <Field label="Value">
                       <input
                         value={stat.value}
@@ -752,10 +717,17 @@ export default function AdminTutorialPage() {
                 </div>
               ))}
           </div>
+
+          <PageStyleEditor
+            title="Hero styling"
+            description="Adjust tutorial page heading scale, highlight colors, stat card feel, and primary CTA presentation."
+            value={pageConfig.hero.styles}
+            onChange={nextValue => updateHero('styles', nextValue)}
+          />
         </Panel>
 
         <Panel title="Showcase Layout + Filters" description="Tutorial filters, card presets, grid density and category visibility.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <Field label="Show Showcase">
               <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" checked={pageConfig.showcase.enabled} onChange={event => updateShowcase('enabled', event.target.checked)} />
@@ -869,7 +841,7 @@ export default function AdminTutorialPage() {
             ) : (
               categoryList.map(category => (
                 <div key={category.key} style={{ background: '#020617', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 18, padding: 14 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                     <Field label="Original Category">
                       <input value={category.original} readOnly style={{ ...inputStyle, color: '#94a3b8' }} />
                     </Field>
@@ -948,10 +920,17 @@ export default function AdminTutorialPage() {
               ))
             )}
           </div>
+
+          <PageStyleEditor
+            title="Showcase styling"
+            description="Refine category/filter visuals, tutorial card surfaces, grid rhythm, empty-state styling, and section width."
+            value={pageConfig.showcase.styles}
+            onChange={nextValue => updateShowcase('styles', nextValue)}
+          />
         </Panel>
 
         <Panel title="Closing CTA" description="Bottom call-to-action block under tutorials.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             <Field label="Show CTA">
               <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="checkbox" checked={pageConfig.cta.enabled} onChange={event => updateCta('enabled', event.target.checked)} />
@@ -1007,6 +986,13 @@ export default function AdminTutorialPage() {
               <input value={pageConfig.cta.buttonLink} onChange={event => updateCta('buttonLink', event.target.value)} style={inputStyle} />
             </Field>
           </div>
+
+          <PageStyleEditor
+            title="Tutorial CTA styling"
+            description="Tune CTA typography, background colors, button treatment, and surface polish."
+            value={pageConfig.cta.styles}
+            onChange={nextValue => updateCta('styles', nextValue)}
+          />
         </Panel>
 
         <Panel title="Tutorial Items" description="Existing tutorials manage করুন: title, category, level, visibility, thumbnail, YouTube URL, and ordering.">
@@ -1078,7 +1064,7 @@ export default function AdminTutorialPage() {
           <div style={{ display: 'grid', gap: 14 }}>
             {filteredTutorials.map(item => (
               <div key={item.id} style={{ background: '#020617', border: '1px solid rgba(148,163,184,0.14)', borderRadius: 20, padding: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '300px minmax(0, 1fr)', gap: 18 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18 }}>
                   <MediaField
                     value={item.thumbnail}
                     onChange={value => updateTutorial(item.id, { thumbnail: value })}
@@ -1086,7 +1072,7 @@ export default function AdminTutorialPage() {
                     uploading={uploadingId === String(item.id)}
                   />
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
                     <Field label="Title" full>
                       <input value={item.title} onChange={event => updateTutorial(item.id, { title: event.target.value })} style={inputStyle} />
                     </Field>
@@ -1141,6 +1127,6 @@ export default function AdminTutorialPage() {
           </div>
         </Panel>
       </div>
-    </div>
+    </AdminShell>
   );
 }

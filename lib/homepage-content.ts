@@ -1,4 +1,9 @@
 import { getFirstSetting, getHeroImages, parseStyledSetting, type SettingMap } from './hero-settings';
+import {
+  createDefaultBuilderSectionStyles,
+  sanitizeBuilderSectionStyles,
+  type BuilderSectionStyles,
+} from './page-builder-styles';
 
 export const HOMEPAGE_BUILDER_SETTING_KEY = 'homepage_builder_config';
 
@@ -78,6 +83,7 @@ export type HomepageHeroSection = {
   floatingCardText: string;
   floatingCardPosition: HomepageFloatingCardPosition;
   stats: HomepageStatItem[];
+  styles: BuilderSectionStyles;
 };
 
 export type HomepageShowreelSection = {
@@ -99,6 +105,7 @@ export type HomepageShowreelSection = {
   showButton: boolean;
   buttonText: string;
   buttonLink: string;
+  styles: BuilderSectionStyles;
 };
 
 export type HomepageStatsSection = {
@@ -110,6 +117,7 @@ export type HomepageStatsSection = {
   columnsDesktop: number;
   columnsMobile: number;
   items: HomepageStatItem[];
+  styles: BuilderSectionStyles;
 };
 
 export type HomepageCtaSection = {
@@ -128,6 +136,7 @@ export type HomepageCtaSection = {
   secondaryButtonLink: string;
   showSecondaryButton: boolean;
   backgroundImage: string;
+  styles: BuilderSectionStyles;
 };
 
 export type HomepageFooterSection = {
@@ -138,6 +147,8 @@ export type HomepageFooterSection = {
   alignment: HomepageAlignment;
   width: HomepageWidthPreset;
   spacing: HomepageSpacingPreset;
+  logoAlt: string;
+  logoUrl: string;
   brandText: string;
   brandAccent: string;
   description: string;
@@ -392,6 +403,7 @@ export function createDefaultHomepageBuilderConfig(
         { id: 'hero-clients', icon: '🤝', value: clientValue, label: stat2Label, description: '', enabled: true, order: 2 },
         { id: 'hero-years', icon: '⚡', value: yearsValue, label: stat3Label, description: '', enabled: true, order: 3 },
       ],
+      styles: createDefaultBuilderSectionStyles(),
     },
     showreel: {
       enabled: true,
@@ -412,6 +424,7 @@ export function createDefaultHomepageBuilderConfig(
       showButton: false,
       buttonText: 'Watch Showreel',
       buttonLink: '/portfolio',
+      styles: createDefaultBuilderSectionStyles(),
     },
     stats: {
       enabled: true,
@@ -427,6 +440,7 @@ export function createDefaultHomepageBuilderConfig(
         { id: 'stats-years', icon: '⚡', value: yearsValue, label: stat3Label, description: '', enabled: true, order: 3 },
         { id: 'stats-satisfaction', icon: '⭐', value: '100%', label: 'ক্লায়েন্ট সন্তুষ্টি', description: '', enabled: true, order: 4 },
       ],
+      styles: createDefaultBuilderSectionStyles(),
     },
     cta: {
       enabled: true,
@@ -444,6 +458,7 @@ export function createDefaultHomepageBuilderConfig(
       secondaryButtonLink: 'https://wa.me/8801885080118',
       showSecondaryButton: true,
       backgroundImage: '',
+      styles: createDefaultBuilderSectionStyles(),
     },
     footer: {
       enabled: true,
@@ -453,6 +468,8 @@ export function createDefaultHomepageBuilderConfig(
       alignment: 'left',
       width: 'full',
       spacing: 'balanced',
+      logoAlt: `${parseStyledSetting(map?.site_name, 'Minhajul').value} footer logo`,
+      logoUrl: '',
       brandText: 'Minhajul',
       brandAccent: '.',
       description: 'Video Editor & Graphic Designer',
@@ -529,6 +546,7 @@ function sanitizeHero(value: unknown, fallback: HomepageHeroSection): HomepageHe
     floatingCardText: text(value.floatingCardText, fallback.floatingCardText),
     floatingCardPosition: floatingCardPosition(value.floatingCardPosition, fallback.floatingCardPosition),
     stats: sanitizeStats(value.stats, fallback.stats),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -556,6 +574,7 @@ function sanitizeShowreel(value: unknown, fallback: HomepageShowreelSection): Ho
     showButton: bool(value.showButton, fallback.showButton),
     buttonText: text(value.buttonText, fallback.buttonText),
     buttonLink: text(value.buttonLink, fallback.buttonLink),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -573,6 +592,7 @@ function sanitizeStatsSection(value: unknown, fallback: HomepageStatsSection): H
     columnsDesktop: clamp(value.columnsDesktop, fallback.columnsDesktop, 1, 4),
     columnsMobile: clamp(value.columnsMobile, fallback.columnsMobile, 1, 2),
     items: sanitizeStats(value.items, fallback.items),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -597,6 +617,7 @@ function sanitizeCta(value: unknown, fallback: HomepageCtaSection): HomepageCtaS
     secondaryButtonLink: text(value.secondaryButtonLink, fallback.secondaryButtonLink),
     showSecondaryButton: bool(value.showSecondaryButton, fallback.showSecondaryButton),
     backgroundImage: text(value.backgroundImage, fallback.backgroundImage),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -613,6 +634,8 @@ function sanitizeFooter(value: unknown, fallback: HomepageFooterSection): Homepa
     alignment: alignment(value.alignment, fallback.alignment),
     width: widthPreset(value.width, fallback.width),
     spacing: spacingPreset(value.spacing, fallback.spacing),
+    logoAlt: text(value.logoAlt, fallback.logoAlt),
+    logoUrl: text(value.logoUrl, fallback.logoUrl),
     brandText: text(value.brandText, fallback.brandText),
     brandAccent: text(value.brandAccent, fallback.brandAccent),
     description: text(value.description, fallback.description),

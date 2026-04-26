@@ -9,6 +9,9 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import AdminShell from '@/components/admin/AdminShell';
+import PageStyleEditor from '@/components/admin/PageStyleEditor';
+import { AdminBuilderSection } from '@/components/admin/admin-ui';
 import PortfolioShowcase from '@/components/portfolio/PortfolioShowcase';
 import {
   ABOUT_SYSTEM_SETTING_KEY,
@@ -384,31 +387,21 @@ function BuilderPanel({
   defaultOpen?: boolean;
 }) {
   return (
-    <details open={defaultOpen} style={panelStyle}>
-      <summary style={{ cursor: 'pointer', listStyle: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-          {badge ? (
-            <span
-              style={{
-                padding: '5px 10px',
-                borderRadius: 999,
-                background: 'rgba(14,165,233,0.12)',
-                color: '#38bdf8',
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {badge}
-            </span>
-          ) : null}
-          <div style={{ fontWeight: 800, fontSize: 18 }}>{title}</div>
-        </div>
-        {description ? <p style={{ ...helperStyle, margin: '0 0 16px' }}>{description}</p> : null}
-      </summary>
-      {children}
-    </details>
+    <AdminBuilderSection
+      title={title}
+      badge={badge}
+      description={description}
+      defaultCollapsed={!defaultOpen}
+      tabs={[
+        {
+          id: 'content',
+          label: 'Content',
+          description:
+            'All controls for this homepage section stay inside one unified builder container.',
+          content: children,
+        },
+      ]}
+    />
   );
 }
 
@@ -1156,99 +1149,50 @@ export default function AdminHomepageBuilderPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#020617',
-        color: '#fff',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          borderBottom: '1px solid rgba(148,163,184,0.12)',
-          padding: '18px 28px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 18,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            style={{
-              background: '#111827',
-              color: '#cbd5e1',
-              border: '1px solid rgba(148,163,184,0.16)',
-              padding: '10px 14px',
-              borderRadius: 12,
-              cursor: 'pointer',
-            }}
-          >
-            ← Dashboard
-          </button>
+    <AdminShell
+      eyebrow="Homepage Builder"
+      title="Full homepage control from hero to footer"
+      description="Hero, showreel, stats, CTA, homepage portfolio, about block, and footer handoff stay in one page-builder area instead of being mixed into Settings."
+      actions={
+        <>
           <button
             onClick={() => router.push('/')}
+            type="button"
             style={{
               background: '#0b1120',
               color: '#7dd3fc',
               border: '1px solid rgba(56,189,248,0.2)',
-              padding: '10px 14px',
-              borderRadius: 12,
+              padding: '11px 14px',
+              borderRadius: 14,
               cursor: 'pointer',
             }}
           >
             Open Homepage
           </button>
-          <div>
-            <div
-              style={{
-                fontSize: 12,
-                color: '#38bdf8',
-                textTransform: 'uppercase',
-                letterSpacing: '0.14em',
-                fontWeight: 800,
-                marginBottom: 4,
-              }}
-            >
-              Homepage Builder
-            </div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 28,
-                fontWeight: 900,
-                letterSpacing: '-0.04em',
-              }}
-            >
-              Full homepage control panel from hero to footer
-            </h1>
-          </div>
-        </div>
-        <button
-          onClick={() => void saveBuilder()}
-          disabled={saving}
-          style={{
-            background: saving
-              ? '#1e293b'
-              : 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
-            color: '#fff',
-            border: 'none',
-            padding: '12px 20px',
-            borderRadius: 14,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            fontWeight: 800,
-            fontSize: 14,
-            boxShadow: '0 18px 34px rgba(37,99,235,0.24)',
-          }}
-        >
-          {saving ? 'Saving...' : 'Save Homepage Builder'}
-        </button>
-      </div>
-
-      <div style={{ maxWidth: 1420, margin: '0 auto', padding: '28px 22px 56px', display: 'grid', gap: 20 }}>
+          <button
+            onClick={() => void saveBuilder()}
+            disabled={saving}
+            type="button"
+            style={{
+              background: saving
+                ? '#1e293b'
+                : 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+              color: '#fff',
+              border: 'none',
+              padding: '12px 20px',
+              borderRadius: 14,
+              cursor: saving ? 'not-allowed' : 'pointer',
+              fontWeight: 800,
+              fontSize: 14,
+              boxShadow: '0 18px 34px rgba(37,99,235,0.24)',
+            }}
+          >
+            {saving ? 'Saving...' : 'Save Homepage Builder'}
+          </button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 20 }}>
         {message ? (
           <div
             style={{
@@ -1413,393 +1357,284 @@ export default function AdminHomepageBuilderPage() {
           ) : null}
         </BuilderPanel>
 
-        <BuilderPanel
+        <AdminBuilderSection
           title="Hero section"
           badge={homepageBuilder.hero.enabled ? 'Visible' : 'Hidden'}
           description="Hero content, media, overlays, CTA buttons, stats and floating cinematic card এখান থেকে fully control হবে।"
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.enabled}
-                onChange={event => updateHero('enabled', event.target.checked)}
-              />
-              <span>Show hero section</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showBadge}
-                onChange={event => updateHero('showBadge', event.target.checked)}
-              />
-              <span>Show badge / label</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showSubtitle}
-                onChange={event => updateHero('showSubtitle', event.target.checked)}
-              />
-              <span>Show subtitle</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showStats}
-                onChange={event => updateHero('showStats', event.target.checked)}
-              />
-              <span>Show hero stats</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showPrimaryButton}
-                onChange={event => updateHero('showPrimaryButton', event.target.checked)}
-              />
-              <span>Show primary CTA</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showSecondaryButton}
-                onChange={event => updateHero('showSecondaryButton', event.target.checked)}
-              />
-              <span>Show secondary CTA</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showShowreelButton}
-                onChange={event => updateHero('showShowreelButton', event.target.checked)}
-              />
-              <span>Show showreel CTA</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showFloatingCard}
-                onChange={event => updateHero('showFloatingCard', event.target.checked)}
-              />
-              <span>Show floating info card</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={homepageBuilder.hero.showBottomOverlay}
-                onChange={event => updateHero('showBottomOverlay', event.target.checked)}
-              />
-              <span>Keep bottom cinematic overlay</span>
-            </label>
-            <Field label="Section order">
-              <input
-                type="number"
-                value={homepageBuilder.hero.order}
-                onChange={event => updateHero('order', Number(event.target.value) || 10)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Hero layout">
-              <select
-                value={homepageBuilder.hero.layout}
-                onChange={event =>
-                  updateHero('layout', event.target.value as HomepageHeroLayout)
-                }
-                style={inputStyle}
-              >
-                {heroLayoutOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Text alignment">
-              <select
-                value={homepageBuilder.hero.alignment}
-                onChange={event =>
-                  updateHero('alignment', event.target.value as HomepageAlignment)
-                }
-                style={inputStyle}
-              >
-                {alignmentOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Section width">
-              <select
-                value={homepageBuilder.hero.width}
-                onChange={event =>
-                  updateHero('width', event.target.value as HomepageWidthPreset)
-                }
-                style={inputStyle}
-              >
-                {widthOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Spacing preset">
-              <select
-                value={homepageBuilder.hero.spacing}
-                onChange={event =>
-                  updateHero('spacing', event.target.value as HomepageSpacingPreset)
-                }
-                style={inputStyle}
-              >
-                {spacingOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Content max width">
-              <input
-                type="number"
-                min={320}
-                max={760}
-                value={homepageBuilder.hero.contentMaxWidth}
-                onChange={event =>
-                  updateHero('contentMaxWidth', Number(event.target.value) || 540)
-                }
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Hero height">
-              <select
-                value={homepageBuilder.hero.heightPreset}
-                onChange={event =>
-                  updateHero('heightPreset', event.target.value as HomepageHeroHeightPreset)
-                }
-                style={inputStyle}
-              >
-                {heroHeightOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Mobile content position">
-              <select
-                value={homepageBuilder.hero.mobileContentPosition}
-                onChange={event =>
-                  updateHero(
-                    'mobileContentPosition',
-                    event.target.value as HomepageMobileContentPosition
-                  )
-                }
-                style={inputStyle}
-              >
-                {mobileContentOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Overlay strength">
-              <select
-                value={homepageBuilder.hero.overlayStrength}
-                onChange={event =>
-                  updateHero(
-                    'overlayStrength',
-                    event.target.value as HomepageOverlayStrength
-                  )
-                }
-                style={inputStyle}
-              >
-                {heroOverlayOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Floating card position">
-              <select
-                value={homepageBuilder.hero.floatingCardPosition}
-                onChange={event =>
-                  updateHero(
-                    'floatingCardPosition',
-                    event.target.value as HomepageFloatingCardPosition
-                  )
-                }
-                style={inputStyle}
-              >
-                {floatingCardOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Hero badge" full>
-              <input
-                value={homepageBuilder.hero.badge}
-                onChange={event => updateHero('badge', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Hero title" full>
-              <textarea
-                value={homepageBuilder.hero.title}
-                onChange={event => updateHero('title', event.target.value)}
-                style={{ ...textareaStyle, minHeight: 92 }}
-              />
-            </Field>
-            <Field label="Hero subtitle" full>
-              <textarea
-                value={homepageBuilder.hero.subtitle}
-                onChange={event => updateHero('subtitle', event.target.value)}
-                style={textareaStyle}
-              />
-            </Field>
-            <Field label="Primary CTA text">
-              <input
-                value={homepageBuilder.hero.primaryButtonText}
-                onChange={event => updateHero('primaryButtonText', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Primary CTA link">
-              <input
-                value={homepageBuilder.hero.primaryButtonLink}
-                onChange={event => updateHero('primaryButtonLink', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Secondary CTA text">
-              <input
-                value={homepageBuilder.hero.secondaryButtonText}
-                onChange={event => updateHero('secondaryButtonText', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Secondary CTA link">
-              <input
-                value={homepageBuilder.hero.secondaryButtonLink}
-                onChange={event => updateHero('secondaryButtonLink', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Showreel CTA text">
-              <input
-                value={homepageBuilder.hero.showreelButtonText}
-                onChange={event => updateHero('showreelButtonText', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Floating card eyebrow">
-              <input
-                value={homepageBuilder.hero.floatingCardEyebrow}
-                onChange={event => updateHero('floatingCardEyebrow', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Floating card text" full>
-              <textarea
-                value={homepageBuilder.hero.floatingCardText}
-                onChange={event => updateHero('floatingCardText', event.target.value)}
-                style={textareaStyle}
-              />
-            </Field>
-            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-              <MediaField
-                label="Desktop hero image"
-                value={homepageBuilder.hero.desktopImage}
-                onChange={value => updateHero('desktopImage', value)}
-                onFileSelected={file =>
-                  void handleImageUpload(
-                    'hero-desktop',
-                    'hero-desktop',
-                    url => updateHero('desktopImage', url),
-                    file
-                  )
-                }
-                uploading={uploadingField === 'hero-desktop'}
-                hint="Landscape image recommended for desktop hero."
-              />
-              <MediaField
-                label="Mobile hero image"
-                value={homepageBuilder.hero.mobileImage}
-                onChange={value => updateHero('mobileImage', value)}
-                onFileSelected={file =>
-                  void handleImageUpload(
-                    'hero-mobile',
-                    'hero-mobile',
-                    url => updateHero('mobileImage', url),
-                    file
-                  )
-                }
-                uploading={uploadingField === 'hero-mobile'}
-                hint="Portrait / vertical image recommended for mobile hero."
-              />
-            </div>
-          </div>
-
-          <div style={{ height: 18 }} />
-          <div style={{ ...fieldLabelStyle, marginBottom: 10 }}>Hero stats</div>
-          <div style={{ display: 'grid', gap: 12 }}>
-            {homepageBuilder.hero.stats.map((item, index) => (
-              <div
-                key={item.id}
-                style={{
-                  padding: 14,
-                  borderRadius: 16,
-                  border: '1px solid rgba(148,163,184,0.14)',
-                  background: '#020617',
-                  display: 'grid',
-                  gridTemplateColumns: '90px 110px minmax(0, 1fr) minmax(0, 1fr) 140px',
-                  gap: 12,
-                  alignItems: 'center',
-                }}
-              >
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={item.enabled}
-                    onChange={event => updateHeroStat(index, { enabled: event.target.checked })}
-                  />
-                  <span>Visible</span>
-                </label>
-                <input
-                  value={item.icon || ''}
-                  onChange={event => updateHeroStat(index, { icon: event.target.value })}
-                  style={inputStyle}
-                  placeholder="Icon"
-                />
-                <input
-                  value={item.value}
-                  onChange={event => updateHeroStat(index, { value: event.target.value })}
-                  style={inputStyle}
-                  placeholder="Value"
-                />
-                <input
-                  value={item.label}
-                  onChange={event => updateHeroStat(index, { label: event.target.value })}
-                  style={inputStyle}
-                  placeholder="Label"
-                />
+          headerControls={
+            <>
+              <div style={{ display: 'grid', gap: 6, minWidth: 92 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Order
+                </div>
                 <input
                   type="number"
-                  value={item.order}
-                  onChange={event =>
-                    updateHeroStat(index, { order: Number(event.target.value) || index + 1 })
-                  }
-                  style={inputStyle}
-                  placeholder="Order"
+                  value={homepageBuilder.hero.order}
+                  onChange={event => updateHero('order', Number(event.target.value) || 10)}
+                  style={{ ...inputStyle, width: 92 }}
                 />
               </div>
-            ))}
-          </div>
-        </BuilderPanel>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={homepageBuilder.hero.enabled}
+                  onChange={event => updateHero('enabled', event.target.checked)}
+                />
+                <span>{homepageBuilder.hero.enabled ? 'Visible' : 'Hidden'}</span>
+              </label>
+            </>
+          }
+          tabs={[
+            {
+              id: 'content',
+              label: 'Content',
+              description: 'Headings, button copy, floating-card text, and visibility toggles stay together.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showBadge} onChange={event => updateHero('showBadge', event.target.checked)} />
+                    <span>Show badge / label</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showSubtitle} onChange={event => updateHero('showSubtitle', event.target.checked)} />
+                    <span>Show subtitle</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showPrimaryButton} onChange={event => updateHero('showPrimaryButton', event.target.checked)} />
+                    <span>Show primary CTA</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showSecondaryButton} onChange={event => updateHero('showSecondaryButton', event.target.checked)} />
+                    <span>Show secondary CTA</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showShowreelButton} onChange={event => updateHero('showShowreelButton', event.target.checked)} />
+                    <span>Show showreel CTA</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showFloatingCard} onChange={event => updateHero('showFloatingCard', event.target.checked)} />
+                    <span>Show floating info card</span>
+                  </label>
+                  <Field label="Hero badge" full>
+                    <input value={homepageBuilder.hero.badge} onChange={event => updateHero('badge', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Hero title" full>
+                    <textarea value={homepageBuilder.hero.title} onChange={event => updateHero('title', event.target.value)} style={{ ...textareaStyle, minHeight: 92 }} />
+                  </Field>
+                  <Field label="Hero subtitle" full>
+                    <textarea value={homepageBuilder.hero.subtitle} onChange={event => updateHero('subtitle', event.target.value)} style={textareaStyle} />
+                  </Field>
+                  <Field label="Primary CTA text">
+                    <input value={homepageBuilder.hero.primaryButtonText} onChange={event => updateHero('primaryButtonText', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Primary CTA link">
+                    <input value={homepageBuilder.hero.primaryButtonLink} onChange={event => updateHero('primaryButtonLink', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Secondary CTA text">
+                    <input value={homepageBuilder.hero.secondaryButtonText} onChange={event => updateHero('secondaryButtonText', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Secondary CTA link">
+                    <input value={homepageBuilder.hero.secondaryButtonLink} onChange={event => updateHero('secondaryButtonLink', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Showreel CTA text">
+                    <input value={homepageBuilder.hero.showreelButtonText} onChange={event => updateHero('showreelButtonText', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Floating card eyebrow">
+                    <input value={homepageBuilder.hero.floatingCardEyebrow} onChange={event => updateHero('floatingCardEyebrow', event.target.value)} style={inputStyle} />
+                  </Field>
+                  <Field label="Floating card text" full>
+                    <textarea value={homepageBuilder.hero.floatingCardText} onChange={event => updateHero('floatingCardText', event.target.value)} style={textareaStyle} />
+                  </Field>
+                </div>
+              ),
+            },
+            {
+              id: 'media',
+              label: 'Media',
+              description: 'Desktop and mobile hero image uploads stay inside the hero section.',
+              content: (
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                    <MediaField
+                      label="Desktop hero image"
+                      value={homepageBuilder.hero.desktopImage}
+                      onChange={value => updateHero('desktopImage', value)}
+                      onFileSelected={file =>
+                        void handleImageUpload(
+                          'hero-desktop',
+                          'hero-desktop',
+                          url => updateHero('desktopImage', url),
+                          file
+                        )
+                      }
+                      uploading={uploadingField === 'hero-desktop'}
+                      hint="Landscape image recommended for desktop hero."
+                    />
+                    <MediaField
+                      label="Mobile hero image"
+                      value={homepageBuilder.hero.mobileImage}
+                      onChange={value => updateHero('mobileImage', value)}
+                      onFileSelected={file =>
+                        void handleImageUpload(
+                          'hero-mobile',
+                          'hero-mobile',
+                          url => updateHero('mobileImage', url),
+                          file
+                        )
+                      }
+                      uploading={uploadingField === 'hero-mobile'}
+                      hint="Portrait / vertical image recommended for mobile hero."
+                    />
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: 'layout',
+              label: 'Layout',
+              description: 'Layout, spacing, overlay, mobile position, and floating-card placement stay grouped.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <Field label="Hero layout">
+                    <select value={homepageBuilder.hero.layout} onChange={event => updateHero('layout', event.target.value as HomepageHeroLayout)} style={inputStyle}>
+                      {heroLayoutOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Text alignment">
+                    <select value={homepageBuilder.hero.alignment} onChange={event => updateHero('alignment', event.target.value as HomepageAlignment)} style={inputStyle}>
+                      {alignmentOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Section width">
+                    <select value={homepageBuilder.hero.width} onChange={event => updateHero('width', event.target.value as HomepageWidthPreset)} style={inputStyle}>
+                      {widthOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Spacing preset">
+                    <select value={homepageBuilder.hero.spacing} onChange={event => updateHero('spacing', event.target.value as HomepageSpacingPreset)} style={inputStyle}>
+                      {spacingOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Content max width">
+                    <input type="number" min={320} max={760} value={homepageBuilder.hero.contentMaxWidth} onChange={event => updateHero('contentMaxWidth', Number(event.target.value) || 540)} style={inputStyle} />
+                  </Field>
+                  <Field label="Hero height">
+                    <select value={homepageBuilder.hero.heightPreset} onChange={event => updateHero('heightPreset', event.target.value as HomepageHeroHeightPreset)} style={inputStyle}>
+                      {heroHeightOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Mobile content position">
+                    <select value={homepageBuilder.hero.mobileContentPosition} onChange={event => updateHero('mobileContentPosition', event.target.value as HomepageMobileContentPosition)} style={inputStyle}>
+                      {mobileContentOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Overlay strength">
+                    <select value={homepageBuilder.hero.overlayStrength} onChange={event => updateHero('overlayStrength', event.target.value as HomepageOverlayStrength)} style={inputStyle}>
+                      {heroOverlayOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Floating card position">
+                    <select value={homepageBuilder.hero.floatingCardPosition} onChange={event => updateHero('floatingCardPosition', event.target.value as HomepageFloatingCardPosition)} style={inputStyle}>
+                      {floatingCardOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showBottomOverlay} onChange={event => updateHero('showBottomOverlay', event.target.checked)} />
+                    <span>Keep bottom cinematic overlay</span>
+                  </label>
+                </div>
+              ),
+            },
+            {
+              id: 'stats',
+              label: 'Stats',
+              description: 'Hero stats and stat visibility now stay inside the hero section itself.',
+              content: (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input type="checkbox" checked={homepageBuilder.hero.showStats} onChange={event => updateHero('showStats', event.target.checked)} />
+                    <span>Show hero stats</span>
+                  </label>
+                  {homepageBuilder.hero.stats.map((item, index) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: 14,
+                        borderRadius: 16,
+                        border: '1px solid rgba(148,163,184,0.14)',
+                        background: '#020617',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                        gap: 12,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="checkbox" checked={item.enabled} onChange={event => updateHeroStat(index, { enabled: event.target.checked })} />
+                        <span>Visible</span>
+                      </label>
+                      <input value={item.icon || ''} onChange={event => updateHeroStat(index, { icon: event.target.value })} style={inputStyle} placeholder="Icon" />
+                      <input value={item.value} onChange={event => updateHeroStat(index, { value: event.target.value })} style={inputStyle} placeholder="Value" />
+                      <input value={item.label} onChange={event => updateHeroStat(index, { label: event.target.value })} style={inputStyle} placeholder="Label" />
+                      <input
+                        type="number"
+                        value={item.order}
+                        onChange={event => updateHeroStat(index, { order: Number(event.target.value) || index + 1 })}
+                        style={inputStyle}
+                        placeholder="Order"
+                      />
+                    </div>
+                  ))}
+                </div>
+              ),
+            },
+            {
+              id: 'design',
+              label: 'Design',
+              description: 'Typography, colors, buttons, and advanced hero styling stay inside the hero card.',
+              content: (
+                <PageStyleEditor
+                  title="Hero styling"
+                  description="Customize the homepage hero typography, overlay-facing colors, CTA button treatment, and content width."
+                  value={homepageBuilder.hero.styles}
+                  onChange={nextValue => updateHero('styles', nextValue)}
+                />
+              ),
+            },
+          ]}
+        />
 
         <BuilderPanel
           title="Homepage portfolio section"
@@ -2298,7 +2133,7 @@ export default function AdminHomepageBuilderPage() {
                       padding: 14,
                       background: '#020617',
                       display: 'grid',
-                      gridTemplateColumns: 'minmax(0, 1.2fr) 120px 160px 180px',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
                       gap: 12,
                       alignItems: 'center',
                     }}
@@ -2417,7 +2252,7 @@ export default function AdminHomepageBuilderPage() {
                         padding: 14,
                         background: '#020617',
                         display: 'grid',
-                        gridTemplateColumns: 'minmax(0, 1.6fr) 120px 130px 130px 130px',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                         gap: 12,
                         alignItems: 'center',
                       }}
@@ -2524,6 +2359,18 @@ export default function AdminHomepageBuilderPage() {
                 />
               </div>
             </div>
+
+            <PageStyleEditor
+              title="Portfolio preview styling"
+              description="Refine the homepage portfolio section heading, filter button mood, card surfaces, grid rhythm, and preview CTA styling."
+              value={portfolioConfig.styles}
+              onChange={nextValue =>
+                setPortfolioConfig(current => ({
+                  ...current,
+                  styles: nextValue,
+                }))
+              }
+            />
           </div>
         </BuilderPanel>
 
@@ -2732,7 +2579,7 @@ export default function AdminHomepageBuilderPage() {
                   border: '1px solid rgba(148,163,184,0.14)',
                   background: '#020617',
                   display: 'grid',
-                  gridTemplateColumns: '100px 100px minmax(0, 1fr) minmax(0, 1fr)',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                   gap: 12,
                   alignItems: 'center',
                 }}
@@ -2825,7 +2672,7 @@ export default function AdminHomepageBuilderPage() {
                   gap: 12,
                 }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '100px minmax(0, 1fr) minmax(0, 1fr) 120px', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
                   <input
                     value={card.icon || ''}
                     onChange={event => updateHomepageAboutCard(index, { icon: event.target.value })}
@@ -2913,6 +2760,13 @@ export default function AdminHomepageBuilderPage() {
               + Add highlight card
             </button>
           </div>
+
+          <PageStyleEditor
+            title="About preview styling"
+            description="Control homepage About typography, image/text balance, stat-card polish, and CTA appearance."
+            value={homepageAbout.styles}
+            onChange={nextValue => updateHomepageAbout('styles', nextValue)}
+          />
         </BuilderPanel>
 
         <BuilderPanel
@@ -3098,6 +2952,13 @@ export default function AdminHomepageBuilderPage() {
               />
             </div>
           </div>
+
+          <PageStyleEditor
+            title="Showreel styling"
+            description="Adjust the showreel label, heading, description, section background, and button visuals."
+            value={homepageBuilder.showreel.styles}
+            onChange={nextValue => updateShowreel('styles', nextValue)}
+          />
         </BuilderPanel>
 
         <BuilderPanel
@@ -3207,7 +3068,7 @@ export default function AdminHomepageBuilderPage() {
                   gap: 12,
                 }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 110px minmax(0, 1fr) minmax(0, 1fr) 100px 120px', gap: 12, alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, alignItems: 'center' }}>
                   <input
                     value={item.icon || ''}
                     onChange={event => updateHomepageStat(index, { icon: event.target.value })}
@@ -3308,6 +3169,13 @@ export default function AdminHomepageBuilderPage() {
               + Add stat item
             </button>
           </div>
+
+          <PageStyleEditor
+            title="Stats styling"
+            description="Refine stats headings, section spacing, card backgrounds, borders, and number emphasis."
+            value={homepageBuilder.stats.styles}
+            onChange={nextValue => updateStats('styles', nextValue)}
+          />
         </BuilderPanel>
 
         <BuilderPanel
@@ -3467,6 +3335,13 @@ export default function AdminHomepageBuilderPage() {
               />
             </div>
           </div>
+
+          <PageStyleEditor
+            title="CTA styling"
+            description="Customize the homepage CTA section background, icon/title hierarchy, and dual-button look."
+            value={homepageBuilder.cta.styles}
+            onChange={nextValue => updateCta('styles', nextValue)}
+          />
         </BuilderPanel>
 
         <BuilderPanel
@@ -3656,7 +3531,7 @@ export default function AdminHomepageBuilderPage() {
                   border: '1px solid rgba(148,163,184,0.14)',
                   background: '#020617',
                   display: 'grid',
-                  gridTemplateColumns: '110px minmax(0, 1fr) minmax(0, 1fr) 100px 120px',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                   gap: 12,
                   alignItems: 'center',
                 }}
@@ -3774,7 +3649,7 @@ export default function AdminHomepageBuilderPage() {
                   border: '1px solid rgba(148,163,184,0.14)',
                   background: '#020617',
                   display: 'grid',
-                  gridTemplateColumns: '110px minmax(0, 1fr) minmax(0, 1fr) 100px 120px',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                   gap: 12,
                   alignItems: 'center',
                 }}
@@ -3892,7 +3767,7 @@ export default function AdminHomepageBuilderPage() {
                   border: '1px solid rgba(148,163,184,0.14)',
                   background: '#020617',
                   display: 'grid',
-                  gridTemplateColumns: '110px 100px minmax(0, 1fr) minmax(0, 1fr) 100px 120px',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
                   gap: 12,
                   alignItems: 'center',
                 }}
@@ -4012,6 +3887,6 @@ export default function AdminHomepageBuilderPage() {
           </div>
         </BuilderPanel>
       </div>
-    </div>
+    </AdminShell>
   );
 }

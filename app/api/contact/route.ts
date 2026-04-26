@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import {
+  normalizeContactFormForPurpose,
+  validateContactForm,
+  type ContactFormState,
+} from '@/lib/contact-form';
+import {
   createContactLead,
   deleteContactLead,
   getContactLeads,
@@ -26,79 +31,83 @@ function badRequest(message: string, status = 400) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as {
-      attachmentLink?: string;
-      budgetRange?: string;
-      deadline?: string;
-      name?: string;
-      email?: string;
+    const body = (await request.json()) as Partial<ContactFormState> & {
       intentCategory?: LeadIntent | string;
-      message?: string;
-      mobileNumber?: string;
       preferredContactMethod?: PreferredContactMethod | string;
-      projectType?: string;
       serviceType?: ServiceType | string;
-      whatsappNumber?: string;
     };
 
-    const name = body.name?.trim() || '';
-    const email = body.email?.trim() || '';
-    const message = body.message?.trim() || '';
-    const mobileNumber = body.mobileNumber?.trim() || '';
-    const whatsappNumber = body.whatsappNumber?.trim() || '';
-    const serviceType = body.serviceType?.trim() || '';
-    const projectType = body.projectType?.trim() || '';
-    const budgetRange = body.budgetRange?.trim() || '';
-    const deadline = body.deadline?.trim() || '';
-    const attachmentLink = body.attachmentLink?.trim() || '';
-    const preferredContactMethod = body.preferredContactMethod?.trim() || '';
-    const intentCategory = body.intentCategory?.trim() || '';
+    const normalized = normalizeContactFormForPurpose({
+      attachmentLink: body.attachmentLink || '',
+      budgetRange: body.budgetRange || '',
+      companyName: body.companyName || '',
+      collaborationType: body.collaborationType || '',
+      contactPurpose:
+        (body.contactPurpose as ContactFormState['contactPurpose']) ||
+        'Work Inquiry / Project',
+      deadline: body.deadline || '',
+      email: body.email || '',
+      message: body.message || '',
+      mobileNumber: body.mobileNumber || '',
+      name: body.name || '',
+      preferredContactMethod: body.preferredContactMethod || '',
+      projectType: body.projectType || '',
+      serviceType: body.serviceType || '',
+      sourcePage: body.sourcePage || request.nextUrl.pathname || '/contact',
+      subject: body.subject || '',
+      timeline: body.timeline || '',
+      whatsappNumber: body.whatsappNumber || '',
+    });
+    const errors = validateContactForm(normalized);
+    const firstError = Object.values(errors).find(Boolean);
 
-    if (
-      !name ||
-      !email ||
-      !mobileNumber ||
-      !whatsappNumber ||
-      !serviceType ||
-      !projectType ||
-      !budgetRange ||
-      !deadline ||
-      !message ||
-      !preferredContactMethod ||
-      !intentCategory
-    ) {
-      return badRequest('Please complete all required contact form fields.');
+    if (firstError) {
+      return NextResponse.json(
+        { error: firstError, errors },
+        { status: 400 }
+      );
     }
 
     if (
-      name.length > 120 ||
-      email.length > 180 ||
-      mobileNumber.length > 30 ||
-      whatsappNumber.length > 30 ||
-      serviceType.length > 80 ||
-      projectType.length > 180 ||
-      budgetRange.length > 120 ||
-      deadline.length > 40 ||
-      message.length > 4000 ||
-      attachmentLink.length > 500
+      normalized.name.length > 120 ||
+      normalized.email.length > 180 ||
+      normalized.mobileNumber.length > 30 ||
+      normalized.whatsappNumber.length > 30 ||
+      normalized.serviceType.length > 80 ||
+      normalized.projectType.length > 180 ||
+      normalized.budgetRange.length > 120 ||
+      normalized.deadline.length > 40 ||
+      normalized.message.length > 4000 ||
+      normalized.attachmentLink.length > 500 ||
+      normalized.companyName.length > 180 ||
+      normalized.collaborationType.length > 160 ||
+      normalized.subject.length > 180 ||
+      normalized.timeline.length > 40 ||
+      normalized.sourcePage.length > 240
     ) {
       return badRequest('Submitted form data is too long.');
     }
 
     const supabase = getSupabaseAdminClient();
     const created = await createContactLead(supabase, {
-      attachmentLink,
-      budgetRange,
-      deadline,
-      intentCategory,
-      message,
-      mobileNumber,
-      name,
-      email,
-      preferredContactMethod,
-      projectType,
-      serviceType,
-      whatsappNumber,
+      attachmentLink: normalized.attachmentLink,
+      budgetRange: normalized.budgetRange,
+      collaborationType: normalized.collaborationType,
+      companyName: normalized.companyName,
+      contactPurpose: normalized.contactPurpose,
+      deadline: normalized.deadline,
+      email: normalized.email,
+      intentCategory: normalized.intentCategory,
+      message: normalized.message,
+      mobileNumber: normalized.mobileNumber,
+      name: normalized.name,
+      preferredContactMethod: normalized.preferredContactMethod,
+      projectType: normalized.projectType,
+      serviceType: normalized.serviceType,
+      sourcePage: normalized.sourcePage,
+      subject: normalized.subject,
+      timeline: normalized.timeline,
+      whatsappNumber: normalized.whatsappNumber,
     });
 
     return NextResponse.json({ ok: true, lead: created });

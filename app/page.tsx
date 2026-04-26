@@ -27,6 +27,15 @@ import {
   type HomepageWidthPreset,
 } from '@/lib/homepage-content';
 import { toSettingMap } from '@/lib/hero-settings';
+import {
+  getButtonAlignmentOverride,
+  getButtonStyleOverrides,
+  getCardSurfaceOverrides,
+  getSectionPaddingOverride,
+  getSectionWidthOverride,
+  getTypographyStyleOverrides,
+  resolveSectionThemeColor,
+} from '@/lib/page-builder-styles';
 import { getGlobalFooterConfig } from '@/lib/footer-content';
 import {
   DEFAULT_PORTFOLIO_PAGE_SETTINGS,
@@ -35,10 +44,13 @@ import {
   getHomepagePortfolioPreviewItems,
   getHomepagePortfolioSettings,
   getPortfolioPageSettings,
+  parsePortfolioItemMetaConfig,
+  PORTFOLIO_ITEM_META_SETTING_KEY,
   toPortfolioPreviewItems,
   type HomepagePortfolioSectionSettings,
   type PortfolioCategory,
   type PortfolioGraphic,
+  type PortfolioItemMetaConfigMap,
   type PortfolioPageSettings,
   type PortfolioPreviewItem,
   type PortfolioVideo,
@@ -169,6 +181,7 @@ export default function HomePage() {
   const [portfolioPageSettings, setPortfolioPageSettings] = useState<PortfolioPageSettings>(
     DEFAULT_PORTFOLIO_PAGE_SETTINGS
   );
+  const [portfolioItemMetaConfig, setPortfolioItemMetaConfig] = useState<PortfolioItemMetaConfigMap>({});
   const [showModal, setShowModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -216,6 +229,9 @@ export default function HomePage() {
         );
         setHomepagePortfolioSettings(getHomepagePortfolioSettings(map));
         setPortfolioPageSettings(getPortfolioPageSettings(map));
+        setPortfolioItemMetaConfig(
+          parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY])
+        );
       }
     }
 
@@ -245,8 +261,9 @@ export default function HomePage() {
         showVideos: homepagePortfolioSettings.showVideos,
         showGraphics: homepagePortfolioSettings.showGraphics,
         categoryConfig: homepagePortfolioSettings.categoryConfig,
+        itemMetaConfig: portfolioItemMetaConfig,
       }),
-    [allPortfolioItems, homepagePortfolioSettings]
+    [allPortfolioItems, homepagePortfolioSettings, portfolioItemMetaConfig]
   );
 
   const openLink = (href: string) => {
@@ -272,6 +289,11 @@ export default function HomePage() {
   const statsSection = homepageBuilder.stats;
   const ctaSection = homepageBuilder.cta;
   const homepageAbout = aboutSystem.homepage;
+  const heroStyles = hero.styles;
+  const showreelStyles = showreelSection.styles;
+  const statsStyles = statsSection.styles;
+  const ctaStyles = ctaSection.styles;
+  const aboutStyles = homepageAbout.styles;
   const heroStats = toEnabledStats(hero.stats).slice(0, 3);
   const statsItems = toEnabledStats(statsSection.items);
   const currentHeroImage = isMobile
@@ -285,6 +307,18 @@ export default function HomePage() {
     ? 'linear-gradient(180deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.82) 100%)'
     : 'linear-gradient(180deg, rgba(15,23,42,0.46) 0%, rgba(15,23,42,0.72) 100%)';
   const heroPanelBorder = dark ? 'rgba(148,163,184,0.16)' : 'rgba(255,255,255,0.22)';
+  const heroAccent = resolveSectionThemeColor(
+    heroStyles.colors.accentLight,
+    heroStyles.colors.accentDark,
+    dark,
+    dark ? '#bae6fd' : '#e0f2fe'
+  );
+  const aboutAccent = resolveSectionThemeColor(
+    aboutStyles.colors.accentLight,
+    aboutStyles.colors.accentDark,
+    dark,
+    dark ? '#7dd3fc' : '#2563eb'
+  );
   const aboutIsStacked =
     isMobile || homepageAbout.layout === 'stacked' || homepageAbout.layout === 'centered';
   const aboutImageFirst =
@@ -296,9 +330,19 @@ export default function HomePage() {
       ? 'center'
       : homepageAbout.alignment;
   const aboutCards = homepageAbout.cards.slice(0, homepageAbout.maxCards);
-  const aboutPadding = getSectionPadding(homepageAbout.spacing, isMobile, 'balanced');
-  const aboutMaxWidth = getSectionMaxWidth(homepageAbout.width, 'wide');
-  const ctaMaxWidth = getSectionMaxWidth(ctaSection.width, 'narrow');
+  const aboutPadding = getSectionPaddingOverride(
+    aboutStyles.layout.padding,
+    isMobile,
+    getSectionPadding(homepageAbout.spacing, isMobile, 'balanced')
+  );
+  const aboutMaxWidth = getSectionWidthOverride(
+    aboutStyles.layout.width,
+    getSectionMaxWidth(homepageAbout.width, 'wide')
+  );
+  const ctaMaxWidth = getSectionWidthOverride(
+    ctaStyles.layout.width,
+    getSectionMaxWidth(ctaSection.width, 'narrow')
+  );
   const ctaUsesSplitLayout =
     !isMobile &&
     (ctaSection.layout === 'split' ||
@@ -363,7 +407,7 @@ export default function HomePage() {
           position: 'relative',
           zIndex: 1,
           width: '100%',
-          maxWidth: heroMaxWidth,
+          maxWidth: getSectionWidthOverride(heroStyles.layout.width, heroMaxWidth),
           margin: '0 auto',
           minHeight: heroMinHeight,
           display: 'grid',
@@ -378,7 +422,9 @@ export default function HomePage() {
                 ? 'end'
                 : 'center',
           gap: isMobile ? 20 : 40,
-          padding:
+          padding: getSectionPaddingOverride(
+            heroStyles.layout.padding,
+            isMobile,
             hero.spacing === 'compact'
               ? isMobile
                 ? '24px 14px calc(10px + env(safe-area-inset-bottom))'
@@ -389,7 +435,8 @@ export default function HomePage() {
                   : '72px clamp(28px, 6vw, 84px) 76px'
                 : isMobile
                   ? '36px 14px calc(10px + env(safe-area-inset-bottom))'
-                  : '56px clamp(24px, 6vw, 72px) 60px',
+                  : '56px clamp(24px, 6vw, 72px) 60px'
+          ),
           justifyItems:
             !isMobile && hero.layout !== 'split' && hero.alignment === 'center'
               ? 'center'
@@ -416,6 +463,14 @@ export default function HomePage() {
               ? '0 30px 90px rgba(2,6,23,0.38)'
               : '0 30px 90px rgba(15,23,42,0.22)',
             textAlign: hero.layout === 'centered' ? 'center' : hero.alignment,
+            ...getCardSurfaceOverrides(heroStyles, {
+              dark,
+              fallbackBackground: heroPanelBackground,
+              fallbackBorder: heroPanelBorder,
+              fallbackShadow: dark
+                ? '0 30px 90px rgba(2,6,23,0.38)'
+                : '0 30px 90px rgba(15,23,42,0.22)',
+            }),
           }}
         >
           {hero.showBadge ? (
@@ -426,20 +481,27 @@ export default function HomePage() {
                 gap: 8,
                 background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.08)',
                 border: `1px solid ${heroPanelBorder}`,
-                color: dark ? '#bae6fd' : '#e0f2fe',
+                color: heroAccent,
                 padding: isMobile ? '6px 13px' : '7px 16px',
                 borderRadius: 999,
                 marginBottom: isMobile ? 16 : 22,
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+                ...getTypographyStyleOverrides('label', heroStyles.typography.label, {
+                  dark,
+                  isMobile,
+                  fallbackColor: heroAccent,
+                  fallbackTextAlign: hero.layout === 'centered' ? 'center' : hero.alignment,
+                  fallbackLetterSpacing: '0.14em',
+                }),
               }}
             >
               <span
                 style={{
                   width: 7,
                   height: 7,
-                  background: '#38bdf8',
+                  background: heroAccent,
                   borderRadius: '50%',
                   display: 'inline-block',
                   boxShadow: '0 0 18px rgba(56,189,248,0.75)',
@@ -460,6 +522,15 @@ export default function HomePage() {
               margin: isMobile ? '0 0 14px' : '0 0 18px',
               color: dark ? '#f8fafc' : '#ffffff',
               maxWidth: isMobile ? '100%' : hero.contentMaxWidth,
+              ...getTypographyStyleOverrides('title', heroStyles.typography.title, {
+                dark,
+                isMobile,
+                fallbackColor: dark ? '#f8fafc' : '#ffffff',
+                fallbackTextAlign: hero.layout === 'centered' ? 'center' : hero.alignment,
+                fallbackFontWeight: 800,
+                fallbackLineHeight: isMobile ? 0.98 : 0.95,
+                fallbackLetterSpacing: '-0.06em',
+              }),
             }}
           >
             {hero.title}
@@ -473,6 +544,13 @@ export default function HomePage() {
                 maxWidth: hero.layout === 'centered' ? 620 : 470,
                 margin: isMobile ? '0 0 22px' : '0 0 28px',
                 lineHeight: isMobile ? 1.62 : 1.78,
+                ...getTypographyStyleOverrides('body', heroStyles.typography.body, {
+                  dark,
+                  isMobile,
+                  fallbackColor: dark ? 'rgba(226,232,240,0.82)' : 'rgba(255,255,255,0.82)',
+                  fallbackTextAlign: hero.layout === 'centered' ? 'center' : hero.alignment,
+                  fallbackLineHeight: isMobile ? 1.62 : 1.78,
+                }),
               }}
             >
               {hero.subtitle}
@@ -493,11 +571,14 @@ export default function HomePage() {
                     : 'repeat(2, minmax(0, 1fr))'
                   : 'repeat(auto-fit, max-content)',
               justifyContent:
-                hero.layout === 'centered'
-                  ? 'center'
-                  : hero.alignment === 'center'
+                getButtonAlignmentOverride(
+                  heroStyles.layout.buttonAlign,
+                  hero.layout === 'centered'
                     ? 'center'
-                    : 'flex-start',
+                    : hero.alignment === 'center'
+                      ? 'center'
+                      : 'flex-start'
+                ),
               gap: isMobile ? 6 : 12,
               marginBottom: hero.showStats && heroStats.length > 0 ? (isMobile ? 16 : 22) : 0,
             }}
@@ -521,9 +602,20 @@ export default function HomePage() {
                   textOverflow: 'ellipsis',
                   cursor: 'pointer',
                   boxShadow: '0 18px 40px rgba(37,99,235,0.35)',
+                  ...getButtonStyleOverrides(heroStyles, {
+                    dark,
+                    fallbackBackground: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+                    fallbackColor: '#fff',
+                    fallbackBorder: heroPanelBorder,
+                    fallbackShadow: '0 18px 40px rgba(37,99,235,0.35)',
+                  }),
                 }}
               >
-                {isMobile ? hero.primaryButtonText : `${hero.primaryButtonText} →`}
+                {isMobile
+                  ? hero.primaryButtonText
+                  : heroStyles.buttons.showIcon !== false
+                    ? `${hero.primaryButtonText} →`
+                    : hero.primaryButtonText}
               </button>
             ) : null}
             {hero.showSecondaryButton ? (
@@ -545,6 +637,13 @@ export default function HomePage() {
                   textOverflow: 'ellipsis',
                   cursor: 'pointer',
                   backdropFilter: 'blur(12px)',
+                  ...getButtonStyleOverrides(heroStyles, {
+                    dark,
+                    fallbackBackground: 'rgba(2,6,23,0.18)',
+                    fallbackColor: '#f8fafc',
+                    fallbackBorder: dark ? 'rgba(148,163,184,0.26)' : 'rgba(255,255,255,0.24)',
+                    fallbackShadow: 'none',
+                  }),
                 }}
               >
                 {hero.secondaryButtonText}
@@ -571,6 +670,13 @@ export default function HomePage() {
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   backdropFilter: 'blur(12px)',
+                  ...getButtonStyleOverrides(heroStyles, {
+                    dark,
+                    fallbackBackground: 'rgba(2,6,23,0.14)',
+                    fallbackColor: '#f8fafc',
+                    fallbackBorder: dark ? 'rgba(148,163,184,0.26)' : 'rgba(255,255,255,0.24)',
+                    fallbackShadow: 'none',
+                  }),
                 }}
               >
                 <span
@@ -693,6 +799,7 @@ export default function HomePage() {
         buttonText={homepagePortfolioSettings.buttonText}
         buttonLink={homepagePortfolioSettings.buttonLink}
         homepageSettings={homepagePortfolioSettings}
+        itemMetaConfig={portfolioItemMetaConfig}
       />
     ) : null;
 
@@ -729,7 +836,7 @@ export default function HomePage() {
               borderRadius: 999,
               border: `1px solid ${dark ? 'rgba(56,189,248,0.22)' : 'rgba(37,99,235,0.18)'}`,
               background: dark ? 'rgba(14,165,233,0.08)' : 'rgba(219,234,254,0.78)',
-              color: dark ? '#7dd3fc' : '#2563eb',
+              color: aboutAccent,
               fontSize: 11,
               fontWeight: 800,
               letterSpacing: '0.14em',
@@ -737,7 +844,7 @@ export default function HomePage() {
               marginBottom: 18,
             }}
           >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38bdf8' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: aboutAccent }} />
             {homepageAbout.label}
           </div>
 
@@ -757,7 +864,7 @@ export default function HomePage() {
 
           <div
             style={{
-              color: '#38bdf8',
+              color: aboutAccent,
               fontSize: isMobile ? 14 : 16,
               fontWeight: 800,
               marginBottom: 18,
@@ -799,6 +906,14 @@ export default function HomePage() {
                       ? 'linear-gradient(145deg, rgba(15,23,42,0.58), rgba(2,6,23,0.72))'
                       : 'linear-gradient(145deg, rgba(255,255,255,0.88), rgba(239,246,255,0.72))',
                     boxShadow: dark ? '0 20px 48px rgba(0,0,0,0.24)' : '0 18px 42px rgba(15,23,42,0.07)',
+                    ...getCardSurfaceOverrides(aboutStyles, {
+                      dark,
+                      fallbackBackground: dark
+                        ? 'linear-gradient(145deg, rgba(15,23,42,0.58), rgba(2,6,23,0.72))'
+                        : 'linear-gradient(145deg, rgba(255,255,255,0.88), rgba(239,246,255,0.72))',
+                      fallbackBorder: dark ? 'rgba(148,163,184,0.13)' : 'rgba(15,23,42,0.08)',
+                      fallbackShadow: dark ? '0 20px 48px rgba(0,0,0,0.24)' : '0 18px 42px rgba(15,23,42,0.07)',
+                    }),
                   }}
                 >
                   <div style={{ color: text, fontWeight: 800, fontSize: 14, marginBottom: 6 }}>
@@ -825,9 +940,17 @@ export default function HomePage() {
                 fontSize: 14,
                 cursor: 'pointer',
                 boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                ...getButtonStyleOverrides(aboutStyles, {
+                  dark,
+                  fallbackBackground: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  fallbackColor: '#fff',
+                  fallbackBorder: border,
+                  fallbackShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                }),
               }}
             >
-              {homepageAbout.primaryButtonText} →
+              {homepageAbout.primaryButtonText}
+              {aboutStyles.buttons.showIcon !== false ? ' →' : ''}
             </button>
             {homepageAbout.secondaryButtonText ? (
               <button
@@ -841,6 +964,13 @@ export default function HomePage() {
                   fontWeight: 700,
                   fontSize: 14,
                   cursor: 'pointer',
+                  ...getButtonStyleOverrides(aboutStyles, {
+                    dark,
+                    fallbackBackground: dark ? 'rgba(15,23,42,0.46)' : 'rgba(255,255,255,0.78)',
+                    fallbackColor: text,
+                    fallbackBorder: border,
+                    fallbackShadow: 'none',
+                  }),
                 }}
               >
                 {homepageAbout.secondaryButtonText}
@@ -863,6 +993,16 @@ export default function HomePage() {
             boxShadow: dark
               ? '0 40px 120px rgba(0,0,0,0.52)'
               : '0 34px 90px rgba(15,23,42,0.16)',
+            ...getCardSurfaceOverrides(aboutStyles, {
+              dark,
+              fallbackBackground: homepageAbout.image
+                ? `linear-gradient(180deg, rgba(2,6,23,0.04), rgba(2,6,23,0.84)), url(${homepageAbout.image}) center/cover no-repeat`
+                : 'linear-gradient(145deg, #020617, #0f172a 52%, #0ea5e9)',
+              fallbackBorder: dark ? 'rgba(148,163,184,0.16)' : 'rgba(15,23,42,0.1)',
+              fallbackShadow: dark
+                ? '0 40px 120px rgba(0,0,0,0.52)'
+                : '0 34px 90px rgba(15,23,42,0.16)',
+            }),
           }}
         >
           <div
@@ -909,12 +1049,19 @@ export default function HomePage() {
   const showreelSectionNode = showreelSection.enabled ? (
     <section
       style={{
-        padding: getSectionPadding(showreelSection.spacing, isMobile, homepageBuilder.global.sectionSpacing),
+        padding: getSectionPaddingOverride(
+          showreelStyles.layout.padding,
+          isMobile,
+          getSectionPadding(showreelSection.spacing, isMobile, homepageBuilder.global.sectionSpacing)
+        ),
       }}
     >
       <div
         style={{
-          maxWidth: getSectionMaxWidth(showreelSection.width, homepageBuilder.global.contentWidth),
+          maxWidth: getSectionWidthOverride(
+            showreelStyles.layout.width,
+            getSectionMaxWidth(showreelSection.width, homepageBuilder.global.contentWidth)
+          ),
           margin: '0 auto',
           display: 'grid',
           gridTemplateColumns:
@@ -938,7 +1085,7 @@ export default function HomePage() {
           }}
         >
           {showreelSection.showLabel ? (
-            <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: resolveSectionThemeColor(showreelStyles.colors.accentLight, showreelStyles.colors.accentDark, dark, '#3b82f6'), fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 14 }}>
               {showreelSection.label}
             </div>
           ) : null}
@@ -968,17 +1115,25 @@ export default function HomePage() {
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: 'pointer',
-                boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
-              }}
-            >
-              {showreelSection.buttonText} →
+              boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
+              ...getButtonStyleOverrides(showreelStyles, {
+                dark,
+                fallbackBackground: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+                fallbackColor: '#fff',
+                fallbackBorder: border,
+                fallbackShadow: '0 18px 38px rgba(37,99,235,0.28)',
+              }),
+            }}
+          >
+              {showreelSection.buttonText}
+              {showreelStyles.buttons.showIcon !== false ? ' →' : ''}
             </button>
           ) : null}
         </div>
 
         <div style={{ order: showreelSection.layout === 'media-left' && !isMobile ? 1 : 2 }}>
           {showreelSection.showInlinePreview ? (
-            <div style={{ borderRadius: 20, overflow: 'hidden', border: `1px solid ${border}`, boxShadow: dark ? '0 40px 100px rgba(0,0,0,0.7)' : '0 20px 60px rgba(0,0,0,0.08)' }}>
+            <div style={{ borderRadius: 20, overflow: 'hidden', border: `1px solid ${border}`, boxShadow: dark ? '0 40px 100px rgba(0,0,0,0.7)' : '0 20px 60px rgba(0,0,0,0.08)', ...getCardSurfaceOverrides(showreelStyles, { dark, fallbackBackground: card, fallbackBorder: border, fallbackShadow: dark ? '0 40px 100px rgba(0,0,0,0.7)' : '0 20px 60px rgba(0,0,0,0.08)' }) }}>
               <div style={{ paddingBottom: '56.25%', position: 'relative' }}>
                 <iframe src={showreelSection.videoUrl} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
               </div>
@@ -1012,10 +1167,14 @@ export default function HomePage() {
   const statsSectionNode = statsSection.enabled && statsItems.length > 0 ? (
     <section
       style={{
-        padding: getSectionPadding(statsSection.spacing, isMobile, homepageBuilder.global.sectionSpacing),
+        padding: getSectionPaddingOverride(
+          statsStyles.layout.padding,
+          isMobile,
+          getSectionPadding(statsSection.spacing, isMobile, homepageBuilder.global.sectionSpacing)
+        ),
       }}
     >
-      <div style={{ maxWidth: getSectionMaxWidth(statsSection.width, homepageBuilder.global.contentWidth), margin: '0 auto' }}>
+      <div style={{ maxWidth: getSectionWidthOverride(statsStyles.layout.width, getSectionMaxWidth(statsSection.width, homepageBuilder.global.contentWidth)), margin: '0 auto' }}>
         <div
           style={{
             display: 'grid',
@@ -1024,6 +1183,12 @@ export default function HomePage() {
             border: `1px solid ${border}`,
             borderRadius: 20,
             overflow: 'hidden',
+            ...getCardSurfaceOverrides(statsStyles, {
+              dark,
+              fallbackBackground: card,
+              fallbackBorder: border,
+              fallbackShadow: 'none',
+            }),
           }}
         >
           {statsItems.map((item, index) => {
@@ -1061,7 +1226,11 @@ export default function HomePage() {
     <section
       ref={contactRef}
       style={{
-        padding: getSectionPadding(ctaSection.spacing, isMobile, homepageBuilder.global.sectionSpacing),
+        padding: getSectionPaddingOverride(
+          ctaStyles.layout.padding,
+          isMobile,
+          getSectionPadding(ctaSection.spacing, isMobile, homepageBuilder.global.sectionSpacing)
+        ),
       }}
     >
       <div style={{ maxWidth: ctaMaxWidth, margin: '0 auto' }}>
@@ -1079,6 +1248,16 @@ export default function HomePage() {
             gridTemplateColumns: ctaUsesSplitLayout ? 'minmax(0, 1.1fr) minmax(280px, 0.82fr)' : '1fr',
             gap: ctaUsesSplitLayout ? 24 : 0,
             alignItems: 'center',
+            ...getCardSurfaceOverrides(ctaStyles, {
+              dark,
+              fallbackBackground: ctaSection.backgroundImage
+                ? `linear-gradient(135deg, rgba(15,23,42,0.82), rgba(30,27,75,0.76)), url(${ctaSection.backgroundImage}) center/cover no-repeat`
+                : dark
+                  ? 'linear-gradient(135deg, #0f172a, #1e1b4b)'
+                  : 'linear-gradient(135deg, #eff6ff, #eef2ff)',
+              fallbackBorder: dark ? '#1e3a8a' : '#bfdbfe',
+              fallbackShadow: 'none',
+            }),
           }}
         >
           <div
@@ -1087,24 +1266,24 @@ export default function HomePage() {
               textAlign: ctaSection.alignment,
             }}
           >
-            <div style={{ fontSize: 44, marginBottom: 20 }}>{ctaSection.icon}</div>
+            <div style={{ fontSize: 44, marginBottom: 20, color: resolveSectionThemeColor(ctaStyles.colors.accentLight, ctaStyles.colors.accentDark, dark, text) }}>{ctaSection.icon}</div>
             <h2 style={{ fontSize: isMobile ? '24px' : 'clamp(24px, 3vw, 36px)', fontWeight: 800, margin: '0 0 14px', letterSpacing: '-0.5px', color: text }}>
               {ctaSection.title}
             </h2>
             <p style={{ color: sub, fontSize: 15, margin: '0 0 32px', lineHeight: 1.7 }}>
               {ctaSection.subtitle}
             </p>
-            <div style={{ display: 'flex', gap: 12, justifyContent: ctaSection.alignment === 'left' ? 'flex-start' : ctaSection.alignment === 'right' ? 'flex-end' : 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, justifyContent: getButtonAlignmentOverride(ctaStyles.layout.buttonAlign, ctaSection.alignment === 'left' ? 'flex-start' : ctaSection.alignment === 'right' ? 'flex-end' : 'center'), flexWrap: 'wrap' }}>
               <button
                 onClick={() => openLink(ctaSection.primaryButtonLink)}
-                style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
+                style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '14px 28px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: 'pointer', ...getButtonStyleOverrides(ctaStyles, { dark, fallbackBackground: '#3b82f6', fallbackColor: '#fff', fallbackBorder: border, fallbackShadow: 'none' }) }}
               >
-                {ctaSection.primaryButtonText} →
+                {ctaSection.primaryButtonText}{ctaStyles.buttons.showIcon !== false ? ' →' : ''}
               </button>
               {ctaSection.showSecondaryButton ? (
                 <button
                   onClick={() => openLink(ctaSection.secondaryButtonLink)}
-                  style={{ background: dark ? '#111827' : '#25d366', color: '#fff', border: 'none', padding: '14px 24px', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                  style={{ background: dark ? '#111827' : '#25d366', color: '#fff', border: 'none', padding: '14px 24px', borderRadius: 10, fontWeight: 600, fontSize: 15, cursor: 'pointer', ...getButtonStyleOverrides(ctaStyles, { dark, fallbackBackground: dark ? '#111827' : '#25d366', fallbackColor: '#fff', fallbackBorder: border, fallbackShadow: 'none' }) }}
                 >
                   {ctaSection.secondaryButtonText}
                 </button>

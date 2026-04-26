@@ -1,6 +1,11 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatProjectSerial } from '@/lib/crm-shared';
+import {
+  CONTACT_PURPOSE_OPTIONS,
+  formatProjectSerial,
+  mapContactPurposeToIntent,
+  type ContactPurpose,
+} from '@/lib/crm-shared';
 import { writeSiteSetting } from '@/lib/site-settings';
 
 export const CRM_LEADS_SETTING_KEY = 'contact_messages_store';
@@ -138,6 +143,9 @@ export type ContactLead = {
   budgetRange: string;
   category: LeadCategory;
   clientId: string;
+  collaborationType: string;
+  companyName: string;
+  contactPurpose: ContactPurpose;
   createdAt: string;
   deadline: string;
   email: string;
@@ -155,24 +163,33 @@ export type ContactLead = {
   read: boolean;
   serviceType: ServiceType;
   source: 'website-contact';
+  sourcePage: string;
   status: LeadStatus;
+  subject: string;
+  timeline: string;
   updatedAt: string;
   whatsappNumber: string;
 };
 
 export type ContactLeadInput = {
   attachmentLink?: string;
-  budgetRange: string;
-  deadline: string;
+  budgetRange?: string;
+  collaborationType?: string;
+  companyName?: string;
+  contactPurpose?: ContactPurpose | string;
+  deadline?: string;
   email: string;
-  intentCategory: LeadIntent | string;
+  intentCategory?: LeadIntent | string;
   message: string;
-  mobileNumber: string;
+  mobileNumber?: string;
   name: string;
-  preferredContactMethod: PreferredContactMethod | string;
-  projectType: string;
-  serviceType: ServiceType | string;
-  whatsappNumber: string;
+  preferredContactMethod?: PreferredContactMethod | string;
+  projectType?: string;
+  serviceType?: ServiceType | string;
+  sourcePage?: string;
+  subject?: string;
+  timeline?: string;
+  whatsappNumber?: string;
 };
 
 export type MessageTemplateKey =
@@ -468,6 +485,22 @@ function leadPriorityFromIntent(intent: LeadIntent): LeadPriority {
   return 'Low';
 }
 
+function contactPurposeFromIntent(intent: LeadIntent): ContactPurpose {
+  if (intent === 'Collaboration') {
+    return 'Collaboration';
+  }
+
+  if (intent === 'Work Inquiry' || intent === 'Pricing Request') {
+    return 'Work Inquiry / Project';
+  }
+
+  if (intent === 'General Message' || intent === 'Support / Question') {
+    return 'General Message';
+  }
+
+  return 'Other';
+}
+
 function hashAccessCode(code: string) {
   const secret =
     process.env.APP_SESSION_SECRET ||
@@ -608,15 +641,21 @@ function sanitizeLead(value: unknown): ContactLead | null {
   const createdAt = sanitizeIsoDate(value.createdAt, nowIso());
   const updatedAt = sanitizeIsoDate(value.updatedAt, createdAt);
   const serviceType = enumValue(value.serviceType, SERVICE_TYPES, 'Other');
+  const contactPurpose = CONTACT_PURPOSE_OPTIONS.includes(value.contactPurpose as ContactPurpose)
+    ? (value.contactPurpose as ContactPurpose)
+    : contactPurposeFromIntent(intent);
 
   const lead: ContactLead = {
     archived: boolValue(value.archived, false),
     attachmentLink: sanitizeUrl(value.attachmentLink || value.fileLink || value.link),
     briefId: sanitizeSingleLine(value.briefId, 120),
     briefStatus: enumValue(value.briefStatus, BRIEF_STATUSES, 'not_sent'),
-    budgetRange: sanitizeSingleLine(value.budgetRange || 'Not specified', 120),
+    budgetRange: sanitizeSingleLine(value.budgetRange, 120),
     category: enumValue(value.category, LEAD_CATEGORIES, leadCategoryFromIntent(intent)),
     clientId: sanitizeSingleLine(value.clientId, 120),
+    collaborationType: sanitizeSingleLine(value.collaborationType, 160),
+    companyName: sanitizeSingleLine(value.companyName || value.brandName, 180),
+    contactPurpose,
     createdAt,
     deadline: sanitizeProjectDate(value.deadline),
     email: sanitizeEmail(value.email),
@@ -640,10 +679,11 @@ function sanitizeLead(value: unknown): ContactLead | null {
       leadPriorityFromIntent(intent)
     ),
     projectId: sanitizeSingleLine(value.projectId, 120),
-    projectType: sanitizeSingleLine(value.projectType || value.subject || 'General Project', 180),
+    projectType: sanitizeSingleLine(value.projectType, 180),
     read: boolValue(value.read, false),
     serviceType,
     source: 'website-contact',
+    sourcePage: sanitizeSingleLine(value.sourcePage, 240) || '/contact',
     status: enumValue(
       value.status,
       LEAD_STATUSES,
@@ -653,6 +693,8 @@ function sanitizeLead(value: unknown): ContactLead | null {
           ? 'Read'
           : 'New'
     ),
+    subject: sanitizeSingleLine(value.subject, 180),
+    timeline: sanitizeProjectDate(value.timeline || value.expectedTimeline),
     updatedAt,
     whatsappNumber: sanitizePhone(value.whatsappNumber),
   };
@@ -1098,7 +1140,16 @@ export async function createContactLead(
   supabase: SupabaseClient,
   input: ContactLeadInput
 ) {
-  const intent = enumValue(input.intentCategory, LEAD_INTENTS, 'Work Inquiry');
+  const contactPurpose = CONTACT_PURPOSE_OPTIONS.includes(input.contactPurpose as ContactPurpose)
+    ? (input.contactPurpose as ContactPurpose)
+    : contactPurposeFromIntent(
+        enumValue(input.intentCategory, LEAD_INTENTS, 'Work Inquiry')
+      );
+  const intent = enumValue(
+    input.intentCategory,
+    LEAD_INTENTS,
+    mapContactPurposeToIntent(contactPurpose)
+  );
   const serviceType = enumValue(input.serviceType, SERVICE_TYPES, 'Other');
   const preferredContactMethod = enumValue(
     input.preferredContactMethod,
@@ -1114,6 +1165,9 @@ export async function createContactLead(
     budgetRange: sanitizeSingleLine(input.budgetRange, 120),
     category: leadCategoryFromIntent(intent),
     clientId: '',
+    collaborationType: sanitizeSingleLine(input.collaborationType, 160),
+    companyName: sanitizeSingleLine(input.companyName, 180),
+    contactPurpose,
     createdAt: nowIso(),
     deadline: sanitizeProjectDate(input.deadline),
     email: sanitizeEmail(input.email),
@@ -1131,13 +1185,16 @@ export async function createContactLead(
     read: false,
     serviceType,
     source: 'website-contact',
+    sourcePage: sanitizeSingleLine(input.sourcePage, 240) || '/contact',
     status: 'New',
+    subject: sanitizeSingleLine(input.subject, 180),
+    timeline: sanitizeProjectDate(input.timeline),
     updatedAt: nowIso(),
     whatsappNumber: sanitizePhone(input.whatsappNumber),
   };
 
-  if (!lead.name || !lead.email || !lead.mobileNumber || !lead.message) {
-    throw new Error('Name, email, mobile number, and message are required.');
+  if (!lead.name || !lead.email || !lead.message) {
+    throw new Error('Name, email, and message are required.');
   }
 
   const existing = await getContactLeads(supabase);
@@ -1155,6 +1212,9 @@ export type UpdateLeadPatch = Partial<
     | 'budgetRange'
     | 'category'
     | 'clientId'
+    | 'collaborationType'
+    | 'companyName'
+    | 'contactPurpose'
     | 'deadline'
     | 'important'
     | 'lastContactedAt'
@@ -1164,7 +1224,10 @@ export type UpdateLeadPatch = Partial<
     | 'projectType'
     | 'read'
     | 'serviceType'
+    | 'sourcePage'
     | 'status'
+    | 'subject'
+    | 'timeline'
     | 'whatsappNumber'
   >
 >;
@@ -1209,6 +1272,19 @@ export async function updateContactLead(
         patch.clientId !== undefined
           ? sanitizeSingleLine(patch.clientId, 120)
           : lead.clientId,
+      collaborationType:
+        patch.collaborationType !== undefined
+          ? sanitizeSingleLine(patch.collaborationType, 160)
+          : lead.collaborationType,
+      companyName:
+        patch.companyName !== undefined
+          ? sanitizeSingleLine(patch.companyName, 180)
+          : lead.companyName,
+      contactPurpose:
+        patch.contactPurpose !== undefined &&
+        CONTACT_PURPOSE_OPTIONS.includes(patch.contactPurpose as ContactPurpose)
+          ? (patch.contactPurpose as ContactPurpose)
+          : lead.contactPurpose,
       deadline:
         patch.deadline !== undefined
           ? sanitizeProjectDate(patch.deadline)
@@ -1244,10 +1320,22 @@ export async function updateContactLead(
         patch.serviceType !== undefined
           ? enumValue(patch.serviceType, SERVICE_TYPES, lead.serviceType)
           : lead.serviceType,
+      sourcePage:
+        patch.sourcePage !== undefined
+          ? sanitizeSingleLine(patch.sourcePage, 240)
+          : lead.sourcePage,
       status:
         patch.status !== undefined
           ? enumValue(patch.status, LEAD_STATUSES, lead.status)
           : lead.status,
+      subject:
+        patch.subject !== undefined
+          ? sanitizeSingleLine(patch.subject, 180)
+          : lead.subject,
+      timeline:
+        patch.timeline !== undefined
+          ? sanitizeProjectDate(patch.timeline)
+          : lead.timeline,
       updatedAt: nowIso(),
       whatsappNumber:
         patch.whatsappNumber !== undefined

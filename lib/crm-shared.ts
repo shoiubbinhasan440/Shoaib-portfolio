@@ -15,6 +15,31 @@ export const LEAD_INTENT_OPTIONS = [
   'Support / Question',
 ] as const;
 
+export const CONTACT_PURPOSE_OPTIONS = [
+  'Work Inquiry / Project',
+  'General Message',
+  'Collaboration',
+  'Other',
+] as const;
+
+export const COLLABORATION_TYPE_OPTIONS = [
+  'Brand Partnership',
+  'Agency / Studio Partnership',
+  'Content Collaboration',
+  'Platform Feature / Interview',
+  'Event / Workshop',
+  'Other',
+] as const;
+
+export const WORK_BUDGET_RANGE_OPTIONS = [
+  'Under ৳10,000',
+  '৳10,000 - ৳25,000',
+  '৳25,000 - ৳50,000',
+  '৳50,000 - ৳100,000',
+  'Over ৳100,000',
+  'Need Custom Quote',
+] as const;
+
 export const LEAD_CATEGORY_OPTIONS = [
   'Work Inquiry',
   'Pricing Request',
@@ -64,6 +89,29 @@ export const PAYMENT_STATUS_OPTIONS = [
   'Paid',
   'Refunded',
 ] as const;
+
+export type ContactPurpose = (typeof CONTACT_PURPOSE_OPTIONS)[number];
+export type CollaborationType = (typeof COLLABORATION_TYPE_OPTIONS)[number];
+export type WorkBudgetRange = (typeof WORK_BUDGET_RANGE_OPTIONS)[number];
+
+export function mapContactPurposeToIntent(purpose: ContactPurpose | string) {
+  switch (purpose) {
+    case 'Collaboration':
+      return 'Collaboration';
+    case 'General Message':
+      return 'General Message';
+    case 'Other':
+      return 'General Message';
+    case 'Work Inquiry / Project':
+    default:
+      return 'Work Inquiry';
+  }
+}
+
+export function isReasonablyValidPhone(value: string) {
+  const normalized = normalizeWhatsAppNumber(value);
+  return normalized.length >= 10 && normalized.length <= 15;
+}
 
 export function formatProjectSerial(value: number) {
   return String(Math.max(1, Math.floor(value || 0))).padStart(4, '0');

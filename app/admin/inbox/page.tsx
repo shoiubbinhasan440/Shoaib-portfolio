@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminShell from '@/components/admin/AdminShell';
 import {
+  getAdminInputStyle,
+  getAdminTextareaStyle,
+  useAdminThemeTokens,
+  type AdminThemeTokens,
+} from '@/components/admin/admin-ui';
+import {
   buildWhatsAppUrl,
   LEAD_CATEGORY_OPTIONS,
   LEAD_PRIORITY_OPTIONS,
@@ -45,6 +51,13 @@ type ProjectFormState = {
   serviceType: string;
 };
 
+type WhatsAppApiState = {
+  configured: boolean;
+  loading: boolean;
+  provider: 'twilio' | null;
+  source: 'env' | 'runtime' | null;
+};
+
 function createProjectForm(lead?: ContactLead | null): ProjectFormState {
   return {
     budgetPrice: lead?.budgetRange || '',
@@ -62,6 +75,7 @@ function createProjectForm(lead?: ContactLead | null): ProjectFormState {
 }
 
 export default function AdminInboxPage() {
+  const tokens = useAdminThemeTokens();
   const [state, setState] = useState<InboxState>({
     briefs: [],
     clients: [],
@@ -77,6 +91,13 @@ export default function AdminInboxPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [whatsAppDraft, setWhatsAppDraft] = useState('');
+  const [whatsAppApi, setWhatsAppApi] = useState<WhatsAppApiState>({
+    configured: false,
+    loading: true,
+    provider: null,
+    source: null,
+  });
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [savingMessage, setSavingMessage] = useState('');
   const [projectForm, setProjectForm] = useState<ProjectFormState>(createProjectForm());
   const [creatingProject, setCreatingProject] = useState(false);
@@ -126,8 +147,34 @@ export default function AdminInboxPage() {
     }
   }
 
+  async function loadWhatsAppStatus() {
+    try {
+      const response = await fetch('/api/admin/whatsapp');
+      const result = (await response.json()) as {
+        configured?: boolean;
+        provider?: 'twilio' | null;
+        source?: 'env' | 'runtime' | null;
+      };
+
+      setWhatsAppApi({
+        configured: Boolean(result.configured),
+        loading: false,
+        provider: result.provider || null,
+        source: result.source || null,
+      });
+    } catch {
+      setWhatsAppApi({
+        configured: false,
+        loading: false,
+        provider: null,
+        source: null,
+      });
+    }
+  }
+
   useEffect(() => {
     void loadInbox();
+    void loadWhatsAppStatus();
   }, []);
 
   useEffect(() => {
@@ -143,9 +190,13 @@ export default function AdminInboxPage() {
 
     return state.leads.filter(lead => {
       const searchableText = [
+        lead.contactPurpose,
+        lead.companyName,
+        lead.collaborationType,
         lead.name,
         lead.email,
         lead.mobileNumber,
+        lead.subject,
         lead.whatsappNumber,
         lead.serviceType,
         lead.projectType,
@@ -190,6 +241,26 @@ export default function AdminInboxPage() {
         project => project.id === selectedLead.projectId || project.leadId === selectedLead.id
       ) || null
     : null;
+
+  function getLeadSummaryLine(lead: ContactLead) {
+    if (lead.contactPurpose === 'Work Inquiry / Project') {
+      return [lead.serviceType !== 'Other' ? lead.serviceType : '', lead.projectType || lead.intentCategory]
+        .filter(Boolean)
+        .join(' · ');
+    }
+
+    if (lead.contactPurpose === 'Collaboration') {
+      return [lead.collaborationType || 'Collaboration', lead.companyName]
+        .filter(Boolean)
+        .join(' · ');
+    }
+
+    if (lead.contactPurpose === 'Other') {
+      return [lead.subject || 'Other', lead.intentCategory].filter(Boolean).join(' · ');
+    }
+
+    return [lead.contactPurpose, lead.intentCategory].filter(Boolean).join(' · ');
+  }
 
   const selectedClient =
     (selectedProject
@@ -385,6 +456,54 @@ export default function AdminInboxPage() {
     pushNotice('Opened WhatsApp reply.');
   }
 
+  async function sendWhatsAppDirect() {
+    if (!selectedLead) {
+      return;
+    }
+
+    if (!whatsAppApi.configured) {
+      pushNotice('Direct WhatsApp API is not configured yet.');
+      return;
+    }
+
+    setSendingWhatsApp(true);
+    try {
+      const response = await fetch('/api/admin/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body: whatsAppDraft,
+          to: selectedLead.whatsappNumber || selectedLead.mobileNumber,
+        }),
+      });
+
+      const result = (await response.json()) as {
+        error?: string;
+        provider?: string;
+        status?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send WhatsApp message.');
+      }
+
+      await patchLead(selectedLead.id, {
+        lastContactedAt: new Date().toISOString(),
+        read: true,
+        status: 'Pending Reply',
+      });
+
+      pushNotice(
+        `WhatsApp message sent via ${result.provider || 'API'} (${result.status || 'queued'}).`
+      );
+    } catch (error) {
+      pushNotice(error instanceof Error ? error.message : 'WhatsApp send failed.');
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  }
+
+
   async function generateBriefLink() {
     if (!selectedLead) {
       return;
@@ -477,6 +596,8 @@ export default function AdminInboxPage() {
     important: state.leads.filter(lead => lead.important).length,
     unread: state.leads.filter(lead => !lead.read && !lead.archived).length,
   };
+  const inputStyle = getAdminInputStyle(tokens);
+  const textareaStyle = getAdminTextareaStyle(tokens, { minHeight: 120 });
 
   return (
     <AdminShell
@@ -489,9 +610,9 @@ export default function AdminInboxPage() {
           style={{
             borderRadius: 18,
             padding: '14px 16px',
-            border: '1px solid rgba(56,189,248,0.18)',
-            background: 'rgba(14,165,233,0.12)',
-            color: '#7dd3fc',
+            border: `1px solid ${tokens.accentSoft}`,
+            background: tokens.accentSoft,
+            color: tokens.accentText,
             fontWeight: 700,
           }}
         >
@@ -517,11 +638,13 @@ export default function AdminInboxPage() {
             style={{
               borderRadius: 24,
               padding: '18px 20px',
-              border: '1px solid rgba(148,163,184,0.14)',
-              background: 'rgba(8,15,29,0.82)',
+              border: `1px solid ${tokens.line}`,
+              background: tokens.panelStrong,
+              boxShadow: tokens.softShadow,
+              color: tokens.text,
             }}
           >
-            <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>{label}</div>
+            <div style={{ color: tokens.muted, fontSize: 13, marginBottom: 8 }}>{label}</div>
             <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: '-0.05em' }}>{value}</div>
           </article>
         ))}
@@ -530,8 +653,9 @@ export default function AdminInboxPage() {
       <section
         style={{
           borderRadius: 28,
-          border: '1px solid rgba(148,163,184,0.14)',
-          background: 'rgba(8,15,29,0.82)',
+          border: `1px solid ${tokens.line}`,
+          background: tokens.panel,
+          boxShadow: tokens.softShadow,
           padding: 20,
           display: 'grid',
           gap: 14,
@@ -548,25 +672,12 @@ export default function AdminInboxPage() {
             value={search}
             onChange={event => setSearch(event.target.value)}
             placeholder="Search by name, email, mobile, service..."
-            style={{
-              width: '100%',
-              borderRadius: 14,
-              padding: '12px 14px',
-              border: '1px solid rgba(148,163,184,0.16)',
-              background: 'rgba(15,23,42,0.82)',
-              color: '#f8fafc',
-            }}
+            style={inputStyle}
           />
           <select
             value={categoryFilter}
             onChange={event => setCategoryFilter(event.target.value)}
-            style={{
-              borderRadius: 14,
-              padding: '12px 14px',
-              border: '1px solid rgba(148,163,184,0.16)',
-              background: 'rgba(15,23,42,0.82)',
-              color: '#f8fafc',
-            }}
+            style={inputStyle}
           >
             <option value="All">All categories</option>
             {LEAD_CATEGORY_OPTIONS.map(option => (
@@ -578,13 +689,7 @@ export default function AdminInboxPage() {
           <select
             value={statusFilter}
             onChange={event => setStatusFilter(event.target.value)}
-            style={{
-              borderRadius: 14,
-              padding: '12px 14px',
-              border: '1px solid rgba(148,163,184,0.16)',
-              background: 'rgba(15,23,42,0.82)',
-              color: '#f8fafc',
-            }}
+            style={inputStyle}
           >
             <option value="All">All statuses</option>
             {LEAD_STATUS_OPTIONS.map(option => (
@@ -596,13 +701,7 @@ export default function AdminInboxPage() {
           <select
             value={priorityFilter}
             onChange={event => setPriorityFilter(event.target.value)}
-            style={{
-              borderRadius: 14,
-              padding: '12px 14px',
-              border: '1px solid rgba(148,163,184,0.16)',
-              background: 'rgba(15,23,42,0.82)',
-              color: '#f8fafc',
-            }}
+            style={inputStyle}
           >
             <option value="All">All priorities</option>
             {LEAD_PRIORITY_OPTIONS.map(option => (
@@ -625,24 +724,26 @@ export default function AdminInboxPage() {
         <article
           style={{
             borderRadius: 28,
-            border: '1px solid rgba(148,163,184,0.14)',
-            background: 'rgba(8,15,29,0.82)',
+            border: `1px solid ${tokens.line}`,
+            background: tokens.panel,
+            boxShadow: tokens.softShadow,
             padding: 18,
             display: 'grid',
             gap: 12,
+            color: tokens.text,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em' }}>All leads</div>
-              <div style={{ color: '#94a3b8', fontSize: 13 }}>
+              <div style={{ color: tokens.muted, fontSize: 13 }}>
                 {state.loading ? 'Loading...' : `${filteredLeads.length} visible lead(s)`}
               </div>
             </div>
           </div>
 
           {filteredLeads.length === 0 ? (
-            <div style={{ color: '#94a3b8', fontSize: 14 }}>No leads match these filters.</div>
+            <div style={{ color: tokens.muted, fontSize: 14 }}>No leads match these filters.</div>
           ) : (
             filteredLeads.map(lead => {
               const active = selectedLead?.id === lead.id;
@@ -662,25 +763,25 @@ export default function AdminInboxPage() {
                     borderRadius: 20,
                     padding: '16px 16px',
                     border: `1px solid ${
-                      active ? 'rgba(59,130,246,0.4)' : 'rgba(148,163,184,0.14)'
+                      active ? 'rgba(59,130,246,0.4)' : tokens.line
                     }`,
                     background: active
                       ? 'linear-gradient(145deg, rgba(37,99,235,0.18), rgba(14,165,233,0.14))'
-                      : 'rgba(15,23,42,0.7)',
-                    color: '#f8fafc',
+                      : tokens.fieldSoft,
+                    color: active ? '#eff6ff' : tokens.text,
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                     <div style={{ fontWeight: 800 }}>{lead.name}</div>
                     {!lead.read ? (
-                      <span style={{ color: '#7dd3fc', fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      <span style={{ color: tokens.accentText, fontSize: 11, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                         Unread
                       </span>
                     ) : null}
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10 }}>
-                    {lead.serviceType} · {lead.intentCategory}
+                  <div style={{ color: active ? 'rgba(226,232,240,0.86)' : tokens.muted, fontSize: 13, marginBottom: 10 }}>
+                    {getLeadSummaryLine(lead)}
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {[lead.category, lead.status, lead.priority].map(badge => (
@@ -689,8 +790,8 @@ export default function AdminInboxPage() {
                         style={{
                           borderRadius: 999,
                           padding: '5px 9px',
-                          background: 'rgba(30,41,59,0.9)',
-                          color: '#cbd5e1',
+                          background: active ? 'rgba(15,23,42,0.22)' : tokens.field,
+                          color: active ? '#e2e8f0' : tokens.muted,
                           fontSize: 11,
                           fontWeight: 700,
                         }}
@@ -741,7 +842,7 @@ export default function AdminInboxPage() {
                       </span>
                     ) : null}
                   </div>
-                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 10 }}>
+                  <div style={{ color: active ? 'rgba(226,232,240,0.68)' : tokens.subtle, fontSize: 12, marginTop: 10 }}>
                     {new Date(lead.createdAt).toLocaleString('en-GB')}
                   </div>
                 </button>
@@ -753,15 +854,17 @@ export default function AdminInboxPage() {
         <article
           style={{
             borderRadius: 28,
-            border: '1px solid rgba(148,163,184,0.14)',
-            background: 'rgba(8,15,29,0.82)',
+            border: `1px solid ${tokens.line}`,
+            background: tokens.panel,
+            boxShadow: tokens.softShadow,
             padding: 20,
             display: 'grid',
             gap: 18,
+            color: tokens.text,
           }}
         >
           {!selectedLead ? (
-            <div style={{ color: '#94a3b8', fontSize: 15 }}>Select a lead to review the full conversation details.</div>
+            <div style={{ color: tokens.muted, fontSize: 15 }}>Select a lead to review the full conversation details.</div>
           ) : (
             <>
               <div
@@ -777,11 +880,16 @@ export default function AdminInboxPage() {
                   <h2 style={{ margin: 0, fontSize: 28, letterSpacing: '-0.05em' }}>
                     {selectedLead.name}
                   </h2>
-                  <div style={{ color: '#94a3b8', marginTop: 8, fontSize: 14 }}>
-                    {selectedLead.email} · {selectedLead.mobileNumber}
-                    {selectedLead.whatsappNumber ? ` · ${selectedLead.whatsappNumber}` : ''}
+                  <div style={{ color: tokens.muted, marginTop: 8, fontSize: 14 }}>
+                    {[
+                      selectedLead.email,
+                      selectedLead.mobileNumber,
+                      selectedLead.whatsappNumber,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </div>
-                  <div style={{ color: '#64748b', fontSize: 12, marginTop: 8 }}>
+                  <div style={{ color: tokens.subtle, fontSize: 12, marginTop: 8 }}>
                     Submitted {new Date(selectedLead.createdAt).toLocaleString('en-GB')}
                   </div>
                 </div>
@@ -793,9 +901,9 @@ export default function AdminInboxPage() {
                     style={{
                       borderRadius: 14,
                       padding: '10px 12px',
-                      border: '1px solid rgba(148,163,184,0.16)',
-                      background: 'rgba(15,23,42,0.76)',
-                      color: '#e2e8f0',
+                      border: `1px solid ${tokens.line}`,
+                      background: tokens.field,
+                      color: tokens.text,
                       cursor: 'pointer',
                     }}
                   >
@@ -823,9 +931,9 @@ export default function AdminInboxPage() {
                     style={{
                       borderRadius: 14,
                       padding: '10px 12px',
-                      border: '1px solid rgba(148,163,184,0.16)',
-                      background: 'rgba(15,23,42,0.76)',
-                      color: '#e2e8f0',
+                      border: `1px solid ${tokens.line}`,
+                      background: tokens.field,
+                      color: tokens.text,
                       cursor: 'pointer',
                     }}
                   >
@@ -855,8 +963,8 @@ export default function AdminInboxPage() {
                     style={{
                       borderRadius: 999,
                       padding: '6px 10px',
-                      background: 'rgba(30,41,59,0.88)',
-                      color: '#cbd5e1',
+                      background: tokens.field,
+                      color: tokens.muted,
                       fontSize: 12,
                       fontWeight: 800,
                     }}
@@ -916,23 +1024,35 @@ export default function AdminInboxPage() {
                 }}
               >
                 {[
-                  ['Service type', selectedLead.serviceType],
-                  ['Project type', selectedLead.projectType],
-                  ['Budget', selectedLead.budgetRange],
-                  ['Deadline', selectedLead.deadline || 'Not specified'],
+                  ['Contact purpose', selectedLead.contactPurpose],
+                  selectedLead.serviceType !== 'Other' || selectedLead.contactPurpose === 'Work Inquiry / Project'
+                    ? ['Service type', selectedLead.serviceType]
+                    : null,
+                  selectedLead.projectType ? ['Project type', selectedLead.projectType] : null,
+                  selectedLead.budgetRange ? ['Budget', selectedLead.budgetRange] : null,
+                  selectedLead.deadline ? ['Deadline', selectedLead.deadline] : null,
+                  selectedLead.collaborationType
+                    ? ['Collaboration type', selectedLead.collaborationType]
+                    : null,
+                  selectedLead.companyName ? ['Company / Brand', selectedLead.companyName] : null,
+                  selectedLead.timeline ? ['Timeline', selectedLead.timeline] : null,
+                  selectedLead.subject ? ['Subject', selectedLead.subject] : null,
                   ['Intent', selectedLead.intentCategory],
                   ['Contact method', selectedLead.preferredContactMethod],
-                ].map(([label, value]) => (
+                  selectedLead.sourcePage ? ['Source page', selectedLead.sourcePage] : null,
+                ]
+                  .filter((item): item is [string, string] => Boolean(item && item[1]))
+                  .map(([label, value]) => (
                   <div
                     key={label}
                     style={{
                       borderRadius: 18,
-                      border: '1px solid rgba(148,163,184,0.12)',
+                      border: `1px solid ${tokens.line}`,
                       padding: '14px 16px',
-                      background: 'rgba(15,23,42,0.72)',
+                      background: tokens.fieldSoft,
                     }}
                   >
-                    <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }}>{label}</div>
+                    <div style={{ color: tokens.muted, fontSize: 12, marginBottom: 6 }}>{label}</div>
                     <div style={{ fontWeight: 700 }}>{value}</div>
                   </div>
                 ))}
@@ -956,10 +1076,10 @@ export default function AdminInboxPage() {
               <div
                 style={{
                   borderRadius: 22,
-                  border: '1px solid rgba(148,163,184,0.12)',
-                  background: 'rgba(15,23,42,0.72)',
+                  border: `1px solid ${tokens.line}`,
+                  background: tokens.fieldSoft,
                   padding: 18,
-                  color: '#e2e8f0',
+                  color: tokens.text,
                   whiteSpace: 'pre-wrap',
                   lineHeight: 1.85,
                 }}
@@ -974,20 +1094,13 @@ export default function AdminInboxPage() {
                   gap: 12,
                 }}
               >
-                <label style={{ display: 'grid', gap: 8 }}>
-                  <span style={{ color: '#94a3b8', fontSize: 12 }}>Category</span>
+                <Field label="Category" tokens={tokens}>
                   <select
                     value={selectedLead.category}
                     onChange={event =>
                       void patchLead(selectedLead.id, { category: event.target.value })
                     }
-                    style={{
-                      borderRadius: 14,
-                      padding: '11px 12px',
-                      border: '1px solid rgba(148,163,184,0.16)',
-                      background: 'rgba(15,23,42,0.82)',
-                      color: '#f8fafc',
-                    }}
+                    style={inputStyle}
                   >
                     {LEAD_CATEGORY_OPTIONS.map(option => (
                       <option key={option} value={option}>
@@ -995,21 +1108,14 @@ export default function AdminInboxPage() {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label style={{ display: 'grid', gap: 8 }}>
-                  <span style={{ color: '#94a3b8', fontSize: 12 }}>Status</span>
+                </Field>
+                <Field label="Status" tokens={tokens}>
                   <select
                     value={selectedLead.status}
                     onChange={event =>
                       void patchLead(selectedLead.id, { status: event.target.value })
                     }
-                    style={{
-                      borderRadius: 14,
-                      padding: '11px 12px',
-                      border: '1px solid rgba(148,163,184,0.16)',
-                      background: 'rgba(15,23,42,0.82)',
-                      color: '#f8fafc',
-                    }}
+                    style={inputStyle}
                   >
                     {LEAD_STATUS_OPTIONS.map(option => (
                       <option key={option} value={option}>
@@ -1017,21 +1123,14 @@ export default function AdminInboxPage() {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label style={{ display: 'grid', gap: 8 }}>
-                  <span style={{ color: '#94a3b8', fontSize: 12 }}>Priority</span>
+                </Field>
+                <Field label="Priority" tokens={tokens}>
                   <select
                     value={selectedLead.priority}
                     onChange={event =>
                       void patchLead(selectedLead.id, { priority: event.target.value })
                     }
-                    style={{
-                      borderRadius: 14,
-                      padding: '11px 12px',
-                      border: '1px solid rgba(148,163,184,0.16)',
-                      background: 'rgba(15,23,42,0.82)',
-                      color: '#f8fafc',
-                    }}
+                    style={inputStyle}
                   >
                     {LEAD_PRIORITY_OPTIONS.map(option => (
                       <option key={option} value={option}>
@@ -1039,21 +1138,21 @@ export default function AdminInboxPage() {
                       </option>
                     ))}
                   </select>
-                </label>
+                </Field>
               </div>
 
               <section
                 style={{
                   borderRadius: 24,
-                  border: '1px solid rgba(148,163,184,0.14)',
-                  background: 'rgba(15,23,42,0.72)',
+                  border: `1px solid ${tokens.line}`,
+                  background: tokens.fieldSoft,
                   padding: 18,
                   display: 'grid',
                   gap: 14,
                 }}
               >
                 <div>
-                  <div style={{ color: '#38bdf8', fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  <div style={{ color: tokens.accentText, fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
                     WhatsApp Reply
                   </div>
                   <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em' }}>
@@ -1065,28 +1164,28 @@ export default function AdminInboxPage() {
                   <button
                     type="button"
                     onClick={() => applyMessageTemplate('greeting_reply')}
-                    style={quickButtonStyle()}
+                    style={quickButtonStyle(tokens)}
                   >
                     Send greeting
                   </button>
                   <button
                     type="button"
                     onClick={() => void prepareProjectAcceptedDraft()}
-                    style={quickButtonStyle()}
+                    style={quickButtonStyle(tokens)}
                   >
                     Acceptance message
                   </button>
                   <button
                     type="button"
                     onClick={() => applyMessageTemplate('progress_update')}
-                    style={quickButtonStyle()}
+                    style={quickButtonStyle(tokens)}
                   >
                     Progress update
                   </button>
                   <button
                     type="button"
                     onClick={() => void generateBriefLink()}
-                    style={quickButtonStyle('primary')}
+                    style={quickButtonStyle(tokens, 'primary')}
                   >
                     Creative brief request
                   </button>
@@ -1103,8 +1202,8 @@ export default function AdminInboxPage() {
                     <button
                       type="button"
                       key={template.id}
-                      onClick={() => applyRateTemplate(template.id)}
-                      style={quickButtonStyle()}
+                    onClick={() => applyRateTemplate(template.id)}
+                      style={quickButtonStyle(tokens)}
                     >
                       {template.title}
                     </button>
@@ -1117,29 +1216,101 @@ export default function AdminInboxPage() {
                   placeholder="Choose a quick action or type a custom WhatsApp message here..."
                   rows={7}
                   style={{
-                    width: '100%',
-                    borderRadius: 16,
-                    padding: 14,
-                    border: '1px solid rgba(148,163,184,0.16)',
-                    background: 'rgba(2,6,23,0.92)',
-                    color: '#f8fafc',
-                    resize: 'vertical',
-                    boxSizing: 'border-box',
+                    ...getAdminTextareaStyle(tokens, { minHeight: 176 }),
                     lineHeight: 1.7,
                   }}
                 />
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    borderRadius: 20,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.field,
+                    padding: 14,
+                    display: 'grid',
+                    gap: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800, marginBottom: 4 }}>WhatsApp API Status</div>
+                      <div style={{ color: tokens.muted, fontSize: 13, lineHeight: 1.7 }}>
+                        Connection setup now lives in Settings so this inbox stays focused on replies.
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        borderRadius: 999,
+                        padding: '6px 10px',
+                        background: whatsAppApi.configured
+                          ? 'rgba(34,197,94,0.18)'
+                          : tokens.fieldSoft,
+                        color: whatsAppApi.configured ? '#86efac' : tokens.muted,
+                        fontSize: 12,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {whatsAppApi.loading
+                        ? 'Checking...'
+                        : whatsAppApi.configured
+                          ? `Connected ${whatsAppApi.source === 'env' ? '(env)' : '(settings saved)'}`
+                          : 'Not connected'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <a
+                      href="/admin/settings"
+                      style={{
+                        ...quickButtonStyle(tokens),
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      Open Settings
+                    </a>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => void sendWhatsAppDirect()}
+                    disabled={
+                      !selectedLead ||
+                      !whatsAppDraft.trim() ||
+                      sendingWhatsApp ||
+                      !whatsAppApi.configured
+                    }
+                    style={quickButtonStyle(tokens, 'primary')}
+                  >
+                    {sendingWhatsApp ? 'Sending...' : 'Send from Admin'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => void openWhatsApp()}
-                    style={quickButtonStyle('primary')}
+                    style={quickButtonStyle(tokens)}
                   >
                     Open WhatsApp
                   </button>
                   <button
                     type="button"
                     onClick={() => setWhatsAppDraft('')}
-                    style={quickButtonStyle()}
+                    style={quickButtonStyle(tokens)}
                   >
                     Clear draft
                   </button>
@@ -1149,15 +1320,15 @@ export default function AdminInboxPage() {
               <section
                 style={{
                   borderRadius: 24,
-                  border: '1px solid rgba(148,163,184,0.14)',
-                  background: 'rgba(15,23,42,0.72)',
+                  border: `1px solid ${tokens.line}`,
+                  background: tokens.fieldSoft,
                   padding: 18,
                   display: 'grid',
                   gap: 14,
                 }}
               >
                 <div>
-                  <div style={{ color: '#38bdf8', fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  <div style={{ color: tokens.accentText, fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
                     Project Conversion
                   </div>
                   <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em' }}>
@@ -1186,22 +1357,22 @@ export default function AdminInboxPage() {
                     gap: 12,
                   }}
                 >
-                  <Field label="Project title">
+                  <Field label="Project title" tokens={tokens}>
                     <input
                       value={projectForm.projectTitle}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, projectTitle: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     />
                   </Field>
-                  <Field label="Service type">
+                  <Field label="Service type" tokens={tokens}>
                     <select
                       value={projectForm.serviceType}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, serviceType: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     >
                       {SERVICE_TYPE_OPTIONS.map(option => (
                         <option key={option} value={option}>
@@ -1210,31 +1381,31 @@ export default function AdminInboxPage() {
                       ))}
                     </select>
                   </Field>
-                  <Field label="Budget / price">
+                  <Field label="Budget / price" tokens={tokens}>
                     <input
                       value={projectForm.budgetPrice}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, budgetPrice: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     />
                   </Field>
-                  <Field label="Deadline">
+                  <Field label="Deadline" tokens={tokens}>
                     <input
                       value={projectForm.deadline}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, deadline: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     />
                   </Field>
-                  <Field label="Status">
+                  <Field label="Status" tokens={tokens}>
                     <select
                       value={projectForm.currentStatus}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, currentStatus: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     >
                       {PROJECT_STATUS_OPTIONS.map(option => (
                         <option key={option} value={option}>
@@ -1243,7 +1414,7 @@ export default function AdminInboxPage() {
                       ))}
                     </select>
                   </Field>
-                  <Field label="Progress %">
+                  <Field label="Progress %" tokens={tokens}>
                     <input
                       type="number"
                       min={0}
@@ -1252,16 +1423,16 @@ export default function AdminInboxPage() {
                       onChange={event =>
                         setProjectForm(current => ({ ...current, progressPercentage: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     />
                   </Field>
-                  <Field label="Payment status">
+                  <Field label="Payment status" tokens={tokens}>
                     <select
                       value={projectForm.paymentStatus}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, paymentStatus: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     >
                       {PAYMENT_STATUS_OPTIONS.map(option => (
                         <option key={option} value={option}>
@@ -1270,26 +1441,26 @@ export default function AdminInboxPage() {
                       ))}
                     </select>
                   </Field>
-                  <Field label="Next step">
+                  <Field label="Next step" tokens={tokens}>
                     <input
                       value={projectForm.nextStep}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, nextStep: event.target.value }))
                       }
-                      style={fieldInputStyle}
+                      style={inputStyle}
                     />
                   </Field>
-                  <Field label="Requirements" full>
+                  <Field label="Requirements" full tokens={tokens}>
                     <textarea
                       value={projectForm.requirements}
                       onChange={event =>
                         setProjectForm(current => ({ ...current, requirements: event.target.value }))
                       }
                       rows={5}
-                      style={fieldTextareaStyle}
+                      style={textareaStyle}
                     />
                   </Field>
-                  <Field label="Client-visible notes" full>
+                  <Field label="Client-visible notes" full tokens={tokens}>
                     <textarea
                       value={projectForm.clientVisibleNotes}
                       onChange={event =>
@@ -1299,10 +1470,10 @@ export default function AdminInboxPage() {
                         }))
                       }
                       rows={3}
-                      style={fieldTextareaStyle}
+                      style={textareaStyle}
                     />
                   </Field>
-                  <Field label="Private admin notes" full>
+                  <Field label="Private admin notes" full tokens={tokens}>
                     <textarea
                       value={projectForm.privateAdminNotes}
                       onChange={event =>
@@ -1312,7 +1483,7 @@ export default function AdminInboxPage() {
                         }))
                       }
                       rows={3}
-                      style={fieldTextareaStyle}
+                      style={textareaStyle}
                     />
                   </Field>
                 </div>
@@ -1322,14 +1493,18 @@ export default function AdminInboxPage() {
                     type="button"
                     onClick={() => void convertLeadToProject()}
                     disabled={creatingProject || Boolean(selectedProject)}
-                    style={quickButtonStyle('primary', creatingProject || Boolean(selectedProject))}
+                    style={quickButtonStyle(
+                      tokens,
+                      'primary',
+                      creatingProject || Boolean(selectedProject)
+                    )}
                   >
                     {creatingProject ? 'Creating project...' : 'Convert to project'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setProjectForm(createProjectForm(selectedLead))}
-                    style={quickButtonStyle()}
+                    style={quickButtonStyle(tokens)}
                   >
                     Reset form
                   </button>
@@ -1343,20 +1518,24 @@ export default function AdminInboxPage() {
   );
 }
 
-function quickButtonStyle(mode: 'default' | 'primary' = 'default', disabled = false) {
+function quickButtonStyle(
+  tokens: AdminThemeTokens,
+  mode: 'default' | 'primary' = 'default',
+  disabled = false
+) {
   return {
     borderRadius: 14,
     padding: '11px 14px',
     border:
       mode === 'primary'
         ? '1px solid rgba(56,189,248,0.24)'
-        : '1px solid rgba(148,163,184,0.16)',
+        : `1px solid ${tokens.line}`,
     background: disabled
-      ? 'rgba(15,23,42,0.5)'
+      ? tokens.fieldSoft
       : mode === 'primary'
         ? 'linear-gradient(135deg, rgba(37,99,235,0.96), rgba(14,165,233,0.88))'
-        : 'rgba(2,6,23,0.88)',
-    color: disabled ? '#64748b' : '#f8fafc',
+        : tokens.field,
+    color: disabled ? tokens.subtle : mode === 'primary' ? '#f8fafc' : tokens.text,
     cursor: disabled ? 'not-allowed' : 'pointer',
     fontWeight: 700,
   } as const;
@@ -1366,32 +1545,17 @@ function Field({
   children,
   full = false,
   label,
+  tokens,
 }: {
   children: React.ReactNode;
   full?: boolean;
   label: string;
+  tokens: AdminThemeTokens;
 }) {
   return (
     <label style={{ display: 'grid', gap: 8, gridColumn: full ? '1 / -1' : undefined }}>
-      <span style={{ color: '#94a3b8', fontSize: 12 }}>{label}</span>
+      <span style={{ color: tokens.muted, fontSize: 12 }}>{label}</span>
       {children}
     </label>
   );
 }
-
-const fieldInputStyle: React.CSSProperties = {
-  width: '100%',
-  borderRadius: 14,
-  padding: '11px 12px',
-  border: '1px solid rgba(148,163,184,0.16)',
-  background: 'rgba(2,6,23,0.92)',
-  color: '#f8fafc',
-  boxSizing: 'border-box',
-};
-
-const fieldTextareaStyle: React.CSSProperties = {
-  ...fieldInputStyle,
-  resize: 'vertical',
-  lineHeight: 1.7,
-  minHeight: 120,
-};

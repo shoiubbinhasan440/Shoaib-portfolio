@@ -756,7 +756,7 @@ export default function AdminProjectsPage() {
                         padding: '12px 14px',
                         background: 'rgba(2,6,23,0.82)',
                         display: 'grid',
-                        gridTemplateColumns: 'minmax(0, 1fr) 150px 120px auto',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
                         gap: 10,
                         alignItems: 'center',
                       }}

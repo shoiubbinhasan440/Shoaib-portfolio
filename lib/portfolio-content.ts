@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getFirstSetting, parseStyledSetting, type SettingMap } from '@/lib/hero-settings';
+import {
+  createDefaultBuilderSectionStyles,
+  sanitizeBuilderSectionStyles,
+  type BuilderSectionStyles,
+} from '@/lib/page-builder-styles';
 
 export type PortfolioSourceType = 'video' | 'graphic';
 export type PortfolioTabKey = 'all' | 'video' | 'graphic';
@@ -24,6 +29,13 @@ export type HomepagePortfolioCardStyle =
 export type HomepagePortfolioResponsivePreset = 'compact' | 'balanced' | 'showcase';
 export type HomepagePortfolioClickAction = 'preview' | 'portfolio' | 'preview-with-link';
 export type HomepagePortfolioChipStyle = 'soft' | 'glass' | 'editorial';
+
+export type PortfolioItemStory = {
+  challenge?: string;
+  solution?: string;
+  tools?: string;
+  result?: string;
+};
 
 export type PortfolioVideo = {
   id: number;
@@ -81,6 +93,28 @@ export type HomepagePortfolioItemConfig = {
   previewEnabled?: boolean;
 };
 
+export type PortfolioItemMetaConfig = {
+  tags?: string[];
+  typeLabel?: string;
+  formatLabel?: string;
+  aspectRatio?: string;
+  externalPreviewUrl?: string;
+  cardBadge?: string;
+  cardCtaLabel?: string;
+  previewTitle?: string;
+  previewSubtitle?: string;
+  previewDescription?: string;
+  previewCtaLabel?: string;
+  previewCtaLink?: string;
+  showCategoryBadge?: boolean;
+  showTags?: boolean;
+  showPreviewButton?: boolean;
+  showHomepageBadge?: boolean;
+  smartShowcase?: boolean;
+  featuredPriority?: number;
+  story?: PortfolioItemStory;
+};
+
 export type HomepagePortfolioCategoryConfig = {
   enabled?: boolean;
   order?: number;
@@ -89,6 +123,7 @@ export type HomepagePortfolioCategoryConfig = {
 
 export type HomepagePortfolioConfigMap = Record<string, HomepagePortfolioItemConfig>;
 export type HomepagePortfolioCategoryConfigMap = Record<string, HomepagePortfolioCategoryConfig>;
+export type PortfolioItemMetaConfigMap = Record<string, PortfolioItemMetaConfig>;
 
 export type HomepagePortfolioSectionSettings = {
   enabled: boolean;
@@ -139,6 +174,7 @@ export type HomepagePortfolioSectionSettings = {
   showPreviewIcon: boolean;
   showHoverOverlay: boolean;
   showFeaturedBadge: boolean;
+  styles: BuilderSectionStyles;
   itemConfig: HomepagePortfolioConfigMap;
   categoryConfig: HomepagePortfolioCategoryConfigMap;
 };
@@ -168,6 +204,7 @@ export type PortfolioPageSettings = {
 };
 
 export const HOMEPAGE_PORTFOLIO_SYSTEM_SETTING_KEY = 'homepage_portfolio_system_config';
+export const PORTFOLIO_ITEM_META_SETTING_KEY = 'portfolio_item_meta_config';
 
 export const HOMEPAGE_PORTFOLIO_SETTING_KEYS = {
   enabled: 'homepagePortfolioEnabled',
@@ -245,6 +282,7 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
   showPreviewIcon: true,
   showHoverOverlay: true,
   showFeaturedBadge: true,
+  styles: createDefaultBuilderSectionStyles(),
   itemConfig: {},
   categoryConfig: {},
 };
@@ -393,6 +431,69 @@ function sanitizeHomepagePortfolioItemConfigValue(
   } satisfies HomepagePortfolioItemConfig;
 }
 
+function sanitizePortfolioItemStory(value: unknown): PortfolioItemStory {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return {
+    challenge: textValue(value.challenge, ''),
+    solution: textValue(value.solution, ''),
+    tools: textValue(value.tools, ''),
+    result: textValue(value.result, ''),
+  };
+}
+
+function sanitizePortfolioItemMetaValue(
+  value: unknown,
+  fallback: PortfolioItemMetaConfig = {}
+) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  return {
+    tags: Array.isArray(value.tags)
+      ? value.tags.filter(tag => typeof tag === 'string').map(tag => tag.trim()).filter(Boolean)
+      : fallback.tags,
+    typeLabel: textValue(value.typeLabel, fallback.typeLabel || ''),
+    formatLabel: textValue(value.formatLabel, fallback.formatLabel || ''),
+    aspectRatio: textValue(value.aspectRatio, fallback.aspectRatio || ''),
+    externalPreviewUrl: textValue(value.externalPreviewUrl, fallback.externalPreviewUrl || ''),
+    cardBadge: textValue(value.cardBadge, fallback.cardBadge || ''),
+    cardCtaLabel: textValue(value.cardCtaLabel, fallback.cardCtaLabel || ''),
+    previewTitle: textValue(value.previewTitle, fallback.previewTitle || ''),
+    previewSubtitle: textValue(value.previewSubtitle, fallback.previewSubtitle || ''),
+    previewDescription: textValue(
+      value.previewDescription,
+      fallback.previewDescription || ''
+    ),
+    previewCtaLabel: textValue(value.previewCtaLabel, fallback.previewCtaLabel || ''),
+    previewCtaLink: textValue(value.previewCtaLink, fallback.previewCtaLink || ''),
+    showCategoryBadge: boolValue(
+      value.showCategoryBadge,
+      fallback.showCategoryBadge ?? true
+    ),
+    showTags: boolValue(value.showTags, fallback.showTags ?? true),
+    showPreviewButton: boolValue(
+      value.showPreviewButton,
+      fallback.showPreviewButton ?? true
+    ),
+    showHomepageBadge: boolValue(
+      value.showHomepageBadge,
+      fallback.showHomepageBadge ?? true
+    ),
+    smartShowcase: boolValue(value.smartShowcase, fallback.smartShowcase ?? false),
+    featuredPriority: clampNumber(
+      value.featuredPriority,
+      fallback.featuredPriority ?? 0,
+      0,
+      99
+    ),
+    story: sanitizePortfolioItemStory(value.story),
+  } satisfies PortfolioItemMetaConfig;
+}
+
 function sanitizeHomepagePortfolioCategoryConfigValue(
   value: unknown,
   fallback: HomepagePortfolioCategoryConfig = {}
@@ -417,10 +518,10 @@ function sanitizeHomepagePortfolioCategoryConfigValue(
   } satisfies HomepagePortfolioCategoryConfig;
 }
 
-function getConfigEntryForItem(
+function getConfigEntryForItem<T>(
   sourceType: PortfolioSourceType,
   itemId: string,
-  configMap: HomepagePortfolioConfigMap
+  configMap: Record<string, T>
 ) {
   const directKey = getHomepagePortfolioItemKey(sourceType, itemId);
   if (configMap[directKey]) {
@@ -535,6 +636,34 @@ export function serializeHomepagePortfolioItemConfig(config: HomepagePortfolioCo
       ])
     )
   );
+}
+
+export function parsePortfolioItemMetaConfig(rawValue: string | undefined) {
+  if (!rawValue) {
+    return {} as PortfolioItemMetaConfigMap;
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!isRecord(parsed)) {
+      return {} as PortfolioItemMetaConfigMap;
+    }
+
+    return sortObjectEntries(
+      Object.fromEntries(
+        Object.entries(parsed).map(([itemKey, itemMeta]) => [
+          itemKey,
+          sanitizePortfolioItemMetaValue(itemMeta),
+        ])
+      )
+    ) as PortfolioItemMetaConfigMap;
+  } catch {
+    return {} as PortfolioItemMetaConfigMap;
+  }
+}
+
+export function serializePortfolioItemMetaConfig(config: PortfolioItemMetaConfigMap) {
+  return JSON.stringify(sortObjectEntries(config));
 }
 
 export function parseHomepagePortfolioCategoryConfig(rawValue: string | undefined) {
@@ -686,6 +815,7 @@ function sanitizeHomepagePortfolioSettings(
     showPreviewIcon: boolValue(value.showPreviewIcon, fallback.showPreviewIcon),
     showHoverOverlay: boolValue(value.showHoverOverlay, fallback.showHoverOverlay),
     showFeaturedBadge: boolValue(value.showFeaturedBadge, fallback.showFeaturedBadge),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
     itemConfig:
       Object.keys(legacyItemConfig).length > 0
         ? legacyItemConfig
@@ -909,6 +1039,44 @@ export function getHomepageConfigForItem(
     homepageFeatured: rawConfig.homepageFeatured ?? false,
     previewEnabled: rawConfig.previewEnabled ?? true,
   } satisfies Required<HomepagePortfolioItemConfig>;
+}
+
+export function getPortfolioItemDefaultTypeLabel(sourceType: PortfolioSourceType) {
+  return sourceType === 'video' ? 'Video Edit' : 'Graphic Design';
+}
+
+export function getPortfolioItemMeta(
+  item: Pick<PortfolioPreviewItem, 'sourceType' | 'id'>,
+  configMap: PortfolioItemMetaConfigMap
+) {
+  const rawConfig = getConfigEntryForItem(item.sourceType, item.id, configMap) || {};
+
+  return {
+    tags: rawConfig.tags || [],
+    typeLabel: rawConfig.typeLabel || getPortfolioItemDefaultTypeLabel(item.sourceType),
+    formatLabel: rawConfig.formatLabel || '',
+    aspectRatio: rawConfig.aspectRatio || '',
+    externalPreviewUrl: rawConfig.externalPreviewUrl || '',
+    cardBadge: rawConfig.cardBadge || '',
+    cardCtaLabel: rawConfig.cardCtaLabel || '',
+    previewTitle: rawConfig.previewTitle || '',
+    previewSubtitle: rawConfig.previewSubtitle || '',
+    previewDescription: rawConfig.previewDescription || '',
+    previewCtaLabel: rawConfig.previewCtaLabel || '',
+    previewCtaLink: rawConfig.previewCtaLink || '',
+    showCategoryBadge: rawConfig.showCategoryBadge ?? true,
+    showTags: rawConfig.showTags ?? true,
+    showPreviewButton: rawConfig.showPreviewButton ?? true,
+    showHomepageBadge: rawConfig.showHomepageBadge ?? true,
+    smartShowcase: rawConfig.smartShowcase ?? false,
+    featuredPriority: rawConfig.featuredPriority ?? 0,
+    story: {
+      challenge: rawConfig.story?.challenge || '',
+      solution: rawConfig.story?.solution || '',
+      tools: rawConfig.story?.tools || '',
+      result: rawConfig.story?.result || '',
+    },
+  };
 }
 
 export function getHomepageConfigForVideo(
@@ -1164,16 +1332,28 @@ export function getHomepagePortfolioPreviewItems(
   settings: Pick<
     HomepagePortfolioSectionSettings,
     'itemConfig' | 'itemLimit' | 'showVideos' | 'showGraphics' | 'categoryConfig'
-  >
+  > & { itemMetaConfig?: PortfolioItemMetaConfigMap }
 ) {
   return items
     .filter(item => isHomepageItemAllowed(item, settings))
     .sort((leftItem, rightItem) => {
       const leftConfig = getHomepageConfigForItem(leftItem, settings.itemConfig);
       const rightConfig = getHomepageConfigForItem(rightItem, settings.itemConfig);
+      const leftMeta = settings.itemMetaConfig
+        ? getPortfolioItemMeta(leftItem, settings.itemMetaConfig)
+        : null;
+      const rightMeta = settings.itemMetaConfig
+        ? getPortfolioItemMeta(rightItem, settings.itemMetaConfig)
+        : null;
 
       if (leftConfig.homepageFeatured !== rightConfig.homepageFeatured) {
         return leftConfig.homepageFeatured ? -1 : 1;
+      }
+
+      if (
+        (leftMeta?.featuredPriority || 0) !== (rightMeta?.featuredPriority || 0)
+      ) {
+        return (rightMeta?.featuredPriority || 0) - (leftMeta?.featuredPriority || 0);
       }
 
       if (leftConfig.homepageOrder !== rightConfig.homepageOrder) {

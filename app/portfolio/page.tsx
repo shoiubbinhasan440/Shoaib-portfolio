@@ -18,8 +18,11 @@ import {
   DEFAULT_PORTFOLIO_PAGE_SETTINGS,
   fetchPortfolioDataset,
   getPortfolioPageSettings,
+  parsePortfolioItemMetaConfig,
+  PORTFOLIO_ITEM_META_SETTING_KEY,
   toPortfolioPreviewItems,
   type PortfolioCategory,
+  type PortfolioItemMetaConfigMap,
   type PortfolioPageSettings,
   type PortfolioPreviewItem,
 } from '@/lib/portfolio-content';
@@ -40,6 +43,7 @@ export default function PortfolioPage() {
   const [pageBuilder, setPageBuilder] = useState<PortfolioPageBuilderConfig>(() =>
     getPortfolioPageBuilderConfig({})
   );
+  const [itemMetaConfig, setItemMetaConfig] = useState<PortfolioItemMetaConfigMap>({});
   const [footerConfig, setFooterConfig] = useState(() => createDefaultHomepageBuilderConfig().footer);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -55,6 +59,7 @@ export default function PortfolioPage() {
         const map = toSettingMap(settingsRows);
         setPageSettings(getPortfolioPageSettings(map));
         setPageBuilder(getPortfolioPageBuilderConfig(map));
+        setItemMetaConfig(parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]));
         setFooterConfig(
           getGlobalFooterConfig(map, {
             projectCount: videos.length + graphics.length,
@@ -128,6 +133,7 @@ export default function PortfolioPage() {
         categories={categories}
         pageSettings={pageSettings}
         pageBuilder={pageBuilder}
+        itemMetaConfig={itemMetaConfig}
         loading={loading}
       />
       <GlobalFooter config={footerConfig} isMobile={isMobile} />

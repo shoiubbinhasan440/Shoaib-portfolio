@@ -1,64 +1,667 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import AdminImageField from '@/components/admin/AdminImageField';
+import AdminShell from '@/components/admin/AdminShell';
+import {
+  AdminActionButton,
+  AdminBuilderSection,
+  AdminChip,
+  AdminField,
+  AdminNotice,
+  getAdminInputStyle,
+  getAdminTextareaStyle,
+  useAdminThemeTokens,
+} from '@/components/admin/admin-ui';
+import { toSettingMap } from '@/lib/hero-settings';
+import {
+  createDefaultNavigationConfig,
+  createDropdownChild,
+  createNavigationItem,
+  DEFAULT_USER_LOGIN_ROUTE,
+  getNavigationBranding,
+  getNextNavigationOrder,
+  getVisibleNavigationItems,
+  NAVIGATION_ICON_SUGGESTIONS,
+  NAVIGATION_PRESET_OPTIONS,
+  NAVIGATION_SETTINGS_KEY,
+  parseNavigationConfig,
+  resolveLoginButton,
+  serializeNavigationConfig,
+  type NavigationConfig,
+  type NavigationItem,
+  type NavigationItemType,
+} from '@/lib/navigation-config';
+import { writeSiteSetting } from '@/lib/site-settings';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type NavItem = {
-  id: string;
-  label: string;
-  href: string;
-  order_num: number;
-  visible: boolean;
-};
+type SettingRow = { key: string; value: string };
+type LegacyRow = { id: string; label: string; href: string; order_num: number; visible: boolean };
 
-const EMPTY_FORM = {
-  label: '',
-  href: '',
-  order_num: 0,
-  visible: true,
-};
+function normalizeItemOrder(items: NavigationItem[]): NavigationItem[] {
+  return items.map((item, index) => ({
+    ...item,
+    order: index,
+    children: normalizeItemOrder(item.children || []),
+  }));
+}
 
-const DEFAULT_PREVIEW_ITEMS = [
-  { label: 'Home', href: '/', order_num: 0, visible: true },
-  { label: 'Portfolio', href: '/portfolio', order_num: 1, visible: true },
-  { label: 'Tutorial', href: '/tutorial', order_num: 2, visible: true },
-  { label: 'About', href: '/about', order_num: 3, visible: true },
-  { label: 'Contact', href: '/contact', order_num: 4, visible: true },
-];
+function sortItems(items: NavigationItem[]): NavigationItem[] {
+  return normalizeItemOrder(
+    [...items].sort((leftItem, rightItem) => leftItem.order - rightItem.order)
+  );
+}
 
-function getIcon(href: string): string {
-  if (href === '/') return '🏠';
-  if (href.includes('portfolio')) return '🎬';
-  if (href.includes('tutorial')) return '🎓';
-  if (href.includes('about')) return '👤';
-  if (href.includes('contact')) return '✉️';
-  if (href.includes('graphic')) return '🎨';
-  return '🔗';
+function replaceItem(
+  items: NavigationItem[],
+  itemId: string,
+  updater: (item: NavigationItem) => NavigationItem
+): NavigationItem[] {
+  return items.map(item => {
+    if (item.id === itemId) {
+      return updater(item);
+    }
+
+    if (item.children.length > 0) {
+      return {
+        ...item,
+        children: replaceItem(item.children, itemId, updater),
+      };
+    }
+
+    return item;
+  });
+}
+
+function removeItem(items: NavigationItem[], itemId: string): NavigationItem[] {
+  return items
+    .filter(item => item.id !== itemId)
+    .map(item => ({
+      ...item,
+      children: removeItem(item.children, itemId),
+    }));
+}
+
+function moveItem(
+  items: NavigationItem[],
+  itemId: string,
+  direction: 'up' | 'down'
+): NavigationItem[] {
+  const index = items.findIndex(item => item.id === itemId);
+  if (index === -1) {
+    return items.map(item => ({
+      ...item,
+      children: moveItem(item.children, itemId, direction),
+    }));
+  }
+
+  const nextIndex = direction === 'up' ? index - 1 : index + 1;
+  if (nextIndex < 0 || nextIndex >= items.length) {
+    return normalizeItemOrder(items);
+  }
+
+  const copy = [...items];
+  const [picked] = copy.splice(index, 1);
+  copy.splice(nextIndex, 0, picked);
+  return normalizeItemOrder(copy);
+}
+
+function duplicateConfig(config: NavigationConfig) {
+  return parseNavigationConfig(serializeNavigationConfig(config));
+}
+
+function validateItem(item: NavigationItem, trail: string[]): string[] {
+  const errors: string[] = [];
+  const name = [...trail, item.label || 'Untitled item'].join(' / ');
+
+  if (!item.label.trim()) {
+    errors.push(`${name}: label is required.`);
+  }
+
+  if (item.type !== 'dropdown' && !item.href.trim()) {
+    errors.push(`${name}: destination URL is required.`);
+  }
+
+  if (item.type === 'dropdown' && item.children.length === 0) {
+    errors.push(`${name}: add at least one child item for the dropdown.`);
+  }
+
+  item.children.forEach(child => {
+    errors.push(...validateItem(child, [...trail, item.label || 'Untitled dropdown']));
+  });
+
+  return errors;
+}
+
+function validateConfig(config: NavigationConfig) {
+  const errors = config.items.flatMap(item => validateItem(item, []));
+
+  if (
+    config.loginButton.visible &&
+    config.loginButton.destinationType === 'custom' &&
+    !config.loginButton.customUrl.trim()
+  ) {
+    errors.push('Login button: custom URL is required when destination type is Custom URL.');
+  }
+
+  if (
+    config.design.logo.showImageLogo &&
+    !getNavigationBranding(config).imageLogoUrl
+  ) {
+    errors.push('Logo settings: add an image URL or turn off the image logo.');
+  }
+
+  return errors;
+}
+
+function OptionSelect({
+  onChange,
+  value,
+}: {
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const groups = ['Internal pages', 'Homepage sections', 'Utility routes', 'Custom'] as const;
+
+  return (
+    <select
+      value={value}
+      onChange={event => onChange(event.target.value)}
+      style={{ width: '100%' }}
+    >
+      <option value="">Custom destination</option>
+      {groups.map(group => (
+        <optgroup key={group} label={group}>
+          {NAVIGATION_PRESET_OPTIONS.filter(option => option.group === group).map(option => (
+            <option key={`${group}-${option.label}-${option.value}`} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+function ItemEditor({
+  item,
+  onAddChild,
+  onDelete,
+  onMove,
+  onUpdate,
+}: {
+  item: NavigationItem;
+  onAddChild: (parentId: string) => void;
+  onDelete: (itemId: string) => void;
+  onMove: (itemId: string, direction: 'up' | 'down') => void;
+  onUpdate: (itemId: string, updater: (item: NavigationItem) => NavigationItem) => void;
+}) {
+  const tokens = useAdminThemeTokens();
+  const inputStyle = getAdminInputStyle(tokens);
+  const compactSelectStyle = { ...inputStyle, appearance: 'auto' as const };
+  const presetMatch =
+    NAVIGATION_PRESET_OPTIONS.find(option => option.value === item.href)?.value || '';
+  const childCount = item.children.length;
+
+  return (
+    <div
+      style={{
+        border: `1px solid ${tokens.line}`,
+        borderRadius: 22,
+        padding: 18,
+        background: tokens.fieldSoft,
+        boxShadow: tokens.softShadow,
+        display: 'grid',
+        gap: 16,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 16 }}>{item.label || 'Untitled menu item'}</strong>
+          <AdminChip tone={item.visible ? 'success' : 'neutral'}>
+            {item.visible ? 'Visible' : 'Hidden'}
+          </AdminChip>
+          <AdminChip tone="accent">{item.type}</AdminChip>
+          {item.type === 'dropdown' ? (
+            <AdminChip tone="neutral">{childCount} children</AdminChip>
+          ) : null}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <AdminActionButton onClick={() => onMove(item.id, 'up')} variant="secondary">
+            Move Up
+          </AdminActionButton>
+          <AdminActionButton onClick={() => onMove(item.id, 'down')} variant="secondary">
+            Move Down
+          </AdminActionButton>
+          <AdminActionButton onClick={() => onDelete(item.id)} variant="danger">
+            Delete
+          </AdminActionButton>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 14,
+        }}
+      >
+        <AdminField label="Label">
+          <input
+            value={item.label}
+            onChange={event =>
+              onUpdate(item.id, current => ({ ...current, label: event.target.value }))
+            }
+            style={inputStyle}
+          />
+        </AdminField>
+
+        <AdminField label="Menu type">
+          <select
+            value={item.type}
+            onChange={event =>
+              onUpdate(item.id, current => ({
+                ...current,
+                type: event.target.value as NavigationItemType,
+                children:
+                  event.target.value === 'dropdown'
+                    ? current.children.length > 0
+                      ? current.children
+                      : [createDropdownChild(0)]
+                    : [],
+              }))
+            }
+            style={compactSelectStyle}
+          >
+            <option value="internal">Internal page</option>
+            <option value="external">External link</option>
+            <option value="section">Section anchor</option>
+            <option value="dropdown">Dropdown parent</option>
+            <option value="button">Custom button</option>
+          </select>
+        </AdminField>
+
+        <AdminField label="Known destinations">
+          <div style={compactSelectStyle}>
+            <OptionSelect
+              value={presetMatch}
+              onChange={value =>
+                onUpdate(item.id, current => ({
+                  ...current,
+                  href: value || current.href,
+                  type:
+                    NAVIGATION_PRESET_OPTIONS.find(option => option.value === value)?.type ||
+                    current.type,
+                }))
+              }
+            />
+          </div>
+        </AdminField>
+
+        <AdminField label="URL / Path">
+          <input
+            value={item.href}
+            onChange={event =>
+              onUpdate(item.id, current => ({ ...current, href: event.target.value }))
+            }
+            style={inputStyle}
+            placeholder={item.type === 'section' ? '/#portfolio' : '/portfolio or https://'}
+          />
+        </AdminField>
+
+        <AdminField label="Icon">
+          <div style={{ display: 'grid', gap: 8 }}>
+            <input
+              value={item.icon}
+              onChange={event =>
+                onUpdate(item.id, current => ({ ...current, icon: event.target.value }))
+              }
+              style={inputStyle}
+              placeholder="Optional icon or symbol"
+            />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {NAVIGATION_ICON_SUGGESTIONS.map(option => (
+                <button
+                  key={`${item.id}-${option || 'empty'}`}
+                  type="button"
+                  onClick={() =>
+                    onUpdate(item.id, current => ({ ...current, icon: option }))
+                  }
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 12,
+                    border: `1px solid ${tokens.line}`,
+                    background: item.icon === option ? tokens.accentSoft : tokens.field,
+                    color: tokens.text,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {option || '∅'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </AdminField>
+
+        <AdminField label="Active behavior">
+          <select
+            value={item.activeMode}
+            onChange={event =>
+              onUpdate(item.id, current => ({
+                ...current,
+                activeMode: event.target.value as NavigationItem['activeMode'],
+              }))
+            }
+            style={compactSelectStyle}
+          >
+            <option value="exact">Exact match</option>
+            <option value="prefix">Starts with path</option>
+            <option value="none">Never mark active</option>
+          </select>
+        </AdminField>
+
+        <AdminField label="Order">
+          <input
+            type="number"
+            value={item.order}
+            onChange={event =>
+              onUpdate(item.id, current => ({
+                ...current,
+                order: Number(event.target.value) || 0,
+              }))
+            }
+            style={inputStyle}
+          />
+        </AdminField>
+      </div>
+
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={item.visible}
+            onChange={event =>
+              onUpdate(item.id, current => ({ ...current, visible: event.target.checked }))
+            }
+          />
+          <span>Visible in navbar</span>
+        </label>
+
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={item.newTab}
+            onChange={event =>
+              onUpdate(item.id, current => ({ ...current, newTab: event.target.checked }))
+            }
+          />
+          <span>Open in new tab</span>
+        </label>
+      </div>
+
+      {item.type === 'dropdown' ? (
+        <div
+          style={{
+            borderTop: `1px solid ${tokens.line}`,
+            paddingTop: 16,
+            display: 'grid',
+            gap: 14,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
+          >
+            <div style={{ fontWeight: 800 }}>Dropdown options</div>
+            <AdminActionButton onClick={() => onAddChild(item.id)} variant="secondary">
+              Add Child Item
+            </AdminActionButton>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 14,
+            }}
+          >
+            <AdminField label="Dropdown alignment">
+              <select
+                value={item.dropdownAlignment}
+                onChange={event =>
+                  onUpdate(item.id, current => ({
+                    ...current,
+                    dropdownAlignment:
+                      event.target.value as NavigationItem['dropdownAlignment'],
+                  }))
+                }
+                style={compactSelectStyle}
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </AdminField>
+            <AdminField label="Dropdown trigger">
+              <select
+                value={item.dropdownTrigger}
+                onChange={event =>
+                  onUpdate(item.id, current => ({
+                    ...current,
+                    dropdownTrigger: event.target.value as NavigationItem['dropdownTrigger'],
+                  }))
+                }
+                style={compactSelectStyle}
+              >
+                <option value="hover">Hover</option>
+                <option value="click">Click</option>
+              </select>
+            </AdminField>
+          </div>
+
+          {item.children.length === 0 ? (
+            <div
+              style={{
+                borderRadius: 18,
+                border: `1px dashed ${tokens.line}`,
+                padding: 18,
+                color: tokens.muted,
+                background: tokens.field,
+              }}
+            >
+              This dropdown is empty. Add child items to populate the submenu.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {sortItems(item.children).map(child => (
+                <div
+                  key={child.id}
+                  style={{
+                    borderRadius: 18,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.field,
+                    padding: 14,
+                    display: 'grid',
+                    gap: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <strong>{child.label || 'Untitled child'}</strong>
+                      <AdminChip tone={child.visible ? 'success' : 'neutral'}>
+                        {child.visible ? 'Visible' : 'Hidden'}
+                      </AdminChip>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <AdminActionButton onClick={() => onMove(child.id, 'up')} variant="ghost">
+                        Up
+                      </AdminActionButton>
+                      <AdminActionButton onClick={() => onMove(child.id, 'down')} variant="ghost">
+                        Down
+                      </AdminActionButton>
+                      <AdminActionButton onClick={() => onDelete(child.id)} variant="danger">
+                        Delete
+                      </AdminActionButton>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: 12,
+                    }}
+                  >
+                    <AdminField label="Label">
+                      <input
+                        value={child.label}
+                        onChange={event =>
+                          onUpdate(child.id, current => ({
+                            ...current,
+                            label: event.target.value,
+                          }))
+                        }
+                        style={inputStyle}
+                      />
+                    </AdminField>
+                    <AdminField label="URL / Path">
+                      <input
+                        value={child.href}
+                        onChange={event =>
+                          onUpdate(child.id, current => ({
+                            ...current,
+                            href: event.target.value,
+                          }))
+                        }
+                        style={inputStyle}
+                      />
+                    </AdminField>
+                    <AdminField label="Icon">
+                      <input
+                        value={child.icon}
+                        onChange={event =>
+                          onUpdate(child.id, current => ({
+                            ...current,
+                            icon: event.target.value,
+                          }))
+                        }
+                        style={inputStyle}
+                      />
+                    </AdminField>
+                    <AdminField label="Order">
+                      <input
+                        type="number"
+                        value={child.order}
+                        onChange={event =>
+                          onUpdate(child.id, current => ({
+                            ...current,
+                            order: Number(event.target.value) || 0,
+                          }))
+                        }
+                        style={inputStyle}
+                      />
+                    </AdminField>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={child.visible}
+                        onChange={event =>
+                          onUpdate(child.id, current => ({
+                            ...current,
+                            visible: event.target.checked,
+                          }))
+                        }
+                      />
+                      <span>Visible</span>
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={child.newTab}
+                        onChange={event =>
+                          onUpdate(child.id, current => ({
+                            ...current,
+                            newTab: event.target.checked,
+                          }))
+                        }
+                      />
+                      <span>Open in new tab</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function AdminNavigationPage() {
   const router = useRouter();
-  const [items, setItems] = useState<NavItem[]>([]);
+  const tokens = useAdminThemeTokens();
+  const [config, setConfig] = useState<NavigationConfig | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [siteName, setSiteName] = useState('Md. Minhajul Hoque');
+  const [siteLogo, setSiteLogo] = useState('');
+  const [siteLogoAlt, setSiteLogoAlt] = useState('Site logo');
 
-  async function getNavigationItems() {
-    const { data } = await supabase
-      .from('navigation')
-      .select('*')
-      .order('order_num', { ascending: true });
+  async function loadSystem() {
+    const [{ data: settingsRows }, { data: legacyRows }] = await Promise.all([
+      supabase.from('site_settings').select('key, value'),
+      supabase
+        .from('navigation')
+        .select('id, label, href, order_num, visible')
+        .order('order_num', { ascending: true }),
+    ]);
 
-    return data || [];
+    const map = toSettingMap((settingsRows || []) as SettingRow[]);
+    const rawConfig = map[NAVIGATION_SETTINGS_KEY];
+    const nextConfig = parseNavigationConfig(rawConfig, {
+      legacyItems: (legacyRows || []) as LegacyRow[],
+    });
+    setConfig(nextConfig);
+    setSavedSnapshot(serializeNavigationConfig(nextConfig));
+    setSiteName(map.site_name || 'Md. Minhajul Hoque');
+    setSiteLogo(map.site_logo || '');
+    setSiteLogoAlt(map.site_logo_alt || map.site_name || 'Site logo');
   }
 
   useEffect(() => {
@@ -68,259 +671,1230 @@ export default function AdminNavigationPage() {
       return;
     }
 
-    async function load() {
-      const data = await getNavigationItems();
-      setItems(data);
-      setLoading(false);
+    async function boot() {
+      try {
+        await loadSystem();
+      } finally {
+        setLoading(false);
+      }
     }
 
-    void load();
+    void boot();
   }, [router]);
 
-  async function refreshItems() {
-    setLoading(true);
-    const data = await getNavigationItems();
-    setItems(data);
-    setLoading(false);
+  const inputStyle = getAdminInputStyle(tokens);
+  const textareaStyle = getAdminTextareaStyle(tokens, { minHeight: 90 });
+
+  const normalizedConfig = useMemo(
+    () => (config ? parseNavigationConfig(serializeNavigationConfig(config)) : null),
+    [config]
+  );
+  const hasUnsavedChanges =
+    normalizedConfig !== null &&
+    serializeNavigationConfig(normalizedConfig) !== savedSnapshot;
+  const visibleItems = normalizedConfig ? getVisibleNavigationItems(normalizedConfig.items) : [];
+  const loginPreview = normalizedConfig
+    ? resolveLoginButton(normalizedConfig, { userLoginRoute: DEFAULT_USER_LOGIN_ROUTE })
+    : null;
+  const branding = normalizedConfig
+    ? {
+        imageLogoUrl: normalizedConfig.design.logo.imageLogoUrl || siteLogo,
+        logoAlt: siteLogoAlt,
+        textLogo: normalizedConfig.design.logo.textLogo || siteName,
+      }
+    : null;
+
+  function updateConfig(updater: (current: NavigationConfig) => NavigationConfig) {
+    setConfig(current => (current ? updater(duplicateConfig(current)) : current));
   }
 
-  async function handleSave() {
-    if (!form.label.trim() || !form.href.trim()) {
-      setMsg('❌ Label এবং URL দুইটাই লাগবে।');
+  function handleAddItem() {
+    updateConfig(current => ({
+      ...current,
+      items: sortItems([
+        ...current.items,
+        createNavigationItem(getNextNavigationOrder(current.items)),
+      ]),
+    }));
+  }
+
+  function handleUpdateItem(itemId: string, updater: (item: NavigationItem) => NavigationItem) {
+    updateConfig(current => ({
+      ...current,
+      items: sortItems(replaceItem(current.items, itemId, updater)),
+    }));
+  }
+
+  function handleDeleteItem(itemId: string) {
+    if (!confirm('Delete this navigation item?')) {
+      return;
+    }
+
+    updateConfig(current => ({
+      ...current,
+      items: sortItems(removeItem(current.items, itemId)),
+    }));
+  }
+
+  function handleMoveItem(itemId: string, direction: 'up' | 'down') {
+    updateConfig(current => ({
+      ...current,
+      items: sortItems(moveItem(current.items, itemId, direction)),
+    }));
+  }
+
+  function handleAddChild(parentId: string) {
+    updateConfig(current => ({
+      ...current,
+      items: sortItems(
+        replaceItem(current.items, parentId, item => ({
+          ...item,
+          type: 'dropdown',
+          children: sortItems([
+            ...item.children,
+            createDropdownChild(getNextNavigationOrder(item.children)),
+          ]),
+        }))
+      ),
+    }));
+  }
+
+  async function handleLogoUpload(file: File) {
+    const ext = file.name.split('.').pop() || 'png';
+    const path = `navigation/${Date.now()}-logo.${ext}`;
+    setUploadingField('logo');
+
+    try {
+      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+      if (error) {
+        throw error;
+      }
+
+      const { data } = supabase.storage.from('media').getPublicUrl(path);
+      updateConfig(current => ({
+        ...current,
+        design: {
+          ...current.design,
+          logo: {
+            ...current.design.logo,
+            imageLogoUrl: data.publicUrl,
+          },
+        },
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Logo upload failed.';
+      setMsg(`❌ ${message}`);
+    } finally {
+      setUploadingField(null);
+    }
+  }
+
+  async function saveNavigation() {
+    if (!normalizedConfig) {
+      return;
+    }
+
+    const errors = validateConfig(normalizedConfig);
+    if (errors.length > 0) {
+      setMsg(`❌ ${errors[0]}`);
       return;
     }
 
     setSaving(true);
-
-    const payload = {
-      label: form.label.trim(),
-      href: form.href.trim(),
-      order_num: form.order_num,
-      visible: form.visible,
-    };
-
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from('navigation').update(payload).eq('id', editingId));
-    } else {
-      ({ error } = await supabase.from('navigation').insert([payload]));
+    try {
+      const serialized = serializeNavigationConfig(normalizedConfig);
+      await writeSiteSetting(supabase, NAVIGATION_SETTINGS_KEY, serialized);
+      setSavedSnapshot(serialized);
+      setConfig(normalizedConfig);
+      setMsg('✅ Navigation settings saved successfully.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Navigation settings save failed.';
+      setMsg(`❌ ${message}`);
+    } finally {
+      setSaving(false);
     }
+  }
 
-    setSaving(false);
-
-    if (error) {
-      setMsg(`❌ সমস্যা হয়েছে: ${error.message}`);
+  function resetDraft() {
+    if (!savedSnapshot) {
+      setConfig(createDefaultNavigationConfig());
       return;
     }
 
-    setMsg(editingId ? '✅ মেনু আইটেম আপডেট হয়েছে!' : '✅ নতুন মেনু আইটেম যোগ হয়েছে!');
-    setShowForm(false);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    void refreshItems();
-    setTimeout(() => setMsg(''), 3000);
+    setConfig(parseNavigationConfig(savedSnapshot));
+    setMsg('Navigation draft reset to the last saved state.');
   }
 
-  function handleEdit(item: NavItem) {
-    setForm({
-      label: item.label,
-      href: item.href,
-      order_num: item.order_num,
-      visible: item.visible,
-    });
-    setEditingId(item.id);
-    setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (loading || !config || !normalizedConfig) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          color: tokens.muted,
+          background: tokens.dark ? '#020617' : '#f8fbff',
+        }}
+      >
+        Navigation builder loading...
+      </div>
+    );
   }
-
-  async function handleDelete(id: string) {
-    if (!confirm('এই নেভিগেশন আইটেমটি ডিলিট করবেন?')) {
-      return;
-    }
-
-    await supabase.from('navigation').delete().eq('id', id);
-    setMsg('🗑️ মেনু আইটেম ডিলিট হয়েছে।');
-    void refreshItems();
-    setTimeout(() => setMsg(''), 3000);
-  }
-
-  async function toggleVisible(item: NavItem) {
-    await supabase
-      .from('navigation')
-      .update({ visible: !item.visible })
-      .eq('id', item.id);
-    void refreshItems();
-  }
-
-  const previewItems = (items.length > 0 ? items : DEFAULT_PREVIEW_ITEMS)
-    .filter(item => item.visible)
-    .sort((a, b) => a.order_num - b.order_num);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0d0d0d', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            style={{ background: '#1a1a1a', border: '1px solid #333', color: '#aaa', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
-          >
-            ← ড্যাশবোর্ড
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>🧭 নেভিগেশন ম্যানেজার</h1>
-          <span style={{ background: '#1a1a2e', color: '#818cf8', padding: '4px 12px', borderRadius: 20, fontSize: 13 }}>
-            {items.length}টি আইটেম
-          </span>
-        </div>
-        <button
-          onClick={() => {
-            setShowForm(!showForm);
-            setEditingId(null);
-            setForm(EMPTY_FORM);
+    <AdminShell
+      eyebrow="Navigation Builder"
+      title="Control the public navbar from one dynamic admin system"
+      description="Build menu items, dropdowns, login behavior, theme toggle placement, mobile navigation, and brand styling from one shared navbar config that the public site reads directly."
+      actions={
+        <>
+          <AdminActionButton onClick={handleAddItem} variant="secondary">
+            Add Menu Item
+          </AdminActionButton>
+          <AdminActionButton onClick={resetDraft} variant="ghost">
+            Reset Draft
+          </AdminActionButton>
+          <AdminActionButton onClick={() => void saveNavigation()} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Navigation'}
+          </AdminActionButton>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 18 }}>
+        {msg ? <AdminNotice message={msg} /> : null}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 14,
           }}
-          style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
         >
-          {showForm ? '✕ বন্ধ করুন' : '+ নতুন মেনু আইটেম'}
-        </button>
-      </div>
-
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px 80px' }}>
-        {msg && (
-          <div style={{ background: msg.startsWith('✅') ? '#0f2a1a' : msg.startsWith('🗑️') ? '#1a1a2e' : '#2a0f0f', border: '1px solid #333', color: msg.startsWith('✅') ? '#4ade80' : msg.startsWith('🗑️') ? '#a5b4fc' : '#f87171', padding: '12px 20px', borderRadius: 10, marginBottom: 24, fontSize: 15 }}>
-            {msg}
-          </div>
-        )}
-
-        <div style={{ background: '#111', border: '1px solid #222', borderRadius: 16, padding: 24, marginBottom: 24 }}>
-          <div style={{ fontSize: 13, color: '#666', marginBottom: 14 }}>লাইভ প্রিভিউ</div>
-          <div style={{ background: 'rgba(10, 10, 20, 0.9)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 18, fontWeight: 900 }}>Minhajul<span style={{ color: '#818cf8' }}>.</span></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', color: '#bbb', fontSize: 13 }}>
-              {previewItems.map(item => (
-                <span key={`${item.href}-${item.label}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span>{getIcon(item.href)}</span>
-                  <span>{item.label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
+          {[
+            { label: 'Total items', value: normalizedConfig.items.length },
+            { label: 'Visible items', value: visibleItems.length },
+            { label: 'Dropdown parents', value: normalizedConfig.items.filter(item => item.type === 'dropdown').length },
+            { label: 'Unsaved changes', value: hasUnsavedChanges ? 'Yes' : 'No' },
+          ].map(metric => (
+            <article
+              key={metric.label}
+              style={{
+                borderRadius: 22,
+                padding: '18px 20px',
+                border: `1px solid ${tokens.line}`,
+                background: tokens.fieldSoft,
+                boxShadow: tokens.softShadow,
+              }}
+            >
+              <div style={{ color: tokens.muted, fontSize: 13, marginBottom: 8 }}>{metric.label}</div>
+              <div style={{ fontSize: 30, fontWeight: 900 }}>{metric.value}</div>
+            </article>
+          ))}
         </div>
 
-        {showForm && (
-          <div style={{ background: '#111', border: '1px solid #222', borderRadius: 16, padding: 28, marginBottom: 24 }}>
-            <h2 style={{ margin: '0 0 24px', fontSize: 18, color: '#4da6ff' }}>
-              {editingId ? '✏️ মেনু আইটেম এডিট করুন' : '➕ নতুন মেনু আইটেম যোগ করুন'}
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>লেবেল *</label>
-                <input
-                  value={form.label}
-                  onChange={e => setForm(current => ({ ...current, label: e.target.value }))}
-                  placeholder="যেমন: Portfolio"
-                  style={{ width: '100%', background: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>URL / Path *</label>
-                <input
-                  value={form.href}
-                  onChange={e => setForm(current => ({ ...current, href: e.target.value }))}
-                  placeholder="/portfolio"
-                  style={{ width: '100%', background: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', fontFamily: 'monospace' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>ক্রম নম্বর</label>
-                <input
-                  type="number"
-                  value={form.order_num}
-                  onChange={e => setForm(current => ({ ...current, order_num: parseInt(e.target.value, 10) || 0 }))}
-                  style={{ width: '100%', background: '#1a1a1a', border: '1px solid #333', color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <input
-                  type="checkbox"
-                  id="nav-visible"
-                  checked={form.visible}
-                  onChange={e => setForm(current => ({ ...current, visible: e.target.checked }))}
-                  style={{ width: 18, height: 18, cursor: 'pointer' }}
-                />
-                <label htmlFor="nav-visible" style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }}>দৃশ্যমান রাখুন</label>
-              </div>
-            </div>
-            <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{ background: saving ? '#333' : '#2563eb', color: '#fff', border: 'none', padding: '12px 28px', borderRadius: 8, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 15 }}
-              >
-                {saving ? '⏳ সেভ হচ্ছে...' : editingId ? '✅ আপডেট করুন' : '✅ যোগ করুন'}
-              </button>
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingId(null);
-                  setForm(EMPTY_FORM);
-                }}
-                style={{ background: '#1a1a1a', color: '#aaa', border: '1px solid #333', padding: '12px 20px', borderRadius: 8, cursor: 'pointer', fontSize: 15 }}
-              >
-                বাতিল
-              </button>
-            </div>
-          </div>
-        )}
+        <AdminBuilderSection
+          title="Live Preview"
+          description="This preview mirrors the saved navbar structure: logo, visible links, login CTA, and theme toggle placement. Hidden items stay out of the preview."
+          badge={`${visibleItems.length} live links`}
+          status={hasUnsavedChanges ? 'Unsaved edits' : 'Saved'}
+          statusTone={hasUnsavedChanges ? 'danger' : 'success'}
+          tabs={[
+            {
+              id: 'desktop',
+              label: 'Desktop',
+              description: 'See the primary order and CTA placement.',
+              content: (
+                <div
+                  style={{
+                    borderRadius: 26,
+                    border: `1px solid ${tokens.line}`,
+                    padding: 18,
+                    background: normalizedConfig.design.backgroundDark,
+                    color: '#f8fafc',
+                    boxShadow: '0 22px 60px rgba(2,6,23,0.24)',
+                    display: 'grid',
+                    gap: 18,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: 18,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+                      {normalizedConfig.design.logo.showImageLogo && branding?.imageLogoUrl ? (
+                        <img
+                          src={branding.imageLogoUrl}
+                          alt={branding.logoAlt}
+                          style={{
+                            width: 42,
+                            height: 42,
+                            objectFit: 'cover',
+                            borderRadius: 14,
+                          }}
+                        />
+                      ) : null}
+                      {normalizedConfig.design.logo.showTextLogo ? (
+                        <div style={{ fontWeight: 900, color: normalizedConfig.design.logo.brandColor, fontSize: 22 }}>
+                          {branding?.textLogo}
+                        </div>
+                      ) : null}
+                    </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#555' }}>লোড হচ্ছে...</div>
-        ) : items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#555', background: '#111', borderRadius: 16, border: '1px dashed #222' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🧭</div>
-            <p>এখনও কোনো নেভিগেশন আইটেম নেই। ডিফল্ট প্রিভিউ দেখানো হচ্ছে।</p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {items.map(item => (
-              <div key={item.id} style={{ background: '#111', border: '1px solid #222', borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', gap: 16, opacity: item.visible ? 1 : 0.55 }}>
-                <div style={{ width: 44, height: 44, background: '#1a1a1a', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                  {getIcon(item.href)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 600, fontSize: 16 }}>{item.label}</span>
-                    {!item.visible && <span style={{ background: '#1a1a1a', color: '#666', fontSize: 11, padding: '2px 10px', borderRadius: 20, border: '1px solid #333' }}>লুকানো</span>}
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {visibleItems.map(item => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: item.type === 'button' ? '10px 14px' : '8px 0',
+                            borderRadius: item.type === 'button' ? 999 : 0,
+                            background:
+                              item.type === 'button' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                            color: item.type === 'button'
+                              ? '#ffffff'
+                              : normalizedConfig.design.textColorDark,
+                          }}
+                        >
+                          {item.icon ? <span>{item.icon}</span> : null}
+                          <span>{item.label}</span>
+                          {item.type === 'dropdown' ? (
+                            <span style={{ color: normalizedConfig.design.accentColor }}>
+                              {item.children.filter(child => child.visible).length} sub
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {normalizedConfig.themeToggle.visible &&
+                      normalizedConfig.themeToggle.position === 'before-login' ? (
+                        <span
+                          style={{
+                            borderRadius: 999,
+                            padding: '10px 14px',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            background: 'rgba(255,255,255,0.06)',
+                          }}
+                        >
+                          Theme
+                        </span>
+                      ) : null}
+                      {loginPreview?.visible ? (
+                        <span
+                          style={{
+                            borderRadius: 999,
+                            padding: '10px 16px',
+                            background: normalizedConfig.design.accentColor,
+                            color: '#fff',
+                            fontWeight: 800,
+                          }}
+                        >
+                          {normalizedConfig.loginButton.label}
+                        </span>
+                      ) : null}
+                      {normalizedConfig.themeToggle.visible &&
+                      normalizedConfig.themeToggle.position === 'after-login' ? (
+                        <span
+                          style={{
+                            borderRadius: 999,
+                            padding: '10px 14px',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            background: 'rgba(255,255,255,0.06)',
+                          }}
+                        >
+                          Theme
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 13, color: '#666', flexWrap: 'wrap' }}>
-                    <span>{item.href}</span>
-                    <span>ক্রম: {item.order_num}</span>
+
+                  <div style={{ color: 'rgba(255,255,255,0.64)', fontSize: 13 }}>
+                    Layout: {normalizedConfig.design.layout} | Width: {normalizedConfig.design.width} | Mobile: {normalizedConfig.design.mobile.style}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <button
-                    onClick={() => toggleVisible(item)}
-                    title={item.visible ? 'লুকান' : 'দেখান'}
-                    style={{ background: '#1a1a1a', color: item.visible ? '#4ade80' : '#666', border: '1px solid #333', width: 36, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}
+              ),
+            },
+          ]}
+        />
+
+        <AdminBuilderSection
+          title="Menu Items Manager"
+          description="Create, edit, reorder, hide, or remove top-level items and dropdown children. Use the known-destination dropdown for fast route linking or enter any custom path you need."
+          badge={`${normalizedConfig.items.length} items`}
+          tabs={[
+            {
+              id: 'items',
+              label: 'Items',
+              description: 'Each item controls its own type, destination, visibility, and dropdown behavior.',
+              content:
+                normalizedConfig.items.length === 0 ? (
+                  <div
+                    style={{
+                      borderRadius: 22,
+                      border: `1px dashed ${tokens.line}`,
+                      padding: 24,
+                      background: tokens.fieldSoft,
+                      color: tokens.muted,
+                    }}
                   >
-                    {item.visible ? '👁️' : '🙈'}
-                  </button>
-                  <button
-                    onClick={() => handleEdit(item)}
-                    style={{ background: '#1a2a3a', color: '#4da6ff', border: '1px solid #1e3a5f', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                    No custom menu items yet. Add one to start building the navbar.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    {sortItems(normalizedConfig.items).map(item => (
+                      <ItemEditor
+                        key={item.id}
+                        item={item}
+                        onAddChild={handleAddChild}
+                        onDelete={handleDeleteItem}
+                        onMove={handleMoveItem}
+                        onUpdate={handleUpdateItem}
+                      />
+                    ))}
+                  </div>
+                ),
+            },
+          ]}
+        />
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 18,
+          }}
+        >
+          <AdminBuilderSection
+            title="Login Button"
+            description="Control the login CTA label, style, target route, and fallback behavior."
+            badge={normalizedConfig.loginButton.visible ? 'Enabled' : 'Hidden'}
+            tabs={[
+              {
+                id: 'login',
+                label: 'Settings',
+                content: (
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                        gap: 14,
+                      }}
+                    >
+                      <AdminField label="Show login button">
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={normalizedConfig.loginButton.visible}
+                            onChange={event =>
+                              updateConfig(current => ({
+                                ...current,
+                                loginButton: {
+                                  ...current.loginButton,
+                                  visible: event.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span>Visible</span>
+                        </label>
+                      </AdminField>
+                      <AdminField label="Label">
+                        <input
+                          value={normalizedConfig.loginButton.label}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              loginButton: {
+                                ...current.loginButton,
+                                label: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Destination type">
+                        <select
+                          value={normalizedConfig.loginButton.destinationType}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              loginButton: {
+                                ...current.loginButton,
+                                destinationType:
+                                  event.target.value as NavigationConfig['loginButton']['destinationType'],
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="admin">Admin Login</option>
+                          <option value="user">User Login</option>
+                          <option value="custom">Custom URL</option>
+                          <option value="hidden">Hide button</option>
+                        </select>
+                      </AdminField>
+                      <AdminField label="Button style">
+                        <select
+                          value={normalizedConfig.loginButton.style}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              loginButton: {
+                                ...current.loginButton,
+                                style: event.target.value as NavigationConfig['loginButton']['style'],
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="filled">Filled</option>
+                          <option value="outline">Outline</option>
+                          <option value="ghost">Ghost</option>
+                          <option value="glass">Glass</option>
+                        </select>
+                      </AdminField>
+                      <AdminField label="Button icon">
+                        <input
+                          value={normalizedConfig.loginButton.icon}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              loginButton: {
+                                ...current.loginButton,
+                                icon: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                          placeholder="Optional icon"
+                        />
+                      </AdminField>
+                      <AdminField label="Custom URL">
+                        <input
+                          value={normalizedConfig.loginButton.customUrl}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              loginButton: {
+                                ...current.loginButton,
+                                customUrl: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                          placeholder="/client/login or https://"
+                        />
+                      </AdminField>
+                    </div>
+
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={normalizedConfig.loginButton.newTab}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            loginButton: {
+                              ...current.loginButton,
+                              newTab: event.target.checked,
+                            },
+                          }))
+                        }
+                      />
+                      <span>Open login action in a new tab</span>
+                    </label>
+
+                    {loginPreview?.warning ? <AdminNotice message={`❌ ${loginPreview.warning}`} /> : null}
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        border: `1px solid ${tokens.line}`,
+                        padding: 16,
+                        background: tokens.fieldSoft,
+                        color: tokens.muted,
+                      }}
+                    >
+                      Resolved destination: {loginPreview?.href || 'Hidden'} {DEFAULT_USER_LOGIN_ROUTE ? '(user route available)' : '(user route unavailable)'}
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
+          />
+
+          <AdminBuilderSection
+            title="Theme Toggle"
+            description="Keep the theme switch visible where you want it while staying hydration-safe on the public site."
+            badge={normalizedConfig.themeToggle.visible ? 'Visible' : 'Hidden'}
+            tabs={[
+              {
+                id: 'theme',
+                label: 'Settings',
+                content: (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: 14,
+                    }}
                   >
-                    ✏️ এডিট
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    style={{ background: '#2a0f0f', color: '#f87171', border: '1px solid #5c1a1a', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                    <AdminField label="Show theme toggle">
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={normalizedConfig.themeToggle.visible}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              themeToggle: {
+                                ...current.themeToggle,
+                                visible: event.target.checked,
+                              },
+                            }))
+                          }
+                        />
+                        <span>Visible</span>
+                      </label>
+                    </AdminField>
+                    <AdminField label="Position">
+                      <select
+                        value={normalizedConfig.themeToggle.position}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            themeToggle: {
+                              ...current.themeToggle,
+                              position: event.target.value as NavigationConfig['themeToggle']['position'],
+                            },
+                          }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="before-login">Before login button</option>
+                        <option value="after-login">After login button</option>
+                        <option value="mobile-only">Inside mobile menu only</option>
+                      </select>
+                    </AdminField>
+                    <AdminField label="Style">
+                      <select
+                        value={normalizedConfig.themeToggle.style}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            themeToggle: {
+                              ...current.themeToggle,
+                              style: event.target.value as NavigationConfig['themeToggle']['style'],
+                            },
+                          }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="icon-only">Icon only</option>
+                        <option value="pill">Pill</option>
+                        <option value="text-icon">Text + icon</option>
+                      </select>
+                    </AdminField>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 18,
+          }}
+        >
+          <AdminBuilderSection
+            title="Navbar Layout + Design"
+            description="Tune layout, width, sticky behavior, colors, spacing, and surface treatment."
+            badge={normalizedConfig.design.layout}
+            tabs={[
+              {
+                id: 'design',
+                label: 'Global',
+                content: (
+                  <div style={{ display: 'grid', gap: 16 }}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                        gap: 14,
+                      }}
+                    >
+                      <AdminField label="Layout style">
+                        <select
+                          value={normalizedConfig.design.layout}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                layout: event.target.value as NavigationConfig['design']['layout'],
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="centered">Centered</option>
+                          <option value="left-right">Left logo / right menu</option>
+                          <option value="split">Split</option>
+                        </select>
+                      </AdminField>
+                      <AdminField label="Width">
+                        <select
+                          value={normalizedConfig.design.width}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                width: event.target.value as NavigationConfig['design']['width'],
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="full">Full</option>
+                          <option value="contained">Contained</option>
+                          <option value="wide">Wide</option>
+                        </select>
+                      </AdminField>
+                      <AdminField label="Height / spacing">
+                        <select
+                          value={normalizedConfig.design.heightPreset}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                heightPreset:
+                                  event.target.value as NavigationConfig['design']['heightPreset'],
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="compact">Compact</option>
+                          <option value="default">Default</option>
+                          <option value="spacious">Spacious</option>
+                        </select>
+                      </AdminField>
+                      <AdminField label="Accent color">
+                        <input
+                          value={normalizedConfig.design.accentColor}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                accentColor: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Light background">
+                        <input
+                          value={normalizedConfig.design.backgroundLight}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                backgroundLight: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Dark background">
+                        <input
+                          value={normalizedConfig.design.backgroundDark}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                backgroundDark: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Light text color">
+                        <input
+                          value={normalizedConfig.design.textColorLight}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                textColorLight: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Dark text color">
+                        <input
+                          value={normalizedConfig.design.textColorDark}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                textColorDark: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Active link color">
+                        <input
+                          value={normalizedConfig.design.activeLinkColor}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                activeLinkColor: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Hover color">
+                        <input
+                          value={normalizedConfig.design.hoverColor}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                hoverColor: event.target.value,
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                      {[
+                        ['sticky', 'Sticky navbar'],
+                        ['transparentOnTop', 'Transparent on top'],
+                        ['blur', 'Blur / glass'],
+                        ['shadow', 'Shadow'],
+                        ['border', 'Border'],
+                      ].map(([key, label]) => (
+                        <label
+                          key={key}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(normalizedConfig.design[key as keyof typeof normalizedConfig.design])}
+                            onChange={event =>
+                              updateConfig(current => ({
+                                ...current,
+                                design: {
+                                  ...current.design,
+                                  [key]: event.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
+          />
+
+          <AdminBuilderSection
+            title="Logo + Brand"
+            description="Control text branding, image logo, link target, size, and brand color."
+            badge="Brand"
+            tabs={[
+              {
+                id: 'logo',
+                label: 'Logo',
+                content: (
+                  <div style={{ display: 'grid', gap: 16 }}>
+                    <AdminImageField
+                      label="Image logo"
+                      value={normalizedConfig.design.logo.imageLogoUrl}
+                      onChange={value =>
+                        updateConfig(current => ({
+                          ...current,
+                          design: {
+                            ...current.design,
+                            logo: {
+                              ...current.design.logo,
+                              imageLogoUrl: value,
+                            },
+                          },
+                        }))
+                      }
+                      onFileSelected={handleLogoUpload}
+                      uploading={uploadingField === 'logo'}
+                      previewAlt="Navbar logo"
+                      urlPlaceholder="Paste logo URL or upload an image"
+                    />
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                        gap: 14,
+                      }}
+                    >
+                      <AdminField label="Text logo">
+                        <input
+                          value={normalizedConfig.design.logo.textLogo}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                logo: {
+                                  ...current.design.logo,
+                                  textLogo: event.target.value,
+                                },
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Logo link">
+                        <input
+                          value={normalizedConfig.design.logo.logoLink}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                logo: {
+                                  ...current.design.logo,
+                                  logoLink: event.target.value,
+                                },
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                      <AdminField label="Logo size">
+                        <select
+                          value={normalizedConfig.design.logo.logoSize}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                logo: {
+                                  ...current.design.logo,
+                                  logoSize: event.target.value as NavigationConfig['design']['logo']['logoSize'],
+                                },
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="sm">Small</option>
+                          <option value="md">Medium</option>
+                          <option value="lg">Large</option>
+                        </select>
+                      </AdminField>
+                      <AdminField label="Brand color">
+                        <input
+                          value={normalizedConfig.design.logo.brandColor}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                logo: {
+                                  ...current.design.logo,
+                                  brandColor: event.target.value,
+                                },
+                              },
+                            }))
+                          }
+                          style={inputStyle}
+                        />
+                      </AdminField>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={normalizedConfig.design.logo.showTextLogo}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                logo: {
+                                  ...current.design.logo,
+                                  showTextLogo: event.target.checked,
+                                },
+                              },
+                            }))
+                          }
+                        />
+                        <span>Show text logo</span>
+                      </label>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={normalizedConfig.design.logo.showImageLogo}
+                          onChange={event =>
+                            updateConfig(current => ({
+                              ...current,
+                              design: {
+                                ...current.design,
+                                logo: {
+                                  ...current.design.logo,
+                                  showImageLogo: event.target.checked,
+                                },
+                              },
+                            }))
+                          }
+                        />
+                        <span>Show image logo</span>
+                      </label>
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </div>
+
+        <AdminBuilderSection
+          title="Mobile Navigation"
+          description="Tune the mobile menu style, opening side, CTA visibility, and toggle placement."
+          badge={normalizedConfig.design.mobile.style}
+          tabs={[
+            {
+              id: 'mobile',
+              label: 'Mobile',
+              content: (
+                <div style={{ display: 'grid', gap: 16 }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: 14,
+                    }}
                   >
-                    🗑️ ডিলিট
-                  </button>
+                    <AdminField label="Menu style">
+                      <select
+                        value={normalizedConfig.design.mobile.style}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            design: {
+                              ...current.design,
+                              mobile: {
+                                ...current.design.mobile,
+                                style: event.target.value as NavigationConfig['design']['mobile']['style'],
+                              },
+                            },
+                          }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="drawer">Drawer</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="fullscreen">Fullscreen overlay</option>
+                      </select>
+                    </AdminField>
+                    <AdminField label="Menu position">
+                      <select
+                        value={normalizedConfig.design.mobile.position}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            design: {
+                              ...current.design,
+                              mobile: {
+                                ...current.design.mobile,
+                                position:
+                                  event.target.value as NavigationConfig['design']['mobile']['position'],
+                              },
+                            },
+                          }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </AdminField>
+                    <AdminField label="Animation">
+                      <select
+                        value={normalizedConfig.design.mobile.animation}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            design: {
+                              ...current.design,
+                              mobile: {
+                                ...current.design.mobile,
+                                animation:
+                                  event.target.value as NavigationConfig['design']['mobile']['animation'],
+                              },
+                            },
+                          }))
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="slide">Slide</option>
+                        <option value="fade">Fade</option>
+                        <option value="scale">Scale</option>
+                      </select>
+                    </AdminField>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={normalizedConfig.design.mobile.showLoginButton}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            design: {
+                              ...current.design,
+                              mobile: {
+                                ...current.design.mobile,
+                                showLoginButton: event.target.checked,
+                              },
+                            },
+                          }))
+                        }
+                      />
+                      <span>Show login button in mobile menu</span>
+                    </label>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={normalizedConfig.design.mobile.showThemeToggle}
+                        onChange={event =>
+                          updateConfig(current => ({
+                            ...current,
+                            design: {
+                              ...current.design,
+                              mobile: {
+                                ...current.design.mobile,
+                                showThemeToggle: event.target.checked,
+                              },
+                            },
+                          }))
+                        }
+                      />
+                      <span>Show theme toggle in mobile menu</span>
+                    </label>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ),
+            },
+          ]}
+        />
+
+        <AdminBuilderSection
+          title="Validation + Notes"
+          description="Helpful checks before saving, plus quick reminders about fallbacks."
+          badge="Guardrails"
+          tabs={[
+            {
+              id: 'notes',
+              label: 'Status',
+              content: (
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div
+                    style={{
+                      borderRadius: 18,
+                      border: `1px solid ${tokens.line}`,
+                      background: tokens.fieldSoft,
+                      padding: 16,
+                      color: tokens.muted,
+                      lineHeight: 1.8,
+                    }}
+                  >
+                    If no admin navigation config is saved, the public navbar falls back to the legacy
+                    `navigation` table. If that is also empty, it falls back again to the built-in
+                    default menu.
+                  </div>
+
+                  {validateConfig(normalizedConfig).length > 0 ? (
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        border: `1px solid ${tokens.dangerSoft}`,
+                        background: tokens.dangerSoft,
+                        color: tokens.dangerText,
+                        padding: 16,
+                        lineHeight: 1.8,
+                      }}
+                    >
+                      {validateConfig(normalizedConfig).map(error => (
+                        <div key={error}>{error}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: 18,
+                        border: `1px solid ${tokens.successSoft}`,
+                        background: tokens.successSoft,
+                        color: tokens.successText,
+                        padding: 16,
+                      }}
+                    >
+                      No validation issues found in the current draft.
+                    </div>
+                  )}
+
+                  <textarea
+                    value="Use known route presets for /, /portfolio, /about, /contact, /tutorial, /admin/login, and /client/login. Custom section anchors like /#portfolio are supported too."
+                    readOnly
+                    style={textareaStyle}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
       </div>
-    </div>
+    </AdminShell>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import AdminShell from '@/components/admin/AdminShell';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -109,27 +110,21 @@ export default function AdminCategories() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0d0d0d', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Header */}
-      <div style={{ background: '#111', borderBottom: '1px solid #222', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <button onClick={() => router.push('/admin/dashboard')}
-            style={{ background: '#1a1a1a', border: '1px solid #333', color: '#aaa', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
-            ← ড্যাশবোর্ড
-          </button>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>📁 ক্যাটাগরি ম্যানেজার</h1>
-          <span style={{ background: '#1a3a1a', color: '#4ade80', padding: '4px 12px', borderRadius: 20, fontSize: 13 }}>
-            {cats.length}টি ক্যাটাগরি
-          </span>
-        </div>
+    <AdminShell
+      eyebrow="Category Manager"
+      title="Keep categories clean across videos and graphics"
+      description="Manage shared categories from one content manager without losing mobile navigation or burying the tool inside another page."
+      actions={
         <button
           onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(EMPTY_FORM); }}
-          style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
-          {showForm ? '✕ বন্ধ করুন' : '+ নতুন ক্যাটাগরি'}
+          type="button"
+          style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '11px 18px', borderRadius: 14, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
+        >
+          {showForm ? 'Close Form' : '+ New Category'}
         </button>
-      </div>
-
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 24px' }}>
+      }
+    >
+      <div style={{ maxWidth: 980, display: 'grid', gap: 18 }}>
         {msg && (
           <div style={{ background: msg.startsWith('✅') ? '#0f2a1a' : '#2a0f0f', border: '1px solid #333', color: msg.startsWith('✅') ? '#4ade80' : '#f87171', padding: '12px 20px', borderRadius: 10, marginBottom: 24, fontSize: 15 }}>
             {msg}
@@ -142,7 +137,7 @@ export default function AdminCategories() {
             <h2 style={{ margin: '0 0 24px', fontSize: 18, color: '#4ade80' }}>
               {editingId ? '✏️ ক্যাটাগরি এডিট করুন' : '➕ নতুন ক্যাটাগরি যোগ করুন'}
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 8 }}>ক্যাটাগরির নাম *</label>
                 <input
@@ -219,9 +214,9 @@ export default function AdminCategories() {
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {cats.map(c => (
-              <div key={c.id} style={{ background: '#111', border: '1px solid #222', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, opacity: c.active ? 1 : 0.5 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={c.id} style={{ background: '#111', border: '1px solid #222', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', opacity: c.active ? 1 : 0.5 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 600, fontSize: 16 }}>{c.name}</span>
                     <span style={{ background: '#1a1a2e', color: '#818cf8', fontSize: 11, padding: '2px 10px', borderRadius: 20, fontFamily: 'monospace' }}>/{c.slug}</span>
                     <span style={{ background: '#1a1a1a', color: '#888', fontSize: 11, padding: '2px 10px', borderRadius: 20 }}>
@@ -231,7 +226,7 @@ export default function AdminCategories() {
                   </div>
                   <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>ক্রম: {c.order_num}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button onClick={() => toggleActive(c)} title={c.active ? 'বন্ধ করুন' : 'চালু করুন'}
                     style={{ background: '#1a1a1a', color: c.active ? '#4ade80' : '#666', border: '1px solid #333', width: 36, height: 36, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}>
                     {c.active ? '✓' : '○'}
@@ -250,6 +245,6 @@ export default function AdminCategories() {
           </div>
         )}
       </div>
-    </div>
+    </AdminShell>
   );
 }

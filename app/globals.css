@@ -8,6 +8,19 @@ body {
 
 body {
   min-height: 100vh;
+  color: #f8fafc;
+}
+
+html[data-theme='light'],
+html[data-theme='light'] body {
+  background: #f8fbff;
+  color: #0f172a;
+}
+
+html[data-theme='dark'],
+html[data-theme='dark'] body {
+  background: #020617;
+  color: #f8fafc;
 }
 
 html[data-theme-switching],

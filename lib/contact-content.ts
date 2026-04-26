@@ -1,4 +1,9 @@
 import { getFirstSetting, type SettingMap } from '@/lib/hero-settings';
+import {
+  createDefaultBuilderSectionStyles,
+  sanitizeBuilderSectionStyles,
+  type BuilderSectionStyles,
+} from '@/lib/page-builder-styles';
 
 export const CONTACT_PAGE_SETTING_KEY = 'contact_page_config';
 
@@ -49,6 +54,7 @@ export type ContactHeroSection = {
   showSecondaryButton: boolean;
   secondaryButtonText: string;
   secondaryButtonLink: string;
+  styles: BuilderSectionStyles;
 };
 
 export type ContactFormSection = {
@@ -76,6 +82,7 @@ export type ContactFormSection = {
   availabilityText: string;
   infoCards: ContactInfoCard[];
   socialLinks: ContactLinkItem[];
+  styles: BuilderSectionStyles;
 };
 
 export type ContactExtraSection = {
@@ -93,6 +100,7 @@ export type ContactExtraSection = {
   showButton: boolean;
   buttonText: string;
   buttonLink: string;
+  styles: BuilderSectionStyles;
 };
 
 export type ContactCtaSection = {
@@ -111,6 +119,7 @@ export type ContactCtaSection = {
   showSecondaryButton: boolean;
   secondaryButtonText: string;
   secondaryButtonLink: string;
+  styles: BuilderSectionStyles;
 };
 
 export type ContactPageConfig = {
@@ -242,6 +251,7 @@ function sanitizeHero(
     showSecondaryButton: bool(value.showSecondaryButton, fallback.showSecondaryButton),
     secondaryButtonText: text(value.secondaryButtonText, fallback.secondaryButtonText),
     secondaryButtonLink: text(value.secondaryButtonLink, fallback.secondaryButtonLink),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -278,6 +288,7 @@ function sanitizeFormSection(
     availabilityText: text(value.availabilityText, fallback.availabilityText),
     infoCards: sanitizeCards(value.infoCards, fallback.infoCards),
     socialLinks: sanitizeLinks(value.socialLinks, fallback.socialLinks),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -304,6 +315,7 @@ function sanitizeExtraSection(
     showButton: bool(value.showButton, fallback.showButton),
     buttonText: text(value.buttonText, fallback.buttonText),
     buttonLink: text(value.buttonLink, fallback.buttonLink),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -331,6 +343,7 @@ function sanitizeCta(
     showSecondaryButton: bool(value.showSecondaryButton, fallback.showSecondaryButton),
     secondaryButtonText: text(value.secondaryButtonText, fallback.secondaryButtonText),
     secondaryButtonLink: text(value.secondaryButtonLink, fallback.secondaryButtonLink),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -360,6 +373,7 @@ export function createDefaultContactPageConfig(
       showSecondaryButton: true,
       secondaryButtonText: 'Portfolio দেখুন',
       secondaryButtonLink: '/portfolio',
+      styles: createDefaultBuilderSectionStyles(),
     },
     formSection: {
       enabled: true,
@@ -444,6 +458,7 @@ export function createDefaultContactPageConfig(
           order: 3,
         },
       ],
+      styles: createDefaultBuilderSectionStyles(),
     },
     extraSection: {
       enabled: true,
@@ -461,6 +476,7 @@ export function createDefaultContactPageConfig(
       showButton: true,
       buttonText: 'Tutorial Page',
       buttonLink: '/tutorial',
+      styles: createDefaultBuilderSectionStyles(),
     },
     cta: {
       enabled: true,
@@ -479,6 +495,7 @@ export function createDefaultContactPageConfig(
       showSecondaryButton: true,
       secondaryButtonText: 'Back to Home',
       secondaryButtonLink: '/',
+      styles: createDefaultBuilderSectionStyles(),
     },
   };
 }

@@ -5,18 +5,10 @@ import { createContext, useContext, useLayoutEffect, useState } from 'react';
 type Theme = 'dark' | 'light';
 
 const ThemeContext = createContext<{
+  mounted: boolean;
   theme: Theme;
   toggleTheme: () => void;
-}>({ theme: 'dark', toggleTheme: () => {} });
-
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') {
-    return 'dark';
-  }
-
-  const saved = localStorage.getItem('sf_theme');
-  return saved === 'light' || saved === 'dark' ? saved : 'dark';
-}
+}>({ mounted: false, theme: 'dark', toggleTheme: () => {} });
 
 function applyTheme(theme: Theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -24,12 +16,30 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [theme, setTheme] = useState<Theme>('dark');
+  const [mounted, setMounted] = useState(false);
 
   useLayoutEffect(() => {
+    const saved = localStorage.getItem('sf_theme');
+    const nextTheme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+    applyTheme(nextTheme);
+
+    const frame = requestAnimationFrame(() => {
+      setTheme(nextTheme);
+      setMounted(true);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!mounted) {
+      return;
+    }
+
     localStorage.setItem('sf_theme', theme);
     applyTheme(theme);
-  }, [theme]);
+  }, [mounted, theme]);
 
   function toggleTheme() {
     setTheme(currentTheme => {
@@ -49,7 +59,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ mounted, theme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

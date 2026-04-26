@@ -118,6 +118,8 @@ function sanitizeFooter(
     alignment: alignment(value.alignment, fallback.alignment),
     width: widthPreset(value.width, fallback.width),
     spacing: spacingPreset(value.spacing, fallback.spacing),
+    logoAlt: text(value.logoAlt, fallback.logoAlt),
+    logoUrl: text(value.logoUrl, fallback.logoUrl),
     brandText: text(value.brandText, fallback.brandText),
     brandAccent: text(value.brandAccent, fallback.brandAccent),
     description: text(value.description, fallback.description),

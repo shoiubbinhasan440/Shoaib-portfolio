@@ -19,6 +19,14 @@ import {
   type SettingRow,
 } from '@/lib/hero-settings';
 import { createDefaultHomepageBuilderConfig } from '@/lib/homepage-content';
+import {
+  getButtonStyleOverrides,
+  getCardSurfaceOverrides,
+  getSectionPaddingOverride,
+  getSectionWidthOverride,
+  getTypographyStyleOverrides,
+  resolveSectionThemeColor,
+} from '@/lib/page-builder-styles';
 import { fetchPortfolioDataset } from '@/lib/portfolio-content';
 
 const supabase = createClient(
@@ -94,6 +102,27 @@ export default function AboutPage() {
   const strongGlass = dark
     ? 'linear-gradient(135deg, rgba(2,6,23,0.94), rgba(15,23,42,0.82))'
     : 'linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.9))';
+
+  function sectionAccent(section: AboutPageSectionConfig) {
+    return resolveSectionThemeColor(
+      section.styles?.colors.accentLight || '',
+      section.styles?.colors.accentDark || '',
+      dark,
+      accent
+    );
+  }
+
+  function sectionMaxWidth(section: AboutPageSectionConfig, fallback = 1240) {
+    return getSectionWidthOverride(section.styles?.layout.width || 'default', fallback);
+  }
+
+  function sectionPadding(section: AboutPageSectionConfig, mobile: string, desktop: string) {
+    return getSectionPaddingOverride(
+      section.styles?.layout.padding || 'default',
+      isMobile,
+      isMobile ? mobile : desktop
+    );
+  }
 
   if (loading) {
     return (
@@ -193,9 +222,17 @@ export default function AboutPage() {
               fontSize: 14,
               fontWeight: 850,
               boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
+              ...getButtonStyleOverrides(section.styles, {
+                dark,
+                fallbackBackground: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                fallbackColor: '#fff',
+                fallbackBorder: border,
+                fallbackShadow: '0 18px 38px rgba(37,99,235,0.28)',
+              }),
             }}
           >
-            {section.primaryButtonText} →
+            {section.primaryButtonText}
+            {section.styles?.buttons.showIcon !== false ? ' →' : ''}
           </Link>
         ) : null}
         {hasSecondary ? (
@@ -210,6 +247,13 @@ export default function AboutPage() {
               textDecoration: 'none',
               fontSize: 14,
               fontWeight: 750,
+              ...getButtonStyleOverrides(section.styles, {
+                dark,
+                fallbackBackground: dark ? 'rgba(15,23,42,0.5)' : 'rgba(255,255,255,0.78)',
+                fallbackColor: text,
+                fallbackBorder: border,
+                fallbackShadow: 'none',
+              }),
             }}
           >
             {section.secondaryButtonText}
@@ -234,6 +278,16 @@ export default function AboutPage() {
           boxShadow: dark
             ? '0 50px 140px rgba(0,0,0,0.55)'
             : '0 34px 95px rgba(15,23,42,0.18)',
+          ...getCardSurfaceOverrides(section.styles, {
+            dark,
+            fallbackBackground: section.image
+              ? `linear-gradient(180deg, rgba(2,6,23,0.03), rgba(2,6,23,0.82)), url(${section.image}) center/cover no-repeat`
+              : 'linear-gradient(145deg, #020617, #0f172a 48%, #0ea5e9)',
+            fallbackBorder: border,
+            fallbackShadow: dark
+              ? '0 50px 140px rgba(0,0,0,0.55)'
+              : '0 34px 95px rgba(15,23,42,0.18)',
+          }),
         }}
       >
         <div
@@ -277,7 +331,7 @@ export default function AboutPage() {
         key={section.id}
         style={{
           position: 'relative',
-          padding: isMobile ? '56px 16px 40px' : '88px 40px 64px',
+          padding: sectionPadding(section, '56px 16px 40px', '88px 40px 64px'),
           background: dark
             ? 'radial-gradient(circle at 78% 18%, rgba(37,99,235,0.24), transparent 30%), radial-gradient(circle at 12% 28%, rgba(14,165,233,0.12), transparent 26%), #080808'
             : 'radial-gradient(circle at 78% 18%, rgba(37,99,235,0.13), transparent 30%), radial-gradient(circle at 12% 28%, rgba(14,165,233,0.12), transparent 28%), #f8fbff',
@@ -285,7 +339,7 @@ export default function AboutPage() {
       >
         <div
           style={{
-            maxWidth: 1240,
+            maxWidth: sectionMaxWidth(section, 1240),
             margin: '0 auto',
             display: 'grid',
             gridTemplateColumns: stacked ? '1fr' : 'minmax(0, 0.94fr) minmax(360px, 0.76fr)',
@@ -305,17 +359,55 @@ export default function AboutPage() {
                 fontWeight: 950,
                 margin: '0 0 18px',
                 maxWidth: textAlign === 'center' ? 920 : 840,
+                ...getTypographyStyleOverrides('title', section.styles?.typography.title, {
+                  dark,
+                  isMobile,
+                  fallbackColor: text,
+                  fallbackTextAlign: textAlign,
+                  fallbackFontWeight: 950,
+                  fallbackLineHeight: 0.92,
+                  fallbackLetterSpacing: '-0.07em',
+                }),
               }}
             >
               {section.title}
             </h1>
             {section.subtitle ? (
-              <div style={{ color: accent, fontSize: isMobile ? 15 : 18, fontWeight: 850, marginBottom: 22 }}>
+              <div
+                style={{
+                  color: sectionAccent(section),
+                  fontSize: isMobile ? 15 : 18,
+                  fontWeight: 850,
+                  marginBottom: 22,
+                  ...getTypographyStyleOverrides('subtitle', section.styles?.typography.subtitle, {
+                    dark,
+                    isMobile,
+                    fallbackColor: sectionAccent(section),
+                    fallbackTextAlign: textAlign,
+                    fallbackFontWeight: 850,
+                  }),
+                }}
+              >
                 {section.subtitle}
               </div>
             ) : null}
             {section.description ? (
-              <p style={{ color: muted, fontSize: isMobile ? 15 : 17, lineHeight: 1.85, maxWidth: 740, margin: textAlign === 'center' ? '0 auto' : 0 }}>
+              <p
+                style={{
+                  color: muted,
+                  fontSize: isMobile ? 15 : 17,
+                  lineHeight: 1.85,
+                  maxWidth: 740,
+                  margin: textAlign === 'center' ? '0 auto' : 0,
+                  ...getTypographyStyleOverrides('body', section.styles?.typography.body, {
+                    dark,
+                    isMobile,
+                    fallbackColor: muted,
+                    fallbackTextAlign: textAlign,
+                    fallbackLineHeight: 1.85,
+                  }),
+                }}
+              >
                 {section.description}
               </p>
             ) : null}
@@ -329,8 +421,11 @@ export default function AboutPage() {
 
   function renderStats(section: AboutPageSectionConfig) {
     return (
-      <section key={section.id} style={{ padding: isMobile ? '18px 16px 54px' : '20px 40px 78px' }}>
-        <div style={{ maxWidth: 1240, margin: '0 auto' }}>
+      <section
+        key={section.id}
+        style={{ padding: sectionPadding(section, '18px 16px 54px', '20px 40px 78px') }}
+      >
+        <div style={{ maxWidth: sectionMaxWidth(section, 1240), margin: '0 auto' }}>
           {(section.title || section.subtitle) && (
             <div style={{ textAlign: section.alignment, marginBottom: 24 }}>
               {section.title ? <h2 style={{ color: text, fontSize: isMobile ? 28 : 42, letterSpacing: '-0.05em', margin: '0 0 8px' }}>{section.title}</h2> : null}

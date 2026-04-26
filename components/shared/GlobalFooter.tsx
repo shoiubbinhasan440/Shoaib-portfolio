@@ -37,6 +37,18 @@ function getSectionPadding(
   return isMobile ? '42px 18px 28px' : '50px 36px 32px';
 }
 
+function getFlexAlignment(alignment: HomepageFooterSection['alignment']) {
+  if (alignment === 'center') {
+    return 'center';
+  }
+
+  if (alignment === 'right') {
+    return 'flex-end';
+  }
+
+  return 'flex-start';
+}
+
 function FooterLink({
   href,
   children,
@@ -160,6 +172,18 @@ export default function GlobalFooter({
           }}
         >
           <div>
+            {config.logoUrl ? (
+              <img
+                src={config.logoUrl}
+                alt={config.logoAlt || `${config.brandText} logo`}
+                style={{
+                  height: 44,
+                  width: 'auto',
+                  marginBottom: 14,
+                  objectFit: 'contain',
+                }}
+              />
+            ) : null}
             <div style={{ fontWeight: 800, fontSize: 24, marginBottom: 10 }}>
               <span style={{ color: text }}>{config.brandText}</span>
               <span style={{ color: '#3b82f6' }}>{config.brandAccent}</span>
@@ -220,7 +244,14 @@ export default function GlobalFooter({
               <div style={{ fontWeight: 700, fontSize: 14, color: text, marginBottom: 14 }}>
                 {config.socialTitle}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  alignItems: getFlexAlignment(config.alignment),
+                }}
+              >
                 {config.socialLinks
                   .filter(item => item.enabled)
                   .sort((leftItem, rightItem) => leftItem.order - rightItem.order)
@@ -233,6 +264,7 @@ export default function GlobalFooter({
                           display: 'flex',
                           alignItems: 'center',
                           gap: 8,
+                          justifyContent: getFlexAlignment(config.alignment),
                         }}
                       >
                         {link.label}
@@ -248,9 +280,15 @@ export default function GlobalFooter({
             borderTop: `1px solid ${border}`,
             paddingTop: 24,
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent:
+              config.alignment === 'center'
+                ? 'center'
+                : config.alignment === 'right'
+                  ? 'flex-end'
+                  : 'space-between',
             flexWrap: 'wrap',
             gap: 10,
+            textAlign: config.alignment,
           }}
         >
           <div style={{ fontSize: 13, color: muted }}>{config.copyrightText}</div>

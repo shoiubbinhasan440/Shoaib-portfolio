@@ -8,6 +8,14 @@ import GlobalFooter from '@/components/shared/GlobalFooter';
 import { getGlobalFooterConfig } from '@/lib/footer-content';
 import { toSettingMap, type SettingRow } from '@/lib/hero-settings';
 import { createDefaultHomepageBuilderConfig } from '@/lib/homepage-content';
+import {
+  getButtonStyleOverrides,
+  getCardSurfaceOverrides,
+  getSectionPaddingOverride,
+  getSectionWidthOverride,
+  getTypographyStyleOverrides,
+  resolveSectionThemeColor,
+} from '@/lib/page-builder-styles';
 import { fetchPortfolioDataset } from '@/lib/portfolio-content';
 import {
   getTutorialCategoryConfig,
@@ -293,6 +301,7 @@ export default function TutorialPage() {
 
   function renderHero() {
     const section = pageConfig.hero;
+    const styles = section.styles;
     const center = section.alignment === 'center';
     const statItems = section.stats.filter(item => item.enabled).sort((a, b) => a.order - b.order);
 
@@ -301,7 +310,11 @@ export default function TutorialPage() {
         key="hero"
         style={{
           position: 'relative',
-          padding: getSectionPadding(section.spacing, isMobile),
+          padding: getSectionPaddingOverride(
+            styles.layout.padding,
+            isMobile,
+            getSectionPadding(section.spacing, isMobile)
+          ),
           background: dark
             ? 'radial-gradient(circle at 82% 18%, rgba(251,191,36,0.18), transparent 24%), radial-gradient(circle at 16% 24%, rgba(37,99,235,0.16), transparent 28%), #080808'
             : 'radial-gradient(circle at 82% 18%, rgba(251,191,36,0.12), transparent 24%), radial-gradient(circle at 16% 24%, rgba(37,99,235,0.12), transparent 28%), #f8fbff',
@@ -309,7 +322,7 @@ export default function TutorialPage() {
       >
         <div
           style={{
-            maxWidth: getMaxWidth(section.width),
+            maxWidth: getSectionWidthOverride(styles.layout.width, getMaxWidth(section.width)),
             margin: '0 auto',
             textAlign: section.alignment,
             display: 'grid',
@@ -326,11 +339,28 @@ export default function TutorialPage() {
               borderRadius: 999,
               border: `1px solid ${dark ? 'rgba(251,191,36,0.22)' : 'rgba(245,158,11,0.18)'}`,
               background: dark ? 'rgba(251,191,36,0.08)' : 'rgba(254,243,199,0.88)',
-              color: '#fbbf24',
+              color: resolveSectionThemeColor(
+                styles.colors.accentLight,
+                styles.colors.accentDark,
+                dark,
+                '#fbbf24'
+              ),
               fontSize: 11,
               fontWeight: 900,
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
+              ...getTypographyStyleOverrides('label', styles.typography.label, {
+                dark,
+                isMobile,
+                fallbackColor: resolveSectionThemeColor(
+                  styles.colors.accentLight,
+                  styles.colors.accentDark,
+                  dark,
+                  '#fbbf24'
+                ),
+                fallbackTextAlign: section.alignment,
+                fallbackFontWeight: 900,
+              }),
             }}
           >
             {section.label}
@@ -345,13 +375,44 @@ export default function TutorialPage() {
               letterSpacing: '-0.07em',
               fontWeight: 900,
               maxWidth: center ? 980 : 860,
+              ...getTypographyStyleOverrides('title', styles.typography.title, {
+                dark,
+                isMobile,
+                fallbackColor: text,
+                fallbackTextAlign: section.alignment,
+                fallbackFontWeight: 900,
+                fallbackLineHeight: 0.94,
+                fallbackLetterSpacing: '-0.07em',
+              }),
             }}
           >
             {section.title}
           </h1>
 
           {section.subtitle ? (
-            <div style={{ color: '#fbbf24', fontSize: isMobile ? 15 : 18, fontWeight: 850 }}>
+            <div
+              style={{
+                color: resolveSectionThemeColor(
+                  styles.colors.accentLight,
+                  styles.colors.accentDark,
+                  dark,
+                  '#fbbf24'
+                ),
+                fontSize: isMobile ? 15 : 18,
+                fontWeight: 850,
+                ...getTypographyStyleOverrides('subtitle', styles.typography.subtitle, {
+                  dark,
+                  isMobile,
+                  fallbackColor: resolveSectionThemeColor(
+                    styles.colors.accentLight,
+                    styles.colors.accentDark,
+                    dark,
+                    '#fbbf24'
+                  ),
+                  fallbackTextAlign: section.alignment,
+                }),
+              }}
+            >
               {section.subtitle}
             </div>
           ) : null}
@@ -364,6 +425,13 @@ export default function TutorialPage() {
                 fontSize: isMobile ? 15 : 17,
                 lineHeight: 1.9,
                 maxWidth: center ? 820 : 760,
+                ...getTypographyStyleOverrides('body', styles.typography.body, {
+                  dark,
+                  isMobile,
+                  fallbackColor: muted,
+                  fallbackTextAlign: section.alignment,
+                  fallbackLineHeight: 1.9,
+                }),
               }}
             >
               {section.introText}
@@ -389,6 +457,11 @@ export default function TutorialPage() {
                     borderRadius: 22,
                     border: `1px solid ${soft}`,
                     background: glass,
+                    ...getCardSurfaceOverrides(styles, {
+                      dark,
+                      fallbackBackground: glass,
+                      fallbackBorder: soft,
+                    }),
                   }}
                 >
                   <div style={{ color: '#fbbf24', fontSize: isMobile ? 22 : 26, fontWeight: 900 }}>
@@ -417,10 +490,17 @@ export default function TutorialPage() {
                   padding: '14px 22px',
                   fontWeight: 850,
                   boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                  ...getButtonStyleOverrides(styles, {
+                    dark,
+                    fallbackBackground: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                    fallbackColor: '#fff',
+                    fallbackBorder: soft,
+                    fallbackShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                  }),
                 }}
               >
                 {section.primaryButtonText}
-                <span>→</span>
+                {styles.buttons.showIcon !== false ? <span>→</span> : null}
               </Link>
             </div>
           ) : null}
@@ -431,6 +511,7 @@ export default function TutorialPage() {
 
   function renderShowcase() {
     const section = pageConfig.showcase;
+    const styles = section.styles;
 
     function cardSurface() {
       switch (section.cardStyle) {
@@ -455,8 +536,24 @@ export default function TutorialPage() {
     }
 
     return (
-      <section key="showcase" style={{ padding: getSectionPadding(section.spacing, isMobile) }}>
-        <div style={{ maxWidth: getMaxWidth(section.width), margin: '0 auto', display: 'grid', gap: 24 }}>
+      <section
+        key="showcase"
+        style={{
+          padding: getSectionPaddingOverride(
+            styles.layout.padding,
+            isMobile,
+            getSectionPadding(section.spacing, isMobile)
+          ),
+        }}
+      >
+        <div
+          style={{
+            maxWidth: getSectionWidthOverride(styles.layout.width, getMaxWidth(section.width)),
+            margin: '0 auto',
+            display: 'grid',
+            gap: styles.card.gap || 24,
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -486,7 +583,15 @@ export default function TutorialPage() {
                           : dark
                             ? 'rgba(15,23,42,0.62)'
                             : 'rgba(255,255,255,0.82)',
-                      color: resolvedActiveCategory === 'all' ? '#fff' : text,
+                      color:
+                        resolvedActiveCategory === 'all'
+                          ? '#fff'
+                          : resolveSectionThemeColor(
+                              styles.colors.accentLight,
+                              styles.colors.accentDark,
+                              dark,
+                              text
+                            ),
                       border: `1px solid ${resolvedActiveCategory === 'all' ? 'rgba(96,165,250,0.5)' : soft}`,
                       borderRadius: 999,
                       padding: '10px 16px',
@@ -514,7 +619,15 @@ export default function TutorialPage() {
                             : dark
                               ? 'rgba(15,23,42,0.62)'
                               : 'rgba(255,255,255,0.82)',
-                        color: resolvedActiveCategory === category.key ? '#fff' : text,
+                        color:
+                          resolvedActiveCategory === category.key
+                            ? '#fff'
+                            : resolveSectionThemeColor(
+                                styles.colors.accentLight,
+                                styles.colors.accentDark,
+                                dark,
+                                text
+                              ),
                         border: `1px solid ${resolvedActiveCategory === category.key ? 'rgba(96,165,250,0.5)' : soft}`,
                         borderRadius: 999,
                         padding: '10px 16px',
@@ -602,7 +715,7 @@ export default function TutorialPage() {
               style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-                gap: gridGap,
+                gap: styles.card.gap || gridGap,
               }}
             >
               {filteredTutorials.map((tutorial, index) => (
@@ -622,6 +735,14 @@ export default function TutorialPage() {
                       ? '0 24px 44px rgba(2,6,23,0.24)'
                       : '0 18px 32px rgba(15,23,42,0.08)',
                     transition: 'transform 0.2s ease, border-color 0.2s ease',
+                    ...getCardSurfaceOverrides(styles, {
+                      dark,
+                      fallbackBackground: cardSurface(),
+                      fallbackBorder: soft,
+                      fallbackShadow: dark
+                        ? '0 24px 44px rgba(2,6,23,0.24)'
+                        : '0 18px 32px rgba(15,23,42,0.08)',
+                    }),
                   }}
                   onMouseEnter={event => {
                     (event.currentTarget as HTMLButtonElement).style.transform = 'translateY(-4px)';
@@ -824,12 +945,22 @@ export default function TutorialPage() {
 
   function renderCta() {
     const section = pageConfig.cta;
+    const styles = section.styles;
 
     return (
-      <section key="cta" style={{ padding: getSectionPadding(section.spacing, isMobile) }}>
+      <section
+        key="cta"
+        style={{
+          padding: getSectionPaddingOverride(
+            styles.layout.padding,
+            isMobile,
+            getSectionPadding(section.spacing, isMobile)
+          ),
+        }}
+      >
         <div
           style={{
-            maxWidth: getMaxWidth(section.width),
+            maxWidth: getSectionWidthOverride(styles.layout.width, getMaxWidth(section.width)),
             margin: '0 auto',
             padding: isMobile ? '28px 20px' : '42px 30px',
             borderRadius: 34,
@@ -839,6 +970,14 @@ export default function TutorialPage() {
               ? '0 28px 74px rgba(2,6,23,0.28)'
               : '0 24px 64px rgba(15,23,42,0.08)',
             textAlign: section.alignment,
+            ...getCardSurfaceOverrides(styles, {
+              dark,
+              fallbackBackground: glass,
+              fallbackBorder: soft,
+              fallbackShadow: dark
+                ? '0 28px 74px rgba(2,6,23,0.28)'
+                : '0 24px 64px rgba(15,23,42,0.08)',
+            }),
           }}
         >
           <div
@@ -851,11 +990,27 @@ export default function TutorialPage() {
               marginBottom: 16,
               border: `1px solid ${soft}`,
               background: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.8)',
-              color: '#38bdf8',
+              color: resolveSectionThemeColor(
+                styles.colors.accentLight,
+                styles.colors.accentDark,
+                dark,
+                '#38bdf8'
+              ),
               fontSize: 11,
               fontWeight: 800,
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
+              ...getTypographyStyleOverrides('label', styles.typography.label, {
+                dark,
+                isMobile,
+                fallbackColor: resolveSectionThemeColor(
+                  styles.colors.accentLight,
+                  styles.colors.accentDark,
+                  dark,
+                  '#38bdf8'
+                ),
+                fallbackTextAlign: section.alignment,
+              }),
             }}
           >
             {section.label}
@@ -890,10 +1045,17 @@ export default function TutorialPage() {
                   padding: '14px 22px',
                   fontWeight: 850,
                   boxShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                  ...getButtonStyleOverrides(styles, {
+                    dark,
+                    fallbackBackground: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                    fallbackColor: '#fff',
+                    fallbackBorder: soft,
+                    fallbackShadow: '0 18px 38px rgba(37,99,235,0.28)',
+                  }),
                 }}
               >
                 {section.buttonText}
-                <span>→</span>
+                {styles.buttons.showIcon !== false ? <span>→</span> : null}
               </Link>
             </div>
           ) : null}

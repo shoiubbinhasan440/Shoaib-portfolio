@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import AdminShell from '@/components/admin/AdminShell';
+import PageStyleEditor from '@/components/admin/PageStyleEditor';
+import { AdminBuilderSection } from '@/components/admin/admin-ui';
 import {
   getHomepageConfigForItem,
   getHomepagePortfolioItemKey,
@@ -178,46 +181,20 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      style={{
-        background: '#0f172a',
-        border: '1px solid rgba(148,163,184,0.14)',
-        borderRadius: 24,
-        padding: 22,
-        boxShadow: '0 22px 60px rgba(2,6,23,0.24)',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-          marginBottom: 18,
-        }}
-      >
-        <div>
-          <h2 style={{ margin: '0 0 8px', fontSize: 24, letterSpacing: '-0.04em' }}>{title}</h2>
-          <p style={{ margin: 0, color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{description}</p>
-        </div>
-        {badge ? (
-          <div
-            style={{
-              alignSelf: 'flex-start',
-              padding: '7px 12px',
-              borderRadius: 999,
-              background: 'rgba(56,189,248,0.12)',
-              color: '#7dd3fc',
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-          >
-            {badge}
-          </div>
-        ) : null}
-      </div>
-      {children}
-    </section>
+    <AdminBuilderSection
+      title={title}
+      badge={badge}
+      description={description}
+      tabs={[
+        {
+          id: 'content',
+          label: 'Content',
+          description:
+            'All controls related to this portfolio area stay inside one expandable section container.',
+          content: children,
+        },
+      ]}
+    />
   );
 }
 
@@ -740,50 +717,12 @@ export default function PortfolioAdminPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#020617',
-        color: '#fff',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          borderBottom: '1px solid rgba(148,163,184,0.12)',
-          padding: '18px 28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#38bdf8', marginBottom: 6 }}>
-            Portfolio Builder
-          </div>
-          <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-0.05em' }}>
-            Portfolio page + archive behavior
-          </h1>
-          <p style={{ margin: '8px 0 0', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
-            Hero, tabs, “সব” logic, categories, item visibility, preview behavior, CTA and shared footer handoff এখান থেকে control হবে।
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            style={{
-              background: '#111827',
-              color: '#cbd5e1',
-              border: '1px solid rgba(148,163,184,0.16)',
-              padding: '10px 16px',
-              borderRadius: 12,
-              cursor: 'pointer',
-            }}
-          >
-            ← Dashboard
-          </button>
+    <AdminShell
+      eyebrow="Portfolio Builder"
+      title="Control the portfolio archive, presentation, and page behavior"
+      description="Hero, tabs, category behavior, item visibility, preview rules, CTA, and footer handoff now live inside the shared admin shell for clearer navigation across devices."
+      actions={
+        <>
           <Link
             href="/admin/footer"
             style={{
@@ -792,8 +731,8 @@ export default function PortfolioAdminPage() {
               background: '#111827',
               color: '#cbd5e1',
               border: '1px solid rgba(148,163,184,0.16)',
-              padding: '10px 16px',
-              borderRadius: 12,
+              padding: '11px 16px',
+              borderRadius: 14,
               textDecoration: 'none',
             }}
           >
@@ -802,22 +741,23 @@ export default function PortfolioAdminPage() {
           <button
             onClick={savePortfolioSystem}
             disabled={saving}
+            type="button"
             style={{
               background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
               color: '#fff',
               border: 'none',
-              padding: '10px 18px',
-              borderRadius: 12,
-              cursor: 'pointer',
+              padding: '11px 18px',
+              borderRadius: 14,
+              cursor: saving ? 'not-allowed' : 'pointer',
               fontWeight: 800,
             }}
           >
             {saving ? 'Saving...' : 'Save Portfolio System'}
           </button>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 22px 60px', display: 'grid', gap: 18 }}>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 18 }}>
         {msg ? (
           <div
             style={{
@@ -832,600 +772,718 @@ export default function PortfolioAdminPage() {
           </div>
         ) : null}
 
-        <Panel
+        <AdminBuilderSection
           title="Portfolio hero / top intro"
           badge={pageBuilder.pageEnabled ? 'Live' : 'Hidden'}
           description="Page visibility, badge, title, subtitle, intro text, hero image, CTA, width, alignment and section ordering এখান থেকে control করুন।"
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.pageEnabled}
-                onChange={event => setPageBuilder({ ...pageBuilder, pageEnabled: event.target.checked })}
-              />
-              <span>Enable portfolio page</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.hero.enabled}
-                onChange={event => updateHero('enabled', event.target.checked)}
-              />
-              <span>Show hero block</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.hero.showIntro}
-                onChange={event => updateHero('showIntro', event.target.checked)}
-              />
-              <span>Show intro paragraph</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.hero.showBannerImage}
-                onChange={event => updateHero('showBannerImage', event.target.checked)}
-              />
-              <span>Show banner image</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.hero.showButton}
-                onChange={event => updateHero('showButton', event.target.checked)}
-              />
-              <span>Show hero CTA</span>
-            </label>
-            <Field label="Hero order">
-              <input
-                type="number"
-                value={pageBuilder.hero.order}
-                onChange={event => updateHero('order', Number(event.target.value) || 10)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Hero layout">
-              <select
-                value={pageBuilder.hero.layout}
-                onChange={event => updateHero('layout', event.target.value as PortfolioPageHeroLayout)}
-                style={inputStyle}
-              >
-                {heroLayoutOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Alignment">
-              <select
-                value={pageBuilder.hero.alignment}
-                onChange={event => updateHero('alignment', event.target.value as PortfolioPageAlignment)}
-                style={inputStyle}
-              >
-                {alignmentOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Width">
-              <select
-                value={pageBuilder.hero.width}
-                onChange={event => updateHero('width', event.target.value as PortfolioPageWidth)}
-                style={inputStyle}
-              >
-                {widthOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Spacing">
-              <select
-                value={pageBuilder.hero.spacing}
-                onChange={event => updateHero('spacing', event.target.value as PortfolioPageSpacing)}
-                style={inputStyle}
-              >
-                {spacingOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Page label / badge" full>
-              <input
-                value={pageBuilder.hero.badge}
-                onChange={event => updateHero('badge', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Page title" full>
-              <textarea
-                value={pageBuilder.hero.title}
-                onChange={event => updateHero('title', event.target.value)}
-                style={textareaStyle}
-              />
-            </Field>
-            <Field label="Page subtitle" full>
-              <textarea
-                value={pageBuilder.hero.subtitle}
-                onChange={event => updateHero('subtitle', event.target.value)}
-                style={textareaStyle}
-              />
-            </Field>
-            <Field label="Intro text" full>
-              <textarea
-                value={pageBuilder.hero.introText}
-                onChange={event => updateHero('introText', event.target.value)}
-                style={textareaStyle}
-              />
-            </Field>
-            <Field label="Hero CTA text">
-              <input
-                value={pageBuilder.hero.buttonText}
-                onChange={event => updateHero('buttonText', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Hero CTA link">
-              <input
-                value={pageBuilder.hero.buttonLink}
-                onChange={event => updateHero('buttonLink', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-          </div>
-
-          <div style={{ height: 18 }} />
-          <MediaField
-            label="Hero / banner image"
-            value={pageBuilder.hero.bannerImage}
-            onChange={value => updateHero('bannerImage', value)}
-            onFileSelected={file => void handleBannerUpload(file)}
-            uploading={uploadingField === 'banner'}
-            hint="Optional cinematic banner for the portfolio hero."
-          />
-        </Panel>
-
-        <Panel
-          title="Top tabs + “সব” behavior"
-          badge="Filtering Logic"
-          description="Top three tabs, mixed archive behavior under “সব”, and overall showcase order/visibility এখান থেকে edit করুন।"
-        >
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-              {([
-                ['all', 'সব'],
-                ['video', 'ভিডিও এডিটিং'],
-                ['graphic', 'গ্রাফিক্স ডিজাইন'],
-              ] as const).map(([key, fallbackLabel]) => (
-                <div
-                  key={key}
-                  style={{
-                    border: '1px solid rgba(148,163,184,0.14)',
-                    borderRadius: 18,
-                    padding: 14,
-                    background: '#020617',
-                    display: 'grid',
-                    gap: 10,
-                  }}
-                >
+          headerControls={
+            <>
+              <div style={{ display: 'grid', gap: 6, minWidth: 92 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Order
+                </div>
+                <input
+                  type="number"
+                  value={pageBuilder.hero.order}
+                  onChange={event => updateHero('order', Number(event.target.value) || 10)}
+                  style={{ ...inputStyle, width: 92 }}
+                />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={pageBuilder.hero.enabled}
+                  onChange={event => updateHero('enabled', event.target.checked)}
+                />
+                <span>{pageBuilder.hero.enabled ? 'Visible' : 'Hidden'}</span>
+              </label>
+            </>
+          }
+          tabs={[
+            {
+              id: 'content',
+              label: 'Content',
+              description: 'Page visibility, hero copy, intro text, and CTA content live together here.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <input
                       type="checkbox"
-                      checked={pageSettings.tabs[key].enabled}
-                      onChange={event => updateTab(key, { enabled: event.target.checked })}
+                      checked={pageBuilder.pageEnabled}
+                      onChange={event => setPageBuilder({ ...pageBuilder, pageEnabled: event.target.checked })}
                     />
-                    <span>Show {fallbackLabel} tab</span>
+                    <span>Enable portfolio page</span>
                   </label>
-                  <input
-                    value={pageSettings.tabs[key].label}
-                    onChange={event => updateTab(key, { label: event.target.value })}
-                    style={inputStyle}
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.hero.showIntro}
+                      onChange={event => updateHero('showIntro', event.target.checked)}
+                    />
+                    <span>Show intro paragraph</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.hero.showButton}
+                      onChange={event => updateHero('showButton', event.target.checked)}
+                    />
+                    <span>Show hero CTA</span>
+                  </label>
+                  <Field label="Page label / badge" full>
+                    <input
+                      value={pageBuilder.hero.badge}
+                      onChange={event => updateHero('badge', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Page title" full>
+                    <textarea
+                      value={pageBuilder.hero.title}
+                      onChange={event => updateHero('title', event.target.value)}
+                      style={textareaStyle}
+                    />
+                  </Field>
+                  <Field label="Page subtitle" full>
+                    <textarea
+                      value={pageBuilder.hero.subtitle}
+                      onChange={event => updateHero('subtitle', event.target.value)}
+                      style={textareaStyle}
+                    />
+                  </Field>
+                  <Field label="Intro text" full>
+                    <textarea
+                      value={pageBuilder.hero.introText}
+                      onChange={event => updateHero('introText', event.target.value)}
+                      style={textareaStyle}
+                    />
+                  </Field>
+                  <Field label="Hero CTA text">
+                    <input
+                      value={pageBuilder.hero.buttonText}
+                      onChange={event => updateHero('buttonText', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Hero CTA link">
+                    <input
+                      value={pageBuilder.hero.buttonLink}
+                      onChange={event => updateHero('buttonLink', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                </div>
+              ),
+            },
+            {
+              id: 'media',
+              label: 'Media',
+              description: 'Hero banner image upload and visibility stay in the hero card.',
+              content: (
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.hero.showBannerImage}
+                      onChange={event => updateHero('showBannerImage', event.target.checked)}
+                    />
+                    <span>Show banner image</span>
+                  </label>
+                  <MediaField
+                    label="Hero / banner image"
+                    value={pageBuilder.hero.bannerImage}
+                    onChange={value => updateHero('bannerImage', value)}
+                    onFileSelected={file => void handleBannerUpload(file)}
+                    uploading={uploadingField === 'banner'}
+                    hint="Optional cinematic banner for the portfolio hero."
                   />
                 </div>
-              ))}
-            </div>
+              ),
+            },
+            {
+              id: 'layout',
+              label: 'Layout',
+              description: 'Hero layout, width, spacing, and alignment are grouped together here.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <Field label="Hero layout">
+                    <select
+                      value={pageBuilder.hero.layout}
+                      onChange={event => updateHero('layout', event.target.value as PortfolioPageHeroLayout)}
+                      style={inputStyle}
+                    >
+                      {heroLayoutOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Alignment">
+                    <select
+                      value={pageBuilder.hero.alignment}
+                      onChange={event => updateHero('alignment', event.target.value as PortfolioPageAlignment)}
+                      style={inputStyle}
+                    >
+                      {alignmentOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Width">
+                    <select
+                      value={pageBuilder.hero.width}
+                      onChange={event => updateHero('width', event.target.value as PortfolioPageWidth)}
+                      style={inputStyle}
+                    >
+                      {widthOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Spacing">
+                    <select
+                      value={pageBuilder.hero.spacing}
+                      onChange={event => updateHero('spacing', event.target.value as PortfolioPageSpacing)}
+                      style={inputStyle}
+                    >
+                      {spacingOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              ),
+            },
+            {
+              id: 'design',
+              label: 'Design',
+              description: 'Hero typography, colors, spacing, and CTA styling now stay inside the hero container.',
+              content: (
+                <PageStyleEditor
+                  title="Portfolio hero styling"
+                  description="Customize hero title scale, intro typography, banner color treatment, width, and CTA styling."
+                  value={pageBuilder.hero.styles}
+                  onChange={nextValue => updateHero('styles', nextValue)}
+                />
+              ),
+            },
+          ]}
+        />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input
-                  type="checkbox"
-                  checked={pageSettings.allTab.showVideos}
-                  onChange={event => updateAllTab('showVideos', event.target.checked)}
-                />
-                <span>Show videos under “সব”</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input
-                  type="checkbox"
-                  checked={pageSettings.allTab.showGraphics}
-                  onChange={event => updateAllTab('showGraphics', event.target.checked)}
-                />
-                <span>Show graphics under “সব”</span>
-              </label>
-              <Field label="“সব” order">
-                <select
-                  value={pageSettings.allTab.order}
-                  onChange={event => updateAllTab('order', event.target.value as PortfolioAllOrder)}
-                  style={inputStyle}
-                >
-                  <option value="video-first">Videos first</option>
-                  <option value="graphic-first">Graphics first</option>
-                </select>
-              </Field>
-              <Field label="Showcase order">
+        <AdminBuilderSection
+          title="Showcase layout + preview behavior"
+          badge={pageBuilder.showcase.enabled ? 'Visible' : 'Hidden'}
+          description="Grid density, card style, spacing, alignment, category filters and responsive columns configure করুন।"
+          headerControls={
+            <>
+              <div style={{ display: 'grid', gap: 6, minWidth: 92 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Order
+                </div>
                 <input
                   type="number"
                   value={pageBuilder.showcase.order}
                   onChange={event => updateShowcase('order', Number(event.target.value) || 20)}
-                  style={inputStyle}
+                  style={{ ...inputStyle, width: 92 }}
                 />
-              </Field>
-            </div>
-          </div>
-        </Panel>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={pageBuilder.showcase.enabled}
+                  onChange={event => updateShowcase('enabled', event.target.checked)}
+                />
+                <span>{pageBuilder.showcase.enabled ? 'Visible' : 'Hidden'}</span>
+              </label>
+            </>
+          }
+          tabs={[
+            {
+              id: 'content',
+              label: 'Content',
+              description: 'Showcase visibility, tabs, category chips, and empty-state content stay together.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.showcase.showTabs}
+                      onChange={event => updateShowcase('showTabs', event.target.checked)}
+                    />
+                    <span>Show top tabs</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.showcase.showCategoryFilters}
+                      onChange={event => updateShowcase('showCategoryFilters', event.target.checked)}
+                    />
+                    <span>Show category filters</span>
+                  </label>
+                </div>
+              ),
+            },
+            {
+              id: 'filters',
+              label: 'Filters',
+              description: 'Top tabs, “সব” behavior, and mixed content ordering now stay inside the showcase card.',
+              content: (
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                    {([
+                      ['all', 'সব'],
+                      ['video', 'ভিডিও এডিটিং'],
+                      ['graphic', 'গ্রাফিক্স ডিজাইন'],
+                    ] as const).map(([key, fallbackLabel]) => (
+                      <div
+                        key={key}
+                        style={{
+                          border: '1px solid rgba(148,163,184,0.14)',
+                          borderRadius: 18,
+                          padding: 14,
+                          background: '#020617',
+                          display: 'grid',
+                          gap: 10,
+                        }}
+                      >
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <input
+                            type="checkbox"
+                            checked={pageSettings.tabs[key].enabled}
+                            onChange={event => updateTab(key, { enabled: event.target.checked })}
+                          />
+                          <span>Show {fallbackLabel} tab</span>
+                        </label>
+                        <input
+                          value={pageSettings.tabs[key].label}
+                          onChange={event => updateTab(key, { label: event.target.value })}
+                          style={inputStyle}
+                        />
+                      </div>
+                    ))}
+                  </div>
 
-        <Panel
-          title="Showcase layout + preview behavior"
-          badge={pageBuilder.showcase.enabled ? 'Visible' : 'Hidden'}
-          description="Grid density, card style, spacing, alignment, category filters and responsive columns configure করুন।"
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.showcase.enabled}
-                onChange={event => updateShowcase('enabled', event.target.checked)}
-              />
-              <span>Show showcase grid</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.showcase.showTabs}
-                onChange={event => updateShowcase('showTabs', event.target.checked)}
-              />
-              <span>Show top tabs</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.showcase.showCategoryFilters}
-                onChange={event => updateShowcase('showCategoryFilters', event.target.checked)}
-              />
-              <span>Show category filters</span>
-            </label>
-            <Field label="Layout preset">
-              <select
-                value={pageBuilder.showcase.layoutType}
-                onChange={event => updateShowcase('layoutType', event.target.value as PortfolioPageLayoutType)}
-                style={inputStyle}
-              >
-                {layoutTypeOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Card style">
-              <select
-                value={pageBuilder.showcase.cardStyle}
-                onChange={event => updateShowcase('cardStyle', event.target.value as PortfolioPageCardStyle)}
-                style={inputStyle}
-              >
-                {cardStyleOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Density">
-              <select
-                value={pageBuilder.showcase.density}
-                onChange={event => updateShowcase('density', event.target.value as PortfolioPageDensity)}
-                style={inputStyle}
-              >
-                {densityOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Gap preset">
-              <select
-                value={pageBuilder.showcase.gap}
-                onChange={event => updateShowcase('gap', event.target.value as PortfolioPageGap)}
-                style={inputStyle}
-              >
-                {gapOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Alignment">
-              <select
-                value={pageBuilder.showcase.alignment}
-                onChange={event => updateShowcase('alignment', event.target.value as PortfolioPageAlignment)}
-                style={inputStyle}
-              >
-                {alignmentOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Width">
-              <select
-                value={pageBuilder.showcase.width}
-                onChange={event => updateShowcase('width', event.target.value as PortfolioPageWidth)}
-                style={inputStyle}
-              >
-                {widthOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Spacing">
-              <select
-                value={pageBuilder.showcase.spacing}
-                onChange={event => updateShowcase('spacing', event.target.value as PortfolioPageSpacing)}
-                style={inputStyle}
-              >
-                {spacingOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Desktop columns">
-              <input
-                type="number"
-                min={1}
-                max={4}
-                value={pageBuilder.showcase.desktopColumns}
-                onChange={event => updateShowcase('desktopColumns', Number(event.target.value) || 3)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Tablet columns">
-              <input
-                type="number"
-                min={1}
-                max={3}
-                value={pageBuilder.showcase.tabletColumns}
-                onChange={event => updateShowcase('tabletColumns', Number(event.target.value) || 2)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Mobile columns">
-              <input
-                type="number"
-                min={1}
-                max={2}
-                value={pageBuilder.showcase.mobileColumns}
-                onChange={event => updateShowcase('mobileColumns', Number(event.target.value) || 1)}
-                style={inputStyle}
-              />
-            </Field>
-          </div>
-        </Panel>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={pageSettings.allTab.showVideos}
+                        onChange={event => updateAllTab('showVideos', event.target.checked)}
+                      />
+                      <span>Show videos under “সব”</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={pageSettings.allTab.showGraphics}
+                        onChange={event => updateAllTab('showGraphics', event.target.checked)}
+                      />
+                      <span>Show graphics under “সব”</span>
+                    </label>
+                    <Field label="“সব” order">
+                      <select
+                        value={pageSettings.allTab.order}
+                        onChange={event => updateAllTab('order', event.target.value as PortfolioAllOrder)}
+                        style={inputStyle}
+                      >
+                        <option value="video-first">Videos first</option>
+                        <option value="graphic-first">Graphics first</option>
+                      </select>
+                    </Field>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              id: 'categories',
+              label: 'Categories',
+              description: 'Video and graphics category visibility, order, and custom labels now stay inside the showcase container.',
+              content: (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {categories.map(category => {
+                    const categoryKey = getPortfolioPageCategoryKey(category.type, category.slug);
+                    const config = pageBuilder.categoryConfig[categoryKey] || {
+                      enabled: true,
+                      order: category.order_num,
+                      label: category.name,
+                    };
 
-        <Panel
+                    return (
+                      <div
+                        key={category.id}
+                        style={{
+                          padding: 14,
+                          borderRadius: 18,
+                          border: '1px solid rgba(148,163,184,0.14)',
+                          background: '#020617',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                          gap: 12,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 700 }}>{category.name}</span>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                padding: '4px 10px',
+                                borderRadius: 999,
+                                background: 'rgba(59,130,246,0.12)',
+                                color: '#93c5fd',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {category.type}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>slug: {category.slug}</div>
+                        </div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="checkbox"
+                            checked={config.enabled ?? true}
+                            onChange={event => updateCategory(category, { enabled: event.target.checked })}
+                          />
+                          <span>Visible</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={config.order ?? category.order_num}
+                          onChange={event => updateCategory(category, { order: Number(event.target.value) || category.order_num })}
+                          style={inputStyle}
+                        />
+                        <input
+                          value={config.label || category.name}
+                          onChange={event => updateCategory(category, { label: event.target.value })}
+                          style={inputStyle}
+                          placeholder="Custom label"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ),
+            },
+            {
+              id: 'layout',
+              label: 'Layout',
+              description: 'Grid density, alignment, columns, and card structure stay grouped together.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <Field label="Layout preset">
+                    <select
+                      value={pageBuilder.showcase.layoutType}
+                      onChange={event => updateShowcase('layoutType', event.target.value as PortfolioPageLayoutType)}
+                      style={inputStyle}
+                    >
+                      {layoutTypeOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Card style">
+                    <select
+                      value={pageBuilder.showcase.cardStyle}
+                      onChange={event => updateShowcase('cardStyle', event.target.value as PortfolioPageCardStyle)}
+                      style={inputStyle}
+                    >
+                      {cardStyleOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Density">
+                    <select
+                      value={pageBuilder.showcase.density}
+                      onChange={event => updateShowcase('density', event.target.value as PortfolioPageDensity)}
+                      style={inputStyle}
+                    >
+                      {densityOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Gap preset">
+                    <select
+                      value={pageBuilder.showcase.gap}
+                      onChange={event => updateShowcase('gap', event.target.value as PortfolioPageGap)}
+                      style={inputStyle}
+                    >
+                      {gapOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Alignment">
+                    <select
+                      value={pageBuilder.showcase.alignment}
+                      onChange={event => updateShowcase('alignment', event.target.value as PortfolioPageAlignment)}
+                      style={inputStyle}
+                    >
+                      {alignmentOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Width">
+                    <select
+                      value={pageBuilder.showcase.width}
+                      onChange={event => updateShowcase('width', event.target.value as PortfolioPageWidth)}
+                      style={inputStyle}
+                    >
+                      {widthOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Spacing">
+                    <select
+                      value={pageBuilder.showcase.spacing}
+                      onChange={event => updateShowcase('spacing', event.target.value as PortfolioPageSpacing)}
+                      style={inputStyle}
+                    >
+                      {spacingOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Desktop columns">
+                    <input
+                      type="number"
+                      min={1}
+                      max={4}
+                      value={pageBuilder.showcase.desktopColumns}
+                      onChange={event => updateShowcase('desktopColumns', Number(event.target.value) || 3)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Tablet columns">
+                    <input
+                      type="number"
+                      min={1}
+                      max={3}
+                      value={pageBuilder.showcase.tabletColumns}
+                      onChange={event => updateShowcase('tabletColumns', Number(event.target.value) || 2)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Mobile columns">
+                    <input
+                      type="number"
+                      min={1}
+                      max={2}
+                      value={pageBuilder.showcase.mobileColumns}
+                      onChange={event => updateShowcase('mobileColumns', Number(event.target.value) || 1)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                </div>
+              ),
+            },
+            {
+              id: 'design',
+              label: 'Design',
+              description: 'Filter chip visuals, card surfaces, and overall showcase styling stay in the showcase card.',
+              content: (
+                <PageStyleEditor
+                  title="Showcase styling"
+                  description="Adjust filter/tab visuals, category button feel, portfolio card style, modal-adjacent surfaces, and grid rhythm."
+                  value={pageBuilder.showcase.styles}
+                  onChange={nextValue => updateShowcase('styles', nextValue)}
+                />
+              ),
+            },
+          ]}
+        />
+
+        <AdminBuilderSection
           title="Bottom CTA block"
           badge={pageBuilder.cta.enabled ? 'Visible' : 'Hidden'}
           description="Portfolio page bottom CTA title, text, buttons, alignment এবং ordering এখান থেকে control হবে।"
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.cta.enabled}
-                onChange={event => updateCta('enabled', event.target.checked)}
-              />
-              <span>Show bottom CTA</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.cta.showPrimaryButton}
-                onChange={event => updateCta('showPrimaryButton', event.target.checked)}
-              />
-              <span>Show primary button</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={pageBuilder.cta.showSecondaryButton}
-                onChange={event => updateCta('showSecondaryButton', event.target.checked)}
-              />
-              <span>Show secondary button</span>
-            </label>
-            <Field label="CTA order">
-              <input
-                type="number"
-                value={pageBuilder.cta.order}
-                onChange={event => updateCta('order', Number(event.target.value) || 30)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Alignment">
-              <select
-                value={pageBuilder.cta.alignment}
-                onChange={event => updateCta('alignment', event.target.value as PortfolioPageAlignment)}
-                style={inputStyle}
-              >
-                {alignmentOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Width">
-              <select
-                value={pageBuilder.cta.width}
-                onChange={event => updateCta('width', event.target.value as PortfolioPageWidth)}
-                style={inputStyle}
-              >
-                {widthOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Spacing">
-              <select
-                value={pageBuilder.cta.spacing}
-                onChange={event => updateCta('spacing', event.target.value as PortfolioPageSpacing)}
-                style={inputStyle}
-              >
-                {spacingOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="CTA label" full>
-              <input
-                value={pageBuilder.cta.label}
-                onChange={event => updateCta('label', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="CTA title" full>
-              <input
-                value={pageBuilder.cta.title}
-                onChange={event => updateCta('title', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="CTA description" full>
-              <textarea
-                value={pageBuilder.cta.description}
-                onChange={event => updateCta('description', event.target.value)}
-                style={textareaStyle}
-              />
-            </Field>
-            <Field label="Primary button text">
-              <input
-                value={pageBuilder.cta.primaryButtonText}
-                onChange={event => updateCta('primaryButtonText', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Primary button link">
-              <input
-                value={pageBuilder.cta.primaryButtonLink}
-                onChange={event => updateCta('primaryButtonLink', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Secondary button text">
-              <input
-                value={pageBuilder.cta.secondaryButtonText}
-                onChange={event => updateCta('secondaryButtonText', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Secondary button link">
-              <input
-                value={pageBuilder.cta.secondaryButtonLink}
-                onChange={event => updateCta('secondaryButtonLink', event.target.value)}
-                style={inputStyle}
-              />
-            </Field>
-          </div>
-        </Panel>
-
-        <Panel
-          title="Category controls"
-          badge={`${categories.length} categories`}
-          description="ভিডিও এবং গ্রাফিক্স category-র visibility, order এবং custom label এখান থেকে control করুন। Disabled category portfolio page-এ show হবে না।"
-        >
-          <div style={{ display: 'grid', gap: 10 }}>
-            {categories.map(category => {
-              const categoryKey = getPortfolioPageCategoryKey(category.type, category.slug);
-              const config = pageBuilder.categoryConfig[categoryKey] || {
-                enabled: true,
-                order: category.order_num,
-                label: category.name,
-              };
-
-              return (
-                <div
-                  key={category.id}
-                  style={{
-                    padding: 14,
-                    borderRadius: 18,
-                    border: '1px solid rgba(148,163,184,0.14)',
-                    background: '#020617',
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1.2fr) 110px 120px minmax(0, 1fr)',
-                    gap: 12,
-                    alignItems: 'center',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700 }}>{category.name}</span>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          padding: '4px 10px',
-                          borderRadius: 999,
-                          background: 'rgba(59,130,246,0.12)',
-                          color: '#93c5fd',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {category.type}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>slug: {category.slug}</div>
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          headerControls={
+            <>
+              <div style={{ display: 'grid', gap: 6, minWidth: 92 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Order
+                </div>
+                <input
+                  type="number"
+                  value={pageBuilder.cta.order}
+                  onChange={event => updateCta('order', Number(event.target.value) || 30)}
+                  style={{ ...inputStyle, width: 92 }}
+                />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={pageBuilder.cta.enabled}
+                  onChange={event => updateCta('enabled', event.target.checked)}
+                />
+                <span>{pageBuilder.cta.enabled ? 'Visible' : 'Hidden'}</span>
+              </label>
+            </>
+          }
+          tabs={[
+            {
+              id: 'content',
+              label: 'Content',
+              description: 'CTA copy and button labels stay inside the CTA builder.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <input
                       type="checkbox"
-                      checked={config.enabled ?? true}
-                      onChange={event => updateCategory(category, { enabled: event.target.checked })}
+                      checked={pageBuilder.cta.showPrimaryButton}
+                      onChange={event => updateCta('showPrimaryButton', event.target.checked)}
                     />
-                    <span>Visible</span>
+                    <span>Show primary button</span>
                   </label>
-                  <input
-                    type="number"
-                    value={config.order ?? category.order_num}
-                    onChange={event => updateCategory(category, { order: Number(event.target.value) || category.order_num })}
-                    style={inputStyle}
-                  />
-                  <input
-                    value={config.label || category.name}
-                    onChange={event => updateCategory(category, { label: event.target.value })}
-                    style={inputStyle}
-                    placeholder="Custom label"
-                  />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.cta.showSecondaryButton}
+                      onChange={event => updateCta('showSecondaryButton', event.target.checked)}
+                    />
+                    <span>Show secondary button</span>
+                  </label>
+                  <Field label="CTA label" full>
+                    <input
+                      value={pageBuilder.cta.label}
+                      onChange={event => updateCta('label', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="CTA title" full>
+                    <input
+                      value={pageBuilder.cta.title}
+                      onChange={event => updateCta('title', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="CTA description" full>
+                    <textarea
+                      value={pageBuilder.cta.description}
+                      onChange={event => updateCta('description', event.target.value)}
+                      style={textareaStyle}
+                    />
+                  </Field>
+                  <Field label="Primary button text">
+                    <input
+                      value={pageBuilder.cta.primaryButtonText}
+                      onChange={event => updateCta('primaryButtonText', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Primary button link">
+                    <input
+                      value={pageBuilder.cta.primaryButtonLink}
+                      onChange={event => updateCta('primaryButtonLink', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Secondary button text">
+                    <input
+                      value={pageBuilder.cta.secondaryButtonText}
+                      onChange={event => updateCta('secondaryButtonText', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Secondary button link">
+                    <input
+                      value={pageBuilder.cta.secondaryButtonLink}
+                      onChange={event => updateCta('secondaryButtonLink', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
                 </div>
-              );
-            })}
-          </div>
-        </Panel>
+              ),
+            },
+            {
+              id: 'layout',
+              label: 'Layout',
+              description: 'Alignment, width, and spacing stay inside the CTA section.',
+              content: (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <Field label="Alignment">
+                    <select
+                      value={pageBuilder.cta.alignment}
+                      onChange={event => updateCta('alignment', event.target.value as PortfolioPageAlignment)}
+                      style={inputStyle}
+                    >
+                      {alignmentOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Width">
+                    <select
+                      value={pageBuilder.cta.width}
+                      onChange={event => updateCta('width', event.target.value as PortfolioPageWidth)}
+                      style={inputStyle}
+                    >
+                      {widthOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Spacing">
+                    <select
+                      value={pageBuilder.cta.spacing}
+                      onChange={event => updateCta('spacing', event.target.value as PortfolioPageSpacing)}
+                      style={inputStyle}
+                    >
+                      {spacingOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              ),
+            },
+            {
+              id: 'design',
+              label: 'Design',
+              description: 'CTA typography, background, button look, and card polish stay with the CTA block.',
+              content: (
+                <PageStyleEditor
+                  title="Portfolio CTA styling"
+                  description="Fine-tune CTA typography, background, button look, and card polish."
+                  value={pageBuilder.cta.styles}
+                  onChange={nextValue => updateCta('styles', nextValue)}
+                />
+              ),
+            },
+          ]}
+        />
 
         <Panel
           title="Portfolio items"
@@ -1673,6 +1731,6 @@ export default function PortfolioAdminPage() {
           </div>
         </Panel>
       </div>
-    </div>
+    </AdminShell>
   );
 }

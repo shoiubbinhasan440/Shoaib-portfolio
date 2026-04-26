@@ -3,6 +3,11 @@ import {
   parseStyledSetting,
   type SettingMap,
 } from '@/lib/hero-settings';
+import {
+  createDefaultBuilderSectionStyles,
+  sanitizeBuilderSectionStyles,
+  type BuilderSectionStyles,
+} from '@/lib/page-builder-styles';
 import type { PortfolioCategory, PortfolioPreviewItem } from '@/lib/portfolio-content';
 
 export const PORTFOLIO_PAGE_BUILDER_SETTING_KEY = 'portfolio_page_builder_config';
@@ -33,6 +38,7 @@ export type PortfolioPageHeroConfig = {
   layout: PortfolioPageHeroLayout;
   width: PortfolioPageWidth;
   spacing: PortfolioPageSpacing;
+  styles: BuilderSectionStyles;
 };
 
 export type PortfolioPageShowcaseConfig = {
@@ -50,6 +56,7 @@ export type PortfolioPageShowcaseConfig = {
   desktopColumns: number;
   tabletColumns: number;
   mobileColumns: number;
+  styles: BuilderSectionStyles;
 };
 
 export type PortfolioPageCtaConfig = {
@@ -67,6 +74,7 @@ export type PortfolioPageCtaConfig = {
   alignment: PortfolioPageAlignment;
   width: PortfolioPageWidth;
   spacing: PortfolioPageSpacing;
+  styles: BuilderSectionStyles;
 };
 
 export type PortfolioPageCategoryConfig = {
@@ -199,6 +207,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       layout: 'centered',
       width: 'wide',
       spacing: 'balanced',
+      styles: createDefaultBuilderSectionStyles(),
     },
     showcase: {
       enabled: true,
@@ -215,6 +224,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       desktopColumns: 3,
       tabletColumns: 2,
       mobileColumns: 1,
+      styles: createDefaultBuilderSectionStyles(),
     },
     cta: {
       enabled: true,
@@ -232,6 +242,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       alignment: 'center',
       width: 'normal',
       spacing: 'balanced',
+      styles: createDefaultBuilderSectionStyles(),
     },
     categoryConfig: {},
     itemConfig: {},
@@ -294,6 +305,7 @@ function sanitizeHero(
     layout: heroLayout(value.layout, fallback.layout),
     width: width(value.width, fallback.width),
     spacing: spacing(value.spacing, fallback.spacing),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -320,6 +332,7 @@ function sanitizeShowcase(
     desktopColumns: Math.min(4, Math.max(1, number(value.desktopColumns, fallback.desktopColumns))),
     tabletColumns: Math.min(3, Math.max(1, number(value.tabletColumns, fallback.tabletColumns))),
     mobileColumns: Math.min(2, Math.max(1, number(value.mobileColumns, fallback.mobileColumns))),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -346,6 +359,7 @@ function sanitizeCta(
     alignment: alignment(value.alignment, fallback.alignment),
     width: width(value.width, fallback.width),
     spacing: spacing(value.spacing, fallback.spacing),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 

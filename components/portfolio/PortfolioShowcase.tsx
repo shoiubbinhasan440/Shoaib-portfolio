@@ -4,6 +4,17 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
+import PortfolioPreviewModal from '@/components/portfolio/PortfolioPreviewModal';
+import {
+  getButtonAlignmentOverride,
+  getButtonStyleOverrides,
+  getCardSurfaceOverrides,
+  getSectionPaddingOverride,
+  getSectionSurfaceOverrides,
+  getSectionWidthOverride,
+  getTypographyStyleOverrides,
+  resolveSectionThemeColor,
+} from '@/lib/page-builder-styles';
 import type {
   PortfolioPageBuilderConfig,
 } from '@/lib/portfolio-page-content';
@@ -12,16 +23,19 @@ import {
   getPortfolioPageItemConfig,
 } from '@/lib/portfolio-page-content';
 import {
+  getPortfolioItemMeta,
   DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS,
   getHomepageAllowedSourceTypes,
   getHomepageCategoryConfig,
   getHomepageConfigForItem,
+  getPortfolioItemDefaultTypeLabel,
   getPortfolioCategoriesForTab,
   getPortfolioItemsForTab,
   getPortfolioTabs,
   sortPortfolioItemsByOrder,
   type HomepagePortfolioSectionSettings,
   type PortfolioCategory,
+  type PortfolioItemMetaConfigMap,
   type PortfolioPageSettings,
   type PortfolioPreviewItem,
   type PortfolioSourceType,
@@ -40,6 +54,7 @@ type PortfolioShowcaseProps = {
   buttonText?: string;
   buttonLink?: string;
   homepageSettings?: HomepagePortfolioSectionSettings;
+  itemMetaConfig?: PortfolioItemMetaConfigMap;
   pageBuilder?: PortfolioPageBuilderConfig;
 };
 
@@ -64,14 +79,6 @@ function getSortedDisplayItems(items: PortfolioPreviewItem[], variant: Portfolio
   }
 
   return sortPortfolioItemsByOrder(items);
-}
-
-function getVideoPreviewUrl(url: string | undefined) {
-  if (!url) {
-    return '';
-  }
-
-  return url.includes('?') ? `${url}&autoplay=1&rel=0` : `${url}?autoplay=1&rel=0`;
 }
 
 function getGapValue(variant: PortfolioShowcaseProps['variant'], settings: HomepagePortfolioSectionSettings) {
@@ -292,6 +299,7 @@ export default function PortfolioShowcase({
   buttonText,
   buttonLink,
   homepageSettings,
+  itemMetaConfig = {},
   pageBuilder,
 }: PortfolioShowcaseProps) {
   const router = useRouter();
@@ -306,6 +314,8 @@ export default function PortfolioShowcase({
     graphic: 'all',
   });
   const [selectedItem, setSelectedItem] = useState<PortfolioPreviewItem | null>(null);
+  const [focusItemKey, setFocusItemKey] = useState('');
+  const [smartShowcaseMode, setSmartShowcaseMode] = useState(false);
 
   useEffect(() => {
     const syncViewport = () => setViewportWidth(window.innerWidth);
@@ -478,10 +488,35 @@ export default function PortfolioShowcase({
     return nextItems;
   }, [activeCategory, columns, homepageConfig.maxRows, tabItems, variant]);
 
+  const showcaseItems = useMemo(() => {
+    if (variant !== 'page' || !smartShowcaseMode) {
+      return filteredItems;
+    }
+
+    return [...filteredItems].sort((leftItem, rightItem) => {
+      const leftMeta = getPortfolioItemMeta(leftItem, itemMetaConfig);
+      const rightMeta = getPortfolioItemMeta(rightItem, itemMetaConfig);
+      const leftScore =
+        (leftMeta.smartShowcase ? 100 : 0) + (leftMeta.featuredPriority || 0);
+      const rightScore =
+        (rightMeta.smartShowcase ? 100 : 0) + (rightMeta.featuredPriority || 0);
+
+      if (leftScore !== rightScore) {
+        return rightScore - leftScore;
+      }
+
+      if (leftItem.order_num !== rightItem.order_num) {
+        return leftItem.order_num - rightItem.order_num;
+      }
+
+      return leftItem.title.localeCompare(rightItem.title);
+    });
+  }, [filteredItems, itemMetaConfig, smartShowcaseMode, variant]);
+
   const shouldGroupAll =
     activeTab === 'all' &&
-    filteredItems.some(item => item.sourceType === 'video') &&
-    filteredItems.some(item => item.sourceType === 'graphic');
+    showcaseItems.some(item => item.sourceType === 'video') &&
+    showcaseItems.some(item => item.sourceType === 'graphic');
   const sectionSourceTypes = shouldGroupAll
     ? variant === 'homepage'
       ? getHomepageAllowedSourceTypes(homepageConfig)
@@ -495,7 +530,7 @@ export default function PortfolioShowcase({
             sourceType === 'video'
               ? pageSettings.tabs.video.label
               : pageSettings.tabs.graphic.label,
-          items: filteredItems.filter(item => item.sourceType === sourceType),
+          items: showcaseItems.filter(item => item.sourceType === sourceType),
         }))
         .filter(section => section.items.length > 0)
     : [
@@ -510,7 +545,7 @@ export default function PortfolioShowcase({
               : activeTab === 'video'
                 ? pageSettings.tabs.video.label
                 : pageSettings.tabs.all.label,
-          items: filteredItems,
+          items: showcaseItems,
         },
       ];
   const displayItems = groupedSections.flatMap(section => section.items);
@@ -518,9 +553,7 @@ export default function PortfolioShowcase({
     selectedItem && displayItems.some(item => getItemKey(item) === getItemKey(selectedItem))
       ? selectedItem
       : null;
-  const selectedIndex = activeSelectedItem
-    ? displayItems.findIndex(item => getItemKey(item) === getItemKey(activeSelectedItem))
-    : -1;
+  const focusedItem = displayItems.find(item => getItemKey(item) === focusItemKey) || null;
 
   const panel = dark
     ? 'linear-gradient(180deg, rgba(8,15,32,0.96) 0%, rgba(2,6,23,0.98) 100%)'
@@ -552,18 +585,46 @@ export default function PortfolioShowcase({
     variant === 'homepage' &&
     homepageConfig.clickAction === 'preview-with-link' &&
     homepageConfig.showViewAllButton;
+  const heroStyles = variant === 'page' ? pageBuilder?.hero.styles : homepageConfig.styles;
+  const showcaseStyles =
+    variant === 'page' ? pageBuilder?.showcase.styles : homepageConfig.styles;
+  const ctaStyles = variant === 'page' ? pageBuilder?.cta.styles : homepageConfig.styles;
+  const heroButtonStyle = getButtonStyleOverrides(heroStyles, {
+    dark,
+    fallbackBackground: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+    fallbackColor: '#fff',
+    fallbackBorder: soft,
+    fallbackShadow: '0 18px 40px rgba(37,99,235,0.22)',
+  });
+  const secondaryButtonStyle = getButtonStyleOverrides(ctaStyles, {
+    dark,
+    fallbackBackground: dark ? 'rgba(15,23,42,0.54)' : 'rgba(255,255,255,0.82)',
+    fallbackColor: text,
+    fallbackBorder: soft,
+    fallbackShadow: 'none',
+  });
+  const cardStyleOverrides = getCardSurfaceOverrides(showcaseStyles, {
+    dark,
+    fallbackBackground: cardSurface,
+    fallbackBorder: soft,
+    fallbackShadow: dark
+      ? '0 24px 44px rgba(2,6,23,0.24)'
+      : '0 18px 32px rgba(15,23,42,0.08)',
+  });
+  const showcaseGap = showcaseStyles?.card.gap || cardGap;
 
   function handleItemAction(item: PortfolioPreviewItem) {
+    const itemMeta = getPortfolioItemMeta(item, itemMetaConfig);
+
     if (variant === 'page') {
       const itemConfig = getPortfolioPageItemConfig(item, pageBuilder?.itemConfig || {});
       if (!itemConfig.previewEnabled) {
-        if (item.sourceType === 'video' && item.youtube_url) {
-          window.open(item.youtube_url, '_blank', 'noopener,noreferrer');
-          return;
-        }
+        const fallbackUrl =
+          itemMeta.externalPreviewUrl ||
+          (item.sourceType === 'video' ? item.youtube_url : item.imageUrl);
 
-        if (item.imageUrl) {
-          window.open(item.imageUrl, '_blank', 'noopener,noreferrer');
+        if (fallbackUrl) {
+          window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
           return;
         }
       }
@@ -588,25 +649,18 @@ export default function PortfolioShowcase({
     router.push(previewFooterLink);
   }
 
-  function goToSibling(direction: 'prev' | 'next') {
-    if (selectedIndex < 0) {
-      return;
-    }
-
-    const nextIndex =
-      direction === 'prev'
-        ? (selectedIndex - 1 + displayItems.length) % displayItems.length
-        : (selectedIndex + 1) % displayItems.length;
-    setSelectedItem(displayItems[nextIndex] || null);
-  }
-
   return (
     <>
       <section
         style={{
-          maxWidth: getSectionMaxWidth(variant, homepageConfig, pageBuilder),
+          maxWidth: getSectionWidthOverride(
+            heroStyles?.layout.width || 'default',
+            getSectionMaxWidth(variant, homepageConfig, pageBuilder)
+          ),
           margin: '0 auto',
-          padding:
+          padding: getSectionPaddingOverride(
+            heroStyles?.layout.padding || 'default',
+            isMobile,
             variant === 'page'
               ? pageBuilder?.hero.spacing === 'compact'
                 ? '56px 24px 72px'
@@ -615,7 +669,8 @@ export default function PortfolioShowcase({
                   : '72px 24px 88px'
               : viewportWidth < 700
                 ? '34px 16px 18px'
-                : '44px 24px 20px',
+                : '44px 24px 20px'
+          ),
           width: '100%',
         }}
       >
@@ -632,6 +687,14 @@ export default function PortfolioShowcase({
             boxShadow: dark
               ? '0 30px 100px rgba(2,6,23,0.32)'
               : '0 30px 100px rgba(15,23,42,0.12)',
+            ...getSectionSurfaceOverrides(heroStyles, {
+              dark,
+              fallbackBackground:
+                variant === 'page' && pageBuilder?.hero.showBannerImage && pageBuilder.hero.bannerImage
+                  ? `linear-gradient(180deg, rgba(2,6,23,0.68), rgba(2,6,23,0.9)), url(${pageBuilder.hero.bannerImage}) center/cover no-repeat`
+                  : panel,
+              fallbackBorder: border,
+            }),
           }}
         >
           <div
@@ -643,6 +706,19 @@ export default function PortfolioShowcase({
               pointerEvents: 'none',
             }}
           />
+          {focusedItem ? (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: `linear-gradient(135deg, rgba(2,6,23,0.78), rgba(2,6,23,0.42)), url(${focusedItem.imageUrl}) center/cover no-repeat`,
+                opacity: 0.22,
+                filter: 'blur(18px)',
+                transform: 'scale(1.08)',
+                pointerEvents: 'none',
+              }}
+            />
+          ) : null}
 
           <div
             style={{
@@ -699,6 +775,26 @@ export default function PortfolioShowcase({
                           fontWeight: 700,
                           letterSpacing: '0.12em',
                           textTransform: 'uppercase',
+                          ...getTypographyStyleOverrides(
+                            'label',
+                            heroStyles?.typography.label,
+                            {
+                              dark,
+                              isMobile,
+                              fallbackColor: resolveSectionThemeColor(
+                                heroStyles?.colors.accentLight || '',
+                                heroStyles?.colors.accentDark || '',
+                                dark,
+                                '#38bdf8'
+                              ),
+                              fallbackTextAlign:
+                                variant === 'page'
+                                  ? pageBuilder?.hero.alignment || 'center'
+                                  : headerAlignment,
+                              fallbackFontWeight: 700,
+                              fallbackLetterSpacing: '0.12em',
+                            }
+                          ),
                         }}
                       >
                         <span
@@ -725,6 +821,22 @@ export default function PortfolioShowcase({
                         letterSpacing: '-0.05em',
                         color: text,
                         lineHeight: 1.05,
+                        ...getTypographyStyleOverrides(
+                          'title',
+                          heroStyles?.typography.title,
+                          {
+                            dark,
+                            isMobile,
+                            fallbackColor: text,
+                            fallbackTextAlign:
+                              variant === 'page'
+                                ? pageBuilder?.hero.alignment || 'center'
+                                : headerAlignment,
+                            fallbackFontWeight: 800,
+                            fallbackLineHeight: 1.05,
+                            fallbackLetterSpacing: '-0.05em',
+                          }
+                        ),
                       }}
                     >
                       {sectionTitle}
@@ -737,6 +849,20 @@ export default function PortfolioShowcase({
                         fontSize: variant === 'page' ? 16 : 15,
                         lineHeight: 1.85,
                         maxWidth: variant === 'page' ? 680 : headerAlignment === 'center' ? 720 : 620,
+                        ...getTypographyStyleOverrides(
+                          'subtitle',
+                          heroStyles?.typography.subtitle,
+                          {
+                            dark,
+                            isMobile,
+                            fallbackColor: muted,
+                            fallbackTextAlign:
+                              variant === 'page'
+                                ? pageBuilder?.hero.alignment || 'center'
+                                : headerAlignment,
+                            fallbackLineHeight: 1.85,
+                          }
+                        ),
                       }}
                     >
                       {sectionSubtitle}
@@ -750,6 +876,17 @@ export default function PortfolioShowcase({
                           fontSize: 15,
                           lineHeight: 1.8,
                           maxWidth: 720,
+                          ...getTypographyStyleOverrides(
+                            'body',
+                            heroStyles?.typography.body,
+                            {
+                              dark,
+                              isMobile,
+                              fallbackColor: dark ? 'rgba(226,232,240,0.76)' : '#475569',
+                              fallbackTextAlign: pageBuilder?.hero.alignment || 'center',
+                              fallbackLineHeight: 1.8,
+                            }
+                          ),
                         }}
                       >
                         {introText}
@@ -783,12 +920,23 @@ export default function PortfolioShowcase({
                         fontWeight: 700,
                         boxShadow: '0 18px 40px rgba(37,99,235,0.22)',
                         flexShrink: 0,
+                        ...heroButtonStyle,
+                        ...getTypographyStyleOverrides(
+                          'button',
+                          heroStyles?.typography.button,
+                          {
+                            dark,
+                            isMobile,
+                            fallbackColor: '#fff',
+                            fallbackFontWeight: 700,
+                          }
+                        ),
                       }}
                     >
                       {variant === 'page'
                         ? pageBuilder?.hero.buttonText || 'Contact Me'
                         : buttonText}
-                      <span>→</span>
+                      {heroStyles?.buttons.showIcon !== false ? <span>→</span> : null}
                     </Link>
                   ) : null}
                 </div>
@@ -894,7 +1042,6 @@ export default function PortfolioShowcase({
                               ? 'rgba(15,23,42,0.4)'
                               : 'rgba(255,255,255,0.7)'
                             : 'transparent',
-                      color: activeCategory === 'all' ? '#38bdf8' : muted,
                       border: `1px solid ${
                         activeCategory === 'all' ? 'rgba(56,189,248,0.36)' : soft
                       }`,
@@ -903,6 +1050,15 @@ export default function PortfolioShowcase({
                       cursor: 'pointer',
                       fontSize: 13,
                       fontWeight: 700,
+                      color:
+                        activeCategory === 'all'
+                          ? resolveSectionThemeColor(
+                              showcaseStyles?.colors.accentLight || '',
+                              showcaseStyles?.colors.accentDark || '',
+                              dark,
+                              '#38bdf8'
+                            )
+                          : muted,
                     }}
                   >
                     সব ({tabItems.length})
@@ -932,7 +1088,6 @@ export default function PortfolioShowcase({
                                 ? 'rgba(15,23,42,0.4)'
                                 : 'rgba(255,255,255,0.7)'
                               : 'transparent',
-                        color: activeCategory === category.slug ? '#38bdf8' : muted,
                         border: `1px solid ${
                           activeCategory === category.slug ? 'rgba(56,189,248,0.36)' : soft
                         }`,
@@ -941,12 +1096,63 @@ export default function PortfolioShowcase({
                         cursor: 'pointer',
                         fontSize: 13,
                         fontWeight: 700,
+                        color:
+                          activeCategory === category.slug
+                            ? resolveSectionThemeColor(
+                                showcaseStyles?.colors.accentLight || '',
+                                showcaseStyles?.colors.accentDark || '',
+                                dark,
+                                '#38bdf8'
+                              )
+                            : muted,
                       }}
                     >
                       {category.displayName} ({count})
                     </button>
                   );
                 })}
+                </div>
+              ) : null}
+
+              {variant === 'page' ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    marginBottom: 22,
+                  }}
+                >
+                  <div style={{ color: muted, fontSize: 13 }}>
+                    Smart showcase highlights curated work with larger cards and smoother browsing.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSmartShowcaseMode(current => !current)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 16px',
+                      borderRadius: 999,
+                      border: `1px solid ${
+                        smartShowcaseMode ? 'rgba(56,189,248,0.36)' : soft
+                      }`,
+                      background: smartShowcaseMode
+                        ? 'linear-gradient(135deg, rgba(37,99,235,0.18), rgba(14,165,233,0.18))'
+                        : dark
+                          ? 'rgba(15,23,42,0.5)'
+                          : 'rgba(255,255,255,0.76)',
+                      color: smartShowcaseMode ? '#38bdf8' : text,
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                    }}
+                  >
+                    <span>{smartShowcaseMode ? 'Smart Showcase On' : 'Smart Showcase Off'}</span>
+                    <span>{smartShowcaseMode ? '●' : '○'}</span>
+                  </button>
                 </div>
               ) : null}
 
@@ -958,7 +1164,7 @@ export default function PortfolioShowcase({
                       variant === 'page'
                         ? `repeat(${columns}, minmax(0, 1fr))`
                         : `repeat(${columns}, minmax(0, 1fr))`,
-                    gap: cardGap,
+                    gap: showcaseGap,
                   }}
                 >
                 {Array.from({ length: variant === 'page' ? 6 : Math.max(3, columns) }).map((_, index) => (
@@ -1047,7 +1253,7 @@ export default function PortfolioShowcase({
                           variant === 'page'
                             ? `repeat(${columns}, minmax(0, 1fr))`
                             : `repeat(${columns}, minmax(0, 1fr))`,
-                        gap: cardGap,
+                        gap: showcaseGap,
                       }}
                     >
                       {section.items.map((item, index) => {
@@ -1055,6 +1261,11 @@ export default function PortfolioShowcase({
                           variant === 'homepage'
                             ? getHomepageConfigForItem(item, homepageConfig.itemConfig)
                             : null;
+                        const pageItemConfig =
+                          variant === 'page'
+                            ? getPortfolioPageItemConfig(item, pageBuilder?.itemConfig || {})
+                            : null;
+                        const itemMeta = getPortfolioItemMeta(item, itemMetaConfig);
                         const denseCard =
                           variant === 'homepage'
                             ? homepageConfig.cardDensity === 'compact' ||
@@ -1069,6 +1280,34 @@ export default function PortfolioShowcase({
                           homepageConfig.layoutType === 'featured-first' &&
                           index === 0 &&
                           columns > 1;
+                        const smartLeadCard =
+                          variant === 'page' &&
+                          smartShowcaseMode &&
+                          columns > 1 &&
+                          index === 0 &&
+                          (itemMeta.smartShowcase || itemMeta.featuredPriority > 0);
+                        const focusKey = getItemKey(item);
+                        const focusMatch = focusItemKey === focusKey;
+                        const dimmed = Boolean(focusedItem) && !focusMatch;
+                        const hasStoryView = Object.values(itemMeta.story || {}).some(value =>
+                          Boolean(value?.trim())
+                        );
+                        const itemPreviewEnabled =
+                          variant === 'page'
+                            ? (pageItemConfig?.previewEnabled ?? true)
+                            : (itemConfig?.previewEnabled ?? true);
+                        const previewLabel =
+                          itemMeta.cardCtaLabel ||
+                          (variant === 'homepage'
+                            ? homepageConfig.previewButtonLabel
+                            : itemPreviewEnabled
+                              ? item.sourceType === 'video'
+                                ? 'Play preview'
+                                : 'Open preview'
+                              : item.sourceType === 'video'
+                                ? 'Open video'
+                                : 'Open artwork');
+                        const leadCard = featuredCard || smartLeadCard;
                         const imagePadding =
                           variant === 'homepage' && homepageConfig.layoutType === 'compact-preview'
                             ? item.sourceType === 'graphic'
@@ -1078,43 +1317,62 @@ export default function PortfolioShowcase({
                               ? item.sourceType === 'graphic'
                                 ? '82%'
                                 : '64%'
-                              : featuredCard
+                              : leadCard
                                 ? item.sourceType === 'graphic'
                                   ? '90%'
                                   : '72%'
                                 : item.sourceType === 'graphic'
                                   ? '72%'
                                   : '60%';
+                        const accentColor = resolveSectionThemeColor(
+                          showcaseStyles?.colors.accentLight || '',
+                          showcaseStyles?.colors.accentDark || '',
+                          dark,
+                          '#38bdf8'
+                        );
+                        const visibleTags: string[] = itemMeta.showTags
+                          ? itemMeta.tags.slice(0, 3)
+                          : [];
 
                         return (
                           <button
-                            key={getItemKey(item)}
+                            key={focusKey}
                             type="button"
                             onClick={() => handleItemAction(item)}
+                            onMouseEnter={() => setFocusItemKey(focusKey)}
+                            onMouseLeave={() =>
+                              setFocusItemKey(currentKey =>
+                                currentKey === focusKey ? '' : currentKey
+                              )
+                            }
+                            onFocus={() => setFocusItemKey(focusKey)}
+                            onBlur={() =>
+                              setFocusItemKey(currentKey =>
+                                currentKey === focusKey ? '' : currentKey
+                              )
+                            }
                             style={{
                               textAlign: 'left',
                               padding: 0,
                               borderRadius: variant === 'homepage' && homepageConfig.layoutType === 'simple-preview' ? 18 : 24,
                               overflow: 'hidden',
                               cursor: 'pointer',
-                              border: `1px solid ${soft}`,
+                              border: `1px solid ${
+                                focusMatch ? 'rgba(56,189,248,0.34)' : soft
+                              }`,
                               background: cardSurface,
                               boxShadow: dark
                                 ? '0 24px 44px rgba(2,6,23,0.24)'
                                 : '0 18px 32px rgba(15,23,42,0.08)',
-                              transition: 'transform 0.2s ease, border-color 0.2s ease',
+                              transition:
+                                'transform 0.22s ease, border-color 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease',
                               gridColumn:
-                                featuredCard && variant === 'homepage'
+                                leadCard && columns > 1
                                   ? `span ${Math.min(2, columns)}`
                                   : undefined,
-                            }}
-                            onMouseEnter={event => {
-                              (event.currentTarget as HTMLButtonElement).style.transform = 'translateY(-4px)';
-                              (event.currentTarget as HTMLButtonElement).style.borderColor = '#2563eb';
-                            }}
-                            onMouseLeave={event => {
-                              (event.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
-                              (event.currentTarget as HTMLButtonElement).style.borderColor = soft;
+                              opacity: dimmed ? 0.56 : 1,
+                              transform: focusMatch ? 'translateY(-6px)' : 'translateY(0)',
+                              ...cardStyleOverrides,
                             }}
                           >
                             {variant === 'page' || homepageConfig.showThumbnail ? (
@@ -1140,6 +1398,8 @@ export default function PortfolioShowcase({
                                         homepageConfig.layoutType === 'simple-preview'
                                           ? 'contain'
                                           : 'cover',
+                                      transform: focusMatch ? 'scale(1.04)' : 'scale(1)',
+                                      transition: 'transform 0.28s ease',
                                     }}
                                   />
                                 ) : null}
@@ -1156,27 +1416,54 @@ export default function PortfolioShowcase({
                                     ),
                                   }}
                                 />
-                                {(variant === 'page' || homepageConfig.showCategory) && (
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      top: 14,
-                                      left: 14,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 8,
-                                      padding: '6px 12px',
-                                      borderRadius: 999,
-                                      background: 'rgba(2,6,23,0.72)',
-                                      border: '1px solid rgba(148,163,184,0.16)',
-                                      color: '#e2e8f0',
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    {item.categoryName}
-                                  </div>
-                                )}
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: 14,
+                                    left: 14,
+                                    display: 'flex',
+                                    gap: 8,
+                                    flexWrap: 'wrap',
+                                  }}
+                                >
+                                  {(variant === 'page' || homepageConfig.showCategory) &&
+                                  itemMeta.showCategoryBadge ? (
+                                    <div
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '6px 12px',
+                                        borderRadius: 999,
+                                        background: 'rgba(2,6,23,0.72)',
+                                        border: '1px solid rgba(148,163,184,0.16)',
+                                        color: '#e2e8f0',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      {item.categoryName}
+                                    </div>
+                                  ) : null}
+                                  {itemMeta.cardBadge ? (
+                                    <div
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 8,
+                                        padding: '6px 12px',
+                                        borderRadius: 999,
+                                        background: 'rgba(14,165,233,0.12)',
+                                        border: '1px solid rgba(125,211,252,0.2)',
+                                        color: '#e0f2fe',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      {itemMeta.cardBadge}
+                                    </div>
+                                  ) : null}
+                                </div>
                                 {(variant === 'page' || homepageConfig.showTypeBadge) && (
                                   <div
                                     style={{
@@ -1197,12 +1484,13 @@ export default function PortfolioShowcase({
                                       letterSpacing: '0.08em',
                                     }}
                                   >
-                                    {item.sourceType === 'video' ? 'ভিডিও' : 'গ্রাফিক্স'}
+                                    {itemMeta.typeLabel || getPortfolioItemDefaultTypeLabel(item.sourceType)}
                                   </div>
                                 )}
                                 {variant === 'homepage' &&
                                 homepageConfig.showFeaturedBadge &&
-                                itemConfig?.homepageFeatured ? (
+                                itemConfig?.homepageFeatured &&
+                                itemMeta.showHomepageBadge ? (
                                   <div
                                     style={{
                                       position: 'absolute',
@@ -1222,6 +1510,28 @@ export default function PortfolioShowcase({
                                     }}
                                   >
                                     ✨ Featured
+                                  </div>
+                                ) : null}
+                                {smartLeadCard ? (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      right: 14,
+                                      bottom: 14,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      padding: '6px 10px',
+                                      borderRadius: 999,
+                                      background: 'rgba(37,99,235,0.82)',
+                                      color: '#fff',
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      letterSpacing: '0.08em',
+                                      textTransform: 'uppercase',
+                                    }}
+                                  >
+                                    Showcase Pick
                                   </div>
                                 ) : null}
                               </div>
@@ -1245,11 +1555,87 @@ export default function PortfolioShowcase({
                                     color: text,
                                     lineHeight: 1.15,
                                     marginBottom: 10,
+                                    ...getTypographyStyleOverrides(
+                                      'title',
+                                      showcaseStyles?.typography.title,
+                                      {
+                                        dark,
+                                        isMobile,
+                                        fallbackColor: text,
+                                        fallbackFontWeight: 800,
+                                        fallbackLineHeight: 1.15,
+                                      }
+                                    ),
                                   }}
                                 >
                                   {item.title}
                                 </div>
                               )}
+
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  flexWrap: 'wrap',
+                                  marginBottom:
+                                    item.description || visibleTags.length > 0 ? 10 : 14,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '6px 10px',
+                                    borderRadius: 999,
+                                    background: dark
+                                      ? 'rgba(15,23,42,0.56)'
+                                      : 'rgba(226,232,240,0.8)',
+                                    color: text,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {item.sourceType === 'video' ? 'Video' : 'Graphic'}
+                                </span>
+                                {itemMeta.formatLabel ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      padding: '6px 10px',
+                                      borderRadius: 999,
+                                      background: 'rgba(14,165,233,0.1)',
+                                      color: accentColor,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {itemMeta.formatLabel}
+                                  </span>
+                                ) : null}
+                                {hasStoryView ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      padding: '6px 10px',
+                                      borderRadius: 999,
+                                      background: dark
+                                        ? 'rgba(59,130,246,0.16)'
+                                        : 'rgba(219,234,254,0.88)',
+                                      color: accentColor,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    Story View
+                                  </span>
+                                ) : null}
+                              </div>
 
                               {(variant === 'page' || homepageConfig.showDescription) && item.description ? (
                                 <p
@@ -1258,10 +1644,53 @@ export default function PortfolioShowcase({
                                     color: muted,
                                     fontSize: denseCard ? 13 : 14,
                                     lineHeight: 1.7,
+                                    ...getTypographyStyleOverrides(
+                                      'body',
+                                      showcaseStyles?.typography.body,
+                                      {
+                                        dark,
+                                        isMobile,
+                                        fallbackColor: muted,
+                                        fallbackLineHeight: 1.7,
+                                      }
+                                    ),
                                   }}
                                 >
                                   {item.description}
                                 </p>
+                              ) : null}
+
+                              {visibleTags.length > 0 ? (
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    gap: 8,
+                                    flexWrap: 'wrap',
+                                    marginBottom: 14,
+                                  }}
+                                >
+                                  {visibleTags.map(tag => (
+                                    <span
+                                      key={tag}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        padding: '6px 10px',
+                                        borderRadius: 999,
+                                        border: `1px solid ${soft}`,
+                                        background: dark
+                                          ? 'rgba(2,6,23,0.52)'
+                                          : 'rgba(248,250,252,0.94)',
+                                        color: muted,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      #{tag}
+                                    </span>
+                                  ))}
+                                </div>
                               ) : null}
 
                               <div
@@ -1277,35 +1706,50 @@ export default function PortfolioShowcase({
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: 8,
-                                    color: '#38bdf8',
+                                    color: resolveSectionThemeColor(
+                                      showcaseStyles?.colors.accentLight || '',
+                                      showcaseStyles?.colors.accentDark || '',
+                                      dark,
+                                      '#38bdf8'
+                                    ),
                                     fontSize: 12,
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.08em',
+                                    ...getTypographyStyleOverrides(
+                                      'button',
+                                      showcaseStyles?.typography.button,
+                                      {
+                                        dark,
+                                        isMobile,
+                                        fallbackColor: accentColor,
+                                        fallbackFontWeight: 700,
+                                      }
+                                    ),
                                   }}
                                 >
-                                  {variant === 'homepage'
-                                    ? homepageConfig.previewButtonLabel
-                                    : item.sourceType === 'video'
-                                      ? 'Play preview'
-                                      : 'Open preview'}
+                                  {itemMeta.showPreviewButton ? previewLabel : 'View details'}
                                 </div>
 
-                                {variant === 'homepage' && homepageConfig.showCardCta ? (
-                                  <div
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 8,
-                                      color: text,
-                                      fontSize: 13,
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    {homepageConfig.cardCtaText}
-                                    {homepageConfig.showPreviewIcon ? <span>↗</span> : null}
-                                  </div>
-                                ) : null}
+                                <div
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    color: text,
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {variant === 'homepage' && homepageConfig.showCardCta
+                                    ? homepageConfig.cardCtaText
+                                    : focusMatch
+                                      ? 'Selected'
+                                      : 'Preview'}
+                                  {itemMeta.showPreviewButton || homepageConfig.showPreviewIcon ? (
+                                    <span>↗</span>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
                           </button>
@@ -1324,7 +1768,10 @@ export default function PortfolioShowcase({
                 <div
                   style={{
                     display: 'flex',
-                    justifyContent: homepageConfig.alignment === 'center' ? 'center' : 'flex-start',
+                    justifyContent: getButtonAlignmentOverride(
+                      showcaseStyles?.layout.buttonAlign || 'default',
+                      homepageConfig.alignment === 'center' ? 'center' : 'flex-start'
+                    ),
                     marginTop: 28,
                   }}
                 >
@@ -1344,10 +1791,11 @@ export default function PortfolioShowcase({
                     textDecoration: 'none',
                     fontSize: 14,
                     fontWeight: 700,
+                    ...secondaryButtonStyle,
                   }}
                 >
                   {homepageConfig.viewAllButtonText}
-                  <span>→</span>
+                  {showcaseStyles?.buttons.showIcon !== false ? <span>→</span> : null}
                 </Link>
                 </div>
               ) : null}
@@ -1364,6 +1812,11 @@ export default function PortfolioShowcase({
                     justifyItems:
                       pageBuilder.cta.alignment === 'center' ? 'center' : 'stretch',
                     textAlign: pageBuilder.cta.alignment,
+                    ...getSectionSurfaceOverrides(ctaStyles, {
+                      dark,
+                      fallbackBackground: 'transparent',
+                      fallbackBorder: soft,
+                    }),
                   }}
                 >
                 {pageBuilder.cta.label ? (
@@ -1382,6 +1835,21 @@ export default function PortfolioShowcase({
                       fontWeight: 700,
                       letterSpacing: '0.12em',
                       textTransform: 'uppercase',
+                      ...getTypographyStyleOverrides(
+                        'label',
+                        ctaStyles?.typography.label,
+                        {
+                          dark,
+                          isMobile,
+                          fallbackColor: resolveSectionThemeColor(
+                            ctaStyles?.colors.accentLight || '',
+                            ctaStyles?.colors.accentDark || '',
+                            dark,
+                            '#38bdf8'
+                          ),
+                          fallbackTextAlign: pageBuilder.cta.alignment,
+                        }
+                      ),
                     }}
                   >
                     <span
@@ -1402,6 +1870,18 @@ export default function PortfolioShowcase({
                     fontWeight: 800,
                     letterSpacing: '-0.04em',
                     color: text,
+                    ...getTypographyStyleOverrides(
+                      'title',
+                      ctaStyles?.typography.title,
+                      {
+                        dark,
+                        isMobile,
+                        fallbackColor: text,
+                        fallbackTextAlign: pageBuilder.cta.alignment,
+                        fallbackFontWeight: 800,
+                        fallbackLetterSpacing: '-0.04em',
+                      }
+                    ),
                   }}
                 >
                   {pageBuilder.cta.title}
@@ -1414,6 +1894,17 @@ export default function PortfolioShowcase({
                       color: muted,
                       fontSize: 15,
                       lineHeight: 1.8,
+                      ...getTypographyStyleOverrides(
+                        'body',
+                        ctaStyles?.typography.body,
+                        {
+                          dark,
+                          isMobile,
+                          fallbackColor: muted,
+                          fallbackTextAlign: pageBuilder.cta.alignment,
+                          fallbackLineHeight: 1.8,
+                        }
+                      ),
                     }}
                   >
                     {pageBuilder.cta.description}
@@ -1424,10 +1915,12 @@ export default function PortfolioShowcase({
                     display: 'flex',
                     gap: 12,
                     flexWrap: 'wrap',
-                    justifyContent:
+                    justifyContent: getButtonAlignmentOverride(
+                      ctaStyles?.layout.buttonAlign || 'default',
                       pageBuilder.cta.alignment === 'center'
                         ? 'center'
-                        : 'flex-start',
+                        : 'flex-start'
+                    ),
                   }}
                 >
                   {pageBuilder.cta.showPrimaryButton ? (
@@ -1444,10 +1937,16 @@ export default function PortfolioShowcase({
                         fontSize: 14,
                         fontWeight: 700,
                         textDecoration: 'none',
+                        ...getButtonStyleOverrides(ctaStyles, {
+                          dark,
+                          fallbackBackground: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
+                          fallbackColor: '#fff',
+                          fallbackBorder: soft,
+                        }),
                       }}
                     >
                       {pageBuilder.cta.primaryButtonText}
-                      <span>→</span>
+                      {ctaStyles?.buttons.showIcon !== false ? <span>→</span> : null}
                     </Link>
                   ) : null}
                   {pageBuilder.cta.showSecondaryButton ? (
@@ -1465,6 +1964,7 @@ export default function PortfolioShowcase({
                         fontSize: 14,
                         fontWeight: 700,
                         textDecoration: 'none',
+                        ...secondaryButtonStyle,
                       }}
                     >
                       {pageBuilder.cta.secondaryButtonText}
@@ -1478,207 +1978,22 @@ export default function PortfolioShowcase({
         </div>
       </section>
 
-      {activeSelectedItem ? (
-        <div
-          onClick={() => setSelectedItem(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(2,6,23,0.92)',
-            zIndex: 300,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: viewportWidth < 700 ? 14 : 24,
-          }}
-        >
-          <div
-            onClick={event => event.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: activeSelectedItem.sourceType === 'graphic' ? 1140 : 1080,
-              background: dark
-                ? 'linear-gradient(180deg, rgba(15,23,42,0.98) 0%, rgba(2,6,23,1) 100%)'
-                : 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(241,245,249,0.98) 100%)',
-              borderRadius: 28,
-              overflow: 'hidden',
-              border: `1px solid ${border}`,
-              boxShadow: dark
-                ? '0 30px 90px rgba(0,0,0,0.55)'
-                : '0 30px 90px rgba(15,23,42,0.18)',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 12,
-                padding: viewportWidth < 700 ? '14px 16px' : '18px 22px',
-                borderBottom: `1px solid ${soft}`,
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#38bdf8',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
-                    marginBottom: 6,
-                  }}
-                >
-                  {activeSelectedItem.sourceType === 'video' ? 'ভিডিও প্রিভিউ' : 'গ্রাফিক্স প্রিভিউ'}
-                </div>
-                <div style={{ fontSize: viewportWidth < 700 ? 18 : 20, fontWeight: 800, color: text }}>
-                  {activeSelectedItem.title}
-                </div>
-                <div style={{ fontSize: 13, color: muted, marginTop: 4 }}>
-                  {activeSelectedItem.categoryName}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {displayItems.length > 1 ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => goToSibling('prev')}
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 12,
-                        border: `1px solid ${soft}`,
-                        background: dark ? 'rgba(15,23,42,0.7)' : 'rgba(255,255,255,0.84)',
-                        color: text,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ←
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => goToSibling('next')}
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 12,
-                        border: `1px solid ${soft}`,
-                        background: dark ? 'rgba(15,23,42,0.7)' : 'rgba(255,255,255,0.84)',
-                        color: text,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      →
-                    </button>
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setSelectedItem(null)}
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 12,
-                    border: `1px solid ${soft}`,
-                    background: dark ? 'rgba(15,23,42,0.7)' : 'rgba(255,255,255,0.84)',
-                    color: text,
-                    cursor: 'pointer',
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div style={{ padding: viewportWidth < 700 ? 14 : 22 }}>
-              {activeSelectedItem.sourceType === 'video' ? (
-                <div
-                  style={{
-                    position: 'relative',
-                    width: '100%',
-                    paddingBottom: '56.25%',
-                    borderRadius: 22,
-                    overflow: 'hidden',
-                    background: '#020617',
-                  }}
-                >
-                  <iframe
-                    src={getVideoPreviewUrl(activeSelectedItem.youtube_url)}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: viewportWidth < 700 ? 320 : 520,
-                    maxHeight: '80vh',
-                    borderRadius: 24,
-                    overflow: 'hidden',
-                    background: dark ? 'rgba(2,6,23,0.84)' : 'rgba(226,232,240,0.7)',
-                    border: `1px solid ${soft}`,
-                    padding: viewportWidth < 700 ? 12 : 18,
-                  }}
-                >
-                  <img
-                    src={activeSelectedItem.imageUrl}
-                    alt={activeSelectedItem.title}
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '72vh',
-                      width: 'auto',
-                      height: 'auto',
-                      objectFit: 'contain',
-                      borderRadius: 18,
-                    }}
-                  />
-                </div>
-              )}
-
-              {activeSelectedItem.description ? (
-                <p
-                  style={{
-                    margin: '16px 0 0',
-                    color: muted,
-                    fontSize: 14,
-                    lineHeight: 1.75,
-                  }}
-                >
-                  {activeSelectedItem.description}
-                </p>
-              ) : null}
-
-              {showPreviewFooterLink ? (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
-                  <Link
-                    href={previewFooterLink}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '12px 18px',
-                      borderRadius: 14,
-                      background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
-                      color: '#fff',
-                      fontSize: 14,
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    {homepageConfig.viewAllButtonText || 'Portfolio Page'}
-                    <span>→</span>
-                  </Link>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PortfolioPreviewModal
+        dark={dark}
+        footerAction={
+          showPreviewFooterLink
+            ? {
+                href: previewFooterLink,
+                label: homepageConfig.viewAllButtonText || 'Portfolio Page',
+              }
+            : undefined
+        }
+        item={activeSelectedItem}
+        itemMetaConfig={itemMetaConfig}
+        items={displayItems}
+        onClose={() => setSelectedItem(null)}
+        onSelect={setSelectedItem}
+      />
     </>
   );
 }

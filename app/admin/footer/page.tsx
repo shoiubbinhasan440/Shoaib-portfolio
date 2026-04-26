@@ -1,9 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import AdminImageField from '@/components/admin/AdminImageField';
+import AdminShell from '@/components/admin/AdminShell';
+import {
+  AdminActionButton,
+  AdminBuilderSection,
+  AdminField,
+  AdminNotice,
+  AdminPreviewFrame,
+  getAdminInputStyle,
+  getAdminTextareaStyle,
+  useAdminThemeTokens,
+} from '@/components/admin/admin-ui';
+import { useUnsavedChangesWarning } from '@/components/admin/useUnsavedChangesWarning';
+import GlobalFooter from '@/components/shared/GlobalFooter';
 import {
   getGlobalFooterConfig,
   GLOBAL_FOOTER_SETTING_KEY,
@@ -60,57 +73,44 @@ function firstMatchingContactValue(
   );
 }
 
-function Panel({
+function FooterSection({
   title,
   description,
+  badge,
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
+  badge?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section
-      style={{
-        background: '#0f172a',
-        border: '1px solid rgba(148,163,184,0.14)',
-        borderRadius: 24,
-        padding: 22,
-        boxShadow: '0 22px 60px rgba(2,6,23,0.24)',
-      }}
-    >
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: 24, letterSpacing: '-0.04em' }}>{title}</h2>
-        <p style={{ margin: 0, color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>{description}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Field({
-  label,
-  children,
-  full = false,
-}: {
-  label: string;
-  children: React.ReactNode;
-  full?: boolean;
-}) {
-  return (
-    <div style={{ gridColumn: full ? '1 / -1' : undefined }}>
-      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>{label}</div>
-      {children}
-    </div>
+    <AdminBuilderSection
+      title={title}
+      description={description}
+      badge={badge}
+      tabs={[
+        {
+          id: 'content',
+          label: 'Content',
+          description: 'All footer controls for this area stay inside one expandable section container.',
+          content: children,
+        },
+      ]}
+    />
   );
 }
 
 export default function FooterAdminPage() {
   const router = useRouter();
+  const tokens = useAdminThemeTokens();
   const [rawSettings, setRawSettings] = useState<SettingMap>({});
   const [footerConfig, setFooterConfig] = useState<HomepageFooterSection | null>(null);
+  const [projectCount, setProjectCount] = useState(0);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingField, setUploadingField] = useState('');
   const [msg, setMsg] = useState('');
 
   async function loadFooter() {
@@ -120,12 +120,13 @@ export default function FooterAdminPage() {
     ]);
 
     const map = toSettingMap(settingsRows || []);
+    const totalProjects = dataset.videos.length + dataset.graphics.length;
+    const nextFooter = getGlobalFooterConfig(map, { projectCount: totalProjects });
+
     setRawSettings(map);
-    setFooterConfig(
-      getGlobalFooterConfig(map, {
-        projectCount: dataset.videos.length + dataset.graphics.length,
-      })
-    );
+    setProjectCount(totalProjects);
+    setFooterConfig(nextFooter);
+    setSavedSnapshot(JSON.stringify(nextFooter));
   }
 
   useEffect(() => {
@@ -146,28 +147,45 @@ export default function FooterAdminPage() {
     void load();
   }, [router]);
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    background: '#020617',
-    border: '1px solid rgba(148,163,184,0.16)',
-    borderRadius: 12,
-    color: '#fff',
-    padding: '10px 12px',
-    fontSize: 14,
-    boxSizing: 'border-box',
-  };
+  const inputStyle = getAdminInputStyle(tokens);
+  const textareaStyle = getAdminTextareaStyle(tokens);
+  const hasUnsavedChanges = Boolean(
+    footerConfig && JSON.stringify(footerConfig) !== savedSnapshot
+  );
 
-  const textareaStyle: React.CSSProperties = {
-    ...inputStyle,
-    resize: 'vertical',
-    minHeight: 96,
-  };
+  useUnsavedChangesWarning(hasUnsavedChanges);
 
   function updateFooter<K extends keyof HomepageFooterSection>(
     key: K,
     value: HomepageFooterSection[K]
   ) {
     setFooterConfig(current => (current ? { ...current, [key]: value } : current));
+  }
+
+  async function handleLogoUpload(file: File) {
+    const ext = file.name.split('.').pop() || 'png';
+    const path = `footer/logo-${Date.now()}.${ext}`;
+    setUploadingField('logo');
+
+    try {
+      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+      if (error) {
+        throw error;
+      }
+
+      const { data } = supabase.storage.from('media').getPublicUrl(path);
+      updateFooter('logoUrl', data.publicUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Footer logo upload failed.';
+      setMsg(`❌ ${message}`);
+    } finally {
+      setUploadingField('');
+    }
+  }
+
+  function resetFooter() {
+    const nextFooter = getGlobalFooterConfig(rawSettings, { projectCount });
+    setFooterConfig(nextFooter);
   }
 
   async function saveFooter() {
@@ -200,25 +218,15 @@ export default function FooterAdminPage() {
           'footer_copy',
           serializeStyledSetting(rawSettings.footer_copy, footerConfig.copyrightText)
         ),
-        writeSiteSetting(
-          supabase,
-          'contact_email',
-          emailValue
-        ),
-        writeSiteSetting(
-          supabase,
-          'contact_phone',
-          phoneValue
-        ),
+        writeSiteSetting(supabase, 'contact_email', emailValue),
+        writeSiteSetting(supabase, 'contact_phone', phoneValue),
       ]);
 
       await loadFooter();
       setMsg('✅ Global footer saved successfully.');
-      setTimeout(() => setMsg(''), 3500);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Footer save failed.';
       setMsg(`❌ ${message}`);
-      setTimeout(() => setMsg(''), 4500);
     } finally {
       setSaving(false);
     }
@@ -229,11 +237,10 @@ export default function FooterAdminPage() {
       <div
         style={{
           minHeight: '100vh',
-          background: '#020617',
-          color: '#94a3b8',
+          background: tokens.dark ? '#020617' : '#f8fbff',
+          color: tokens.muted,
           display: 'grid',
           placeItems: 'center',
-          fontFamily: "'Inter', system-ui, sans-serif",
         }}
       >
         Global footer loading...
@@ -241,196 +248,165 @@ export default function FooterAdminPage() {
     );
   }
 
+  const itemCardStyle = {
+    border: `1px solid ${tokens.line}`,
+    borderRadius: 20,
+    padding: 14,
+    background: tokens.fieldSoft,
+    boxShadow: tokens.softShadow,
+  } as const;
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#020617',
-        color: '#fff',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          borderBottom: '1px solid rgba(148,163,184,0.12)',
-          padding: '18px 28px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#38bdf8', marginBottom: 6 }}>
-            Global Footer System
-          </div>
-          <h1 style={{ margin: 0, fontSize: 28, letterSpacing: '-0.05em' }}>
-            One footer source for all pages
-          </h1>
-          <p style={{ margin: '8px 0 0', color: '#94a3b8', fontSize: 14, lineHeight: 1.7 }}>
-            Homepage, portfolio, about, contact এবং tutorial page একই shared footer config consume করবে।
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            style={{
-              background: '#111827',
-              color: '#cbd5e1',
-              border: '1px solid rgba(148,163,184,0.16)',
-              padding: '10px 16px',
-              borderRadius: 12,
-              cursor: 'pointer',
-            }}
-          >
-            ← Dashboard
-          </button>
-          <Link
-            href="/admin/homepage-portfolio"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              background: '#111827',
-              color: '#cbd5e1',
-              border: '1px solid rgba(148,163,184,0.16)',
-              padding: '10px 16px',
-              borderRadius: 12,
-              textDecoration: 'none',
-            }}
-          >
-            Homepage Builder →
-          </Link>
-          <button
-            onClick={saveFooter}
+    <AdminShell
+      eyebrow="Global Footer System"
+      title="Maintain one footer source across every public page"
+      description="Homepage, portfolio, about, contact, and tutorial pages all consume this shared footer configuration. The footer builder is now clearer, theme-consistent, and easier to preview before saving."
+      actions={
+        <>
+          <AdminActionButton onClick={resetFooter} variant="secondary">
+            Reset Footer
+          </AdminActionButton>
+          <AdminActionButton
+            onClick={() => void saveFooter()}
             disabled={saving}
-            style={{
-              background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
-              color: '#fff',
-              border: 'none',
-              padding: '10px 18px',
-              borderRadius: 12,
-              cursor: 'pointer',
-              fontWeight: 800,
-            }}
+            variant="primary"
           >
             {saving ? 'Saving...' : 'Save Global Footer'}
-          </button>
-        </div>
-      </div>
+          </AdminActionButton>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 18 }}>
+        {msg ? <AdminNotice message={msg} /> : null}
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '28px 22px 56px', display: 'grid', gap: 18 }}>
-        {msg ? (
+        <FooterSection
+          title="Footer structure and brand"
+          description="Set the layout, theme, logo, text, CTA, and shared footer alignment in one place."
+          badge={hasUnsavedChanges ? 'Unsaved changes' : 'Saved'}
+        >
           <div
             style={{
-              padding: '14px 16px',
-              borderRadius: 16,
-              background: msg.startsWith('✅') ? 'rgba(22,163,74,0.16)' : 'rgba(127,29,29,0.2)',
-              border: `1px solid ${msg.startsWith('✅') ? 'rgba(74,222,128,0.24)' : 'rgba(248,113,113,0.24)'}`,
-              color: msg.startsWith('✅') ? '#86efac' : '#fecaca',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 14,
             }}
           >
-            {msg}
-          </div>
-        ) : null}
-
-        <Panel
-          title="Global footer settings"
-          description="Visibility, layout, style preset, brand text, description and shared CTA এখান থেকে control করুন।"
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={footerConfig.enabled}
-                onChange={event => updateFooter('enabled', event.target.checked)}
-              />
-              <span>Enable footer</span>
+            <label style={itemCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={footerConfig.enabled}
+                  onChange={event => updateFooter('enabled', event.target.checked)}
+                />
+                <span style={{ fontWeight: 700 }}>Enable footer</span>
+              </div>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={footerConfig.showDescription}
-                onChange={event => updateFooter('showDescription', event.target.checked)}
-              />
-              <span>Show brand description</span>
+            <label style={itemCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={footerConfig.showDescription}
+                  onChange={event => updateFooter('showDescription', event.target.checked)}
+                />
+                <span style={{ fontWeight: 700 }}>Show description</span>
+              </div>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={footerConfig.showCta}
-                onChange={event => updateFooter('showCta', event.target.checked)}
-              />
-              <span>Show footer CTA</span>
+            <label style={itemCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={footerConfig.showCta}
+                  onChange={event => updateFooter('showCta', event.target.checked)}
+                />
+                <span style={{ fontWeight: 700 }}>Show footer CTA</span>
+              </div>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={footerConfig.showQuickLinks}
-                onChange={event => updateFooter('showQuickLinks', event.target.checked)}
-              />
-              <span>Show quick links</span>
+            <label style={itemCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={footerConfig.showQuickLinks}
+                  onChange={event => updateFooter('showQuickLinks', event.target.checked)}
+                />
+                <span style={{ fontWeight: 700 }}>Show quick links</span>
+              </div>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={footerConfig.showContact}
-                onChange={event => updateFooter('showContact', event.target.checked)}
-              />
-              <span>Show contact info</span>
+            <label style={itemCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={footerConfig.showContact}
+                  onChange={event => updateFooter('showContact', event.target.checked)}
+                />
+                <span style={{ fontWeight: 700 }}>Show contact info</span>
+              </div>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input
-                type="checkbox"
-                checked={footerConfig.showSocial}
-                onChange={event => updateFooter('showSocial', event.target.checked)}
-              />
-              <span>Show social links</span>
+            <label style={itemCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={footerConfig.showSocial}
+                  onChange={event => updateFooter('showSocial', event.target.checked)}
+                />
+                <span style={{ fontWeight: 700 }}>Show social links</span>
+              </div>
             </label>
-            <Field label="Footer order">
-              <input
-                type="number"
-                value={footerConfig.order}
-                onChange={event => updateFooter('order', Number(event.target.value) || 70)}
-                style={inputStyle}
-              />
-            </Field>
-            <Field label="Layout preset">
+            <AdminField label="Layout preset">
               <select
                 value={footerConfig.layout}
-                onChange={event => updateFooter('layout', event.target.value as HomepageFooterSection['layout'])}
+                onChange={event =>
+                  updateFooter(
+                    'layout',
+                    event.target.value as HomepageFooterSection['layout']
+                  )
+                }
                 style={inputStyle}
               >
                 <option value="grid">Grid</option>
                 <option value="stacked">Stacked</option>
               </select>
-            </Field>
-            <Field label="Style preset">
+            </AdminField>
+            <AdminField label="Style preset">
               <select
                 value={footerConfig.stylePreset}
-                onChange={event => updateFooter('stylePreset', event.target.value as HomepageFooterSection['stylePreset'])}
+                onChange={event =>
+                  updateFooter(
+                    'stylePreset',
+                    event.target.value as HomepageFooterSection['stylePreset']
+                  )
+                }
                 style={inputStyle}
               >
                 <option value="cinematic">Cinematic</option>
                 <option value="minimal">Minimal</option>
                 <option value="light">Light polished</option>
               </select>
-            </Field>
-            <Field label="Alignment">
+            </AdminField>
+            <AdminField label="Social alignment" hint="This now correctly applies to the public footer social block.">
               <select
                 value={footerConfig.alignment}
-                onChange={event => updateFooter('alignment', event.target.value as HomepageFooterSection['alignment'])}
+                onChange={event =>
+                  updateFooter(
+                    'alignment',
+                    event.target.value as HomepageFooterSection['alignment']
+                  )
+                }
                 style={inputStyle}
               >
                 <option value="left">Left</option>
                 <option value="center">Center</option>
                 <option value="right">Right</option>
               </select>
-            </Field>
-            <Field label="Width">
+            </AdminField>
+            <AdminField label="Width">
               <select
                 value={footerConfig.width}
-                onChange={event => updateFooter('width', event.target.value as HomepageFooterSection['width'])}
+                onChange={event =>
+                  updateFooter(
+                    'width',
+                    event.target.value as HomepageFooterSection['width']
+                  )
+                }
                 style={inputStyle}
               >
                 <option value="narrow">Narrow</option>
@@ -438,328 +414,467 @@ export default function FooterAdminPage() {
                 <option value="wide">Wide</option>
                 <option value="full">Full</option>
               </select>
-            </Field>
-            <Field label="Spacing">
+            </AdminField>
+            <AdminField label="Spacing">
               <select
                 value={footerConfig.spacing}
-                onChange={event => updateFooter('spacing', event.target.value as HomepageFooterSection['spacing'])}
+                onChange={event =>
+                  updateFooter(
+                    'spacing',
+                    event.target.value as HomepageFooterSection['spacing']
+                  )
+                }
                 style={inputStyle}
               >
                 <option value="compact">Compact</option>
                 <option value="balanced">Balanced</option>
                 <option value="spacious">Spacious</option>
               </select>
-            </Field>
-            <Field label="Brand text">
-              <input value={footerConfig.brandText} onChange={event => updateFooter('brandText', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Brand accent">
-              <input value={footerConfig.brandAccent} onChange={event => updateFooter('brandAccent', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Description" full>
-              <textarea value={footerConfig.description} onChange={event => updateFooter('description', event.target.value)} style={textareaStyle} />
-            </Field>
-            <Field label="Footer CTA text">
-              <input value={footerConfig.ctaText} onChange={event => updateFooter('ctaText', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Footer CTA link">
-              <input value={footerConfig.ctaLink} onChange={event => updateFooter('ctaLink', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Footer CTA caption" full>
-              <input value={footerConfig.ctaCaption} onChange={event => updateFooter('ctaCaption', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Copyright text" full>
-              <input value={footerConfig.copyrightText} onChange={event => updateFooter('copyrightText', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Bottom note" full>
-              <input value={footerConfig.noteText} onChange={event => updateFooter('noteText', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Quick links title">
-              <input value={footerConfig.quickLinksTitle} onChange={event => updateFooter('quickLinksTitle', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Contact title">
-              <input value={footerConfig.contactTitle} onChange={event => updateFooter('contactTitle', event.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="Social title">
-              <input value={footerConfig.socialTitle} onChange={event => updateFooter('socialTitle', event.target.value)} style={inputStyle} />
-            </Field>
+            </AdminField>
+            <AdminField label="Brand text">
+              <input
+                value={footerConfig.brandText}
+                onChange={event => updateFooter('brandText', event.target.value)}
+                style={inputStyle}
+              />
+            </AdminField>
+            <AdminField label="Brand accent">
+              <input
+                value={footerConfig.brandAccent}
+                onChange={event => updateFooter('brandAccent', event.target.value)}
+                style={inputStyle}
+              />
+            </AdminField>
+            <AdminField label="Description" full>
+              <textarea
+                value={footerConfig.description}
+                onChange={event => updateFooter('description', event.target.value)}
+                style={textareaStyle}
+              />
+            </AdminField>
+            <AdminField label="CTA text">
+              <input
+                value={footerConfig.ctaText}
+                onChange={event => updateFooter('ctaText', event.target.value)}
+                style={inputStyle}
+              />
+            </AdminField>
+            <AdminField label="CTA link">
+              <input
+                value={footerConfig.ctaLink}
+                onChange={event => updateFooter('ctaLink', event.target.value)}
+                style={inputStyle}
+              />
+            </AdminField>
+            <AdminField label="CTA caption" full>
+              <input
+                value={footerConfig.ctaCaption}
+                onChange={event => updateFooter('ctaCaption', event.target.value)}
+                style={inputStyle}
+              />
+            </AdminField>
           </div>
-        </Panel>
 
-        <Panel title="Quick links" description="Footer quick links group edit করুন।">
+          <div style={{ height: 18 }} />
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 16,
+            }}
+          >
+            <AdminImageField
+              label="Footer logo"
+              value={footerConfig.logoUrl}
+              onChange={nextValue => updateFooter('logoUrl', nextValue)}
+              onFileSelected={file => void handleLogoUpload(file)}
+              uploading={uploadingField === 'logo'}
+              onError={message => setMsg(message)}
+              previewAlt={footerConfig.logoAlt || 'Footer logo'}
+              hint="Optional. If added, it appears above the footer brand text."
+            />
+            <div style={{ display: 'grid', gap: 14 }}>
+              <AdminField
+                label="Footer logo alt text"
+                hint="Used for accessibility if the footer logo is displayed."
+              >
+                <input
+                  value={footerConfig.logoAlt}
+                  onChange={event => updateFooter('logoAlt', event.target.value)}
+                  style={inputStyle}
+                />
+              </AdminField>
+              <AdminField label="Quick links title">
+                <input
+                  value={footerConfig.quickLinksTitle}
+                  onChange={event => updateFooter('quickLinksTitle', event.target.value)}
+                  style={inputStyle}
+                />
+              </AdminField>
+              <AdminField label="Contact title">
+                <input
+                  value={footerConfig.contactTitle}
+                  onChange={event => updateFooter('contactTitle', event.target.value)}
+                  style={inputStyle}
+                />
+              </AdminField>
+              <AdminField label="Social title">
+                <input
+                  value={footerConfig.socialTitle}
+                  onChange={event => updateFooter('socialTitle', event.target.value)}
+                  style={inputStyle}
+                />
+              </AdminField>
+              <AdminField label="Copyright text">
+                <input
+                  value={footerConfig.copyrightText}
+                  onChange={event => updateFooter('copyrightText', event.target.value)}
+                  style={inputStyle}
+                />
+              </AdminField>
+              <AdminField label="Bottom note">
+                <input
+                  value={footerConfig.noteText}
+                  onChange={event => updateFooter('noteText', event.target.value)}
+                  style={inputStyle}
+                />
+              </AdminField>
+            </div>
+          </div>
+        </FooterSection>
+
+        <FooterSection
+          title="Footer Preview"
+          description="This preview uses the same shared footer component as the public site, so alignment and theme changes are easier to trust."
+          badge="Live preview"
+        >
+          <AdminPreviewFrame
+            title="Footer Preview"
+            description="Alignment, copy, and section visibility reflect the same shared public footer component."
+          >
+            <div
+              style={{
+                borderRadius: 24,
+                overflow: 'hidden',
+                border: `1px solid ${tokens.line}`,
+              }}
+            >
+              <GlobalFooter config={footerConfig} />
+            </div>
+          </AdminPreviewFrame>
+        </FooterSection>
+
+        <FooterSection title="Quick links" description="Edit the shared links block that appears in the public footer.">
           <div style={{ display: 'grid', gap: 10 }}>
             {footerConfig.quickLinks
               .sort((leftItem, rightItem) => leftItem.order - rightItem.order)
               .map(item => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr) minmax(0, 1fr) 90px 120px', gap: 10 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div key={item.id} style={itemCardStyle}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                      gap: 10,
+                    }}
+                  >
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={item.enabled}
+                        onChange={event =>
+                          updateFooter(
+                            'quickLinks',
+                            footerConfig.quickLinks.map(entry =>
+                              entry.id === item.id
+                                ? { ...entry, enabled: event.target.checked }
+                                : entry
+                            )
+                          )
+                        }
+                      />
+                      <span>Visible</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={item.enabled}
+                      value={item.label}
                       onChange={event =>
                         updateFooter(
                           'quickLinks',
                           footerConfig.quickLinks.map(entry =>
-                            entry.id === item.id ? { ...entry, enabled: event.target.checked } : entry
+                            entry.id === item.id ? { ...entry, label: event.target.value } : entry
                           )
                         )
                       }
+                      style={inputStyle}
+                      placeholder="Label"
                     />
-                    <span>Visible</span>
-                  </label>
-                  <input
-                    value={item.label}
-                    onChange={event =>
-                      updateFooter(
-                        'quickLinks',
-                        footerConfig.quickLinks.map(entry =>
-                          entry.id === item.id ? { ...entry, label: event.target.value } : entry
+                    <input
+                      value={item.url}
+                      onChange={event =>
+                        updateFooter(
+                          'quickLinks',
+                          footerConfig.quickLinks.map(entry =>
+                            entry.id === item.id ? { ...entry, url: event.target.value } : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="Label"
-                  />
-                  <input
-                    value={item.url}
-                    onChange={event =>
-                      updateFooter(
-                        'quickLinks',
-                        footerConfig.quickLinks.map(entry =>
-                          entry.id === item.id ? { ...entry, url: event.target.value } : entry
+                      }
+                      style={inputStyle}
+                      placeholder="URL"
+                    />
+                    <input
+                      type="number"
+                      value={item.order}
+                      onChange={event =>
+                        updateFooter(
+                          'quickLinks',
+                          footerConfig.quickLinks.map(entry =>
+                            entry.id === item.id
+                              ? { ...entry, order: Number(event.target.value) || item.order }
+                              : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="URL"
-                  />
-                  <input
-                    type="number"
-                    value={item.order}
-                    onChange={event =>
-                      updateFooter(
-                        'quickLinks',
-                        footerConfig.quickLinks.map(entry =>
-                          entry.id === item.id ? { ...entry, order: Number(event.target.value) || item.order } : entry
+                      }
+                      style={inputStyle}
+                    />
+                    <AdminActionButton
+                      onClick={() =>
+                        updateFooter(
+                          'quickLinks',
+                          footerConfig.quickLinks.filter(entry => entry.id !== item.id)
                         )
-                      )
-                    }
-                    style={inputStyle}
-                  />
-                  <button
-                    onClick={() =>
-                      updateFooter(
-                        'quickLinks',
-                        footerConfig.quickLinks.filter(entry => entry.id !== item.id)
-                      )
-                    }
-                    style={{ background: '#3f0d12', color: '#fecaca', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, cursor: 'pointer' }}
-                  >
-                    Remove
-                  </button>
+                      }
+                      variant="danger"
+                    >
+                      Remove
+                    </AdminActionButton>
+                  </div>
                 </div>
               ))}
-            <button
+            <AdminActionButton
               onClick={() =>
                 updateFooter('quickLinks', [
                   ...footerConfig.quickLinks,
                   createLinkItem('footer-link', getNextOrder(footerConfig.quickLinks)),
                 ])
               }
-              style={{ justifySelf: 'start', background: '#111827', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.16)', borderRadius: 12, padding: '10px 14px', cursor: 'pointer' }}
+              variant="secondary"
             >
-              + Add quick link
-            </button>
+              Add quick link
+            </AdminActionButton>
           </div>
-        </Panel>
+        </FooterSection>
 
-        <Panel title="Social links" description="Footer social links group edit করুন।">
+        <FooterSection title="Social links" description="Edit the shared social block and verify its alignment in the preview above.">
           <div style={{ display: 'grid', gap: 10 }}>
             {footerConfig.socialLinks
               .sort((leftItem, rightItem) => leftItem.order - rightItem.order)
               .map(item => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '110px minmax(0, 1fr) minmax(0, 1fr) 90px 120px', gap: 10 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div key={item.id} style={itemCardStyle}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                      gap: 10,
+                    }}
+                  >
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={item.enabled}
+                        onChange={event =>
+                          updateFooter(
+                            'socialLinks',
+                            footerConfig.socialLinks.map(entry =>
+                              entry.id === item.id
+                                ? { ...entry, enabled: event.target.checked }
+                                : entry
+                            )
+                          )
+                        }
+                      />
+                      <span>Visible</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={item.enabled}
+                      value={item.label}
                       onChange={event =>
                         updateFooter(
                           'socialLinks',
                           footerConfig.socialLinks.map(entry =>
-                            entry.id === item.id ? { ...entry, enabled: event.target.checked } : entry
+                            entry.id === item.id ? { ...entry, label: event.target.value } : entry
                           )
                         )
                       }
+                      style={inputStyle}
+                      placeholder="Label"
                     />
-                    <span>Visible</span>
-                  </label>
-                  <input
-                    value={item.label}
-                    onChange={event =>
-                      updateFooter(
-                        'socialLinks',
-                        footerConfig.socialLinks.map(entry =>
-                          entry.id === item.id ? { ...entry, label: event.target.value } : entry
+                    <input
+                      value={item.url}
+                      onChange={event =>
+                        updateFooter(
+                          'socialLinks',
+                          footerConfig.socialLinks.map(entry =>
+                            entry.id === item.id ? { ...entry, url: event.target.value } : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="Label"
-                  />
-                  <input
-                    value={item.url}
-                    onChange={event =>
-                      updateFooter(
-                        'socialLinks',
-                        footerConfig.socialLinks.map(entry =>
-                          entry.id === item.id ? { ...entry, url: event.target.value } : entry
+                      }
+                      style={inputStyle}
+                      placeholder="URL"
+                    />
+                    <input
+                      type="number"
+                      value={item.order}
+                      onChange={event =>
+                        updateFooter(
+                          'socialLinks',
+                          footerConfig.socialLinks.map(entry =>
+                            entry.id === item.id
+                              ? { ...entry, order: Number(event.target.value) || item.order }
+                              : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="URL"
-                  />
-                  <input
-                    type="number"
-                    value={item.order}
-                    onChange={event =>
-                      updateFooter(
-                        'socialLinks',
-                        footerConfig.socialLinks.map(entry =>
-                          entry.id === item.id ? { ...entry, order: Number(event.target.value) || item.order } : entry
+                      }
+                      style={inputStyle}
+                    />
+                    <AdminActionButton
+                      onClick={() =>
+                        updateFooter(
+                          'socialLinks',
+                          footerConfig.socialLinks.filter(entry => entry.id !== item.id)
                         )
-                      )
-                    }
-                    style={inputStyle}
-                  />
-                  <button
-                    onClick={() =>
-                      updateFooter(
-                        'socialLinks',
-                        footerConfig.socialLinks.filter(entry => entry.id !== item.id)
-                      )
-                    }
-                    style={{ background: '#3f0d12', color: '#fecaca', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, cursor: 'pointer' }}
-                  >
-                    Remove
-                  </button>
+                      }
+                      variant="danger"
+                    >
+                      Remove
+                    </AdminActionButton>
+                  </div>
                 </div>
               ))}
-            <button
+            <AdminActionButton
               onClick={() =>
                 updateFooter('socialLinks', [
                   ...footerConfig.socialLinks,
                   createLinkItem('footer-social', getNextOrder(footerConfig.socialLinks)),
                 ])
               }
-              style={{ justifySelf: 'start', background: '#111827', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.16)', borderRadius: 12, padding: '10px 14px', cursor: 'pointer' }}
+              variant="secondary"
             >
-              + Add social link
-            </button>
+              Add social link
+            </AdminActionButton>
           </div>
-        </Panel>
+        </FooterSection>
 
-        <Panel title="Contact items" description="Footer contact info globally edit করুন। এগুলো contact page fallback-এর সাথেও sync হবে।">
+        <FooterSection title="Contact items" description="Keep the footer contact info clean and in sync with your broader contact settings.">
           <div style={{ display: 'grid', gap: 10 }}>
             {footerConfig.contactItems
               .sort((leftItem, rightItem) => leftItem.order - rightItem.order)
               .map(item => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '110px 90px minmax(0, 1fr) minmax(0, 1fr) 90px 120px', gap: 10 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div key={item.id} style={itemCardStyle}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                      gap: 10,
+                    }}
+                  >
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={item.enabled}
+                        onChange={event =>
+                          updateFooter(
+                            'contactItems',
+                            footerConfig.contactItems.map(entry =>
+                              entry.id === item.id
+                                ? { ...entry, enabled: event.target.checked }
+                                : entry
+                            )
+                          )
+                        }
+                      />
+                      <span>Visible</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={item.enabled}
+                      value={item.icon || ''}
                       onChange={event =>
                         updateFooter(
                           'contactItems',
                           footerConfig.contactItems.map(entry =>
-                            entry.id === item.id ? { ...entry, enabled: event.target.checked } : entry
+                            entry.id === item.id ? { ...entry, icon: event.target.value } : entry
                           )
                         )
                       }
+                      style={inputStyle}
+                      placeholder="Icon"
                     />
-                    <span>Visible</span>
-                  </label>
-                  <input
-                    value={item.icon || ''}
-                    onChange={event =>
-                      updateFooter(
-                        'contactItems',
-                        footerConfig.contactItems.map(entry =>
-                          entry.id === item.id ? { ...entry, icon: event.target.value } : entry
+                    <input
+                      value={item.label}
+                      onChange={event =>
+                        updateFooter(
+                          'contactItems',
+                          footerConfig.contactItems.map(entry =>
+                            entry.id === item.id ? { ...entry, label: event.target.value } : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="Icon"
-                  />
-                  <input
-                    value={item.label}
-                    onChange={event =>
-                      updateFooter(
-                        'contactItems',
-                        footerConfig.contactItems.map(entry =>
-                          entry.id === item.id ? { ...entry, label: event.target.value } : entry
+                      }
+                      style={inputStyle}
+                      placeholder="Label"
+                    />
+                    <input
+                      value={item.value}
+                      onChange={event =>
+                        updateFooter(
+                          'contactItems',
+                          footerConfig.contactItems.map(entry =>
+                            entry.id === item.id ? { ...entry, value: event.target.value } : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="Label"
-                  />
-                  <input
-                    value={item.value}
-                    onChange={event =>
-                      updateFooter(
-                        'contactItems',
-                        footerConfig.contactItems.map(entry =>
-                          entry.id === item.id ? { ...entry, value: event.target.value } : entry
+                      }
+                      style={inputStyle}
+                      placeholder="Value"
+                    />
+                    <input
+                      type="number"
+                      value={item.order}
+                      onChange={event =>
+                        updateFooter(
+                          'contactItems',
+                          footerConfig.contactItems.map(entry =>
+                            entry.id === item.id
+                              ? { ...entry, order: Number(event.target.value) || item.order }
+                              : entry
+                          )
                         )
-                      )
-                    }
-                    style={inputStyle}
-                    placeholder="Value"
-                  />
-                  <input
-                    type="number"
-                    value={item.order}
-                    onChange={event =>
-                      updateFooter(
-                        'contactItems',
-                        footerConfig.contactItems.map(entry =>
-                          entry.id === item.id ? { ...entry, order: Number(event.target.value) || item.order } : entry
+                      }
+                      style={inputStyle}
+                    />
+                    <AdminActionButton
+                      onClick={() =>
+                        updateFooter(
+                          'contactItems',
+                          footerConfig.contactItems.filter(entry => entry.id !== item.id)
                         )
-                      )
-                    }
-                    style={inputStyle}
-                  />
-                  <button
-                    onClick={() =>
-                      updateFooter(
-                        'contactItems',
-                        footerConfig.contactItems.filter(entry => entry.id !== item.id)
-                      )
-                    }
-                    style={{ background: '#3f0d12', color: '#fecaca', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, cursor: 'pointer' }}
-                  >
-                    Remove
-                  </button>
+                      }
+                      variant="danger"
+                    >
+                      Remove
+                    </AdminActionButton>
+                  </div>
                 </div>
               ))}
-            <button
+            <AdminActionButton
               onClick={() =>
                 updateFooter('contactItems', [
                   ...footerConfig.contactItems,
                   createContactItem(getNextOrder(footerConfig.contactItems)),
                 ])
               }
-              style={{ justifySelf: 'start', background: '#111827', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.16)', borderRadius: 12, padding: '10px 14px', cursor: 'pointer' }}
+              variant="secondary"
             >
-              + Add contact item
-            </button>
+              Add contact item
+            </AdminActionButton>
           </div>
-        </Panel>
+        </FooterSection>
       </div>
-    </div>
+    </AdminShell>
   );
 }

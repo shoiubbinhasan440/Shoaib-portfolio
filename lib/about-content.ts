@@ -4,6 +4,11 @@ import {
   parseStyledSetting,
   type SettingMap,
 } from './hero-settings';
+import {
+  createDefaultBuilderSectionStyles,
+  sanitizeBuilderSectionStyles,
+  type BuilderSectionStyles,
+} from './page-builder-styles';
 
 export const ABOUT_SETTING_KEYS = {
   eyebrow: 'about_eyebrow',
@@ -91,6 +96,7 @@ export type HomepageAboutConfig = {
   maxCards: number;
   stats: AboutStatItem[];
   cards: AboutCardItem[];
+  styles: BuilderSectionStyles;
 };
 
 export type AboutPageSectionConfig = {
@@ -111,6 +117,7 @@ export type AboutPageSectionConfig = {
   secondaryButtonLink?: string;
   stats?: AboutStatItem[];
   cards?: AboutCardItem[];
+  styles?: BuilderSectionStyles;
 };
 
 export type AboutSystemConfig = {
@@ -339,6 +346,7 @@ export function createDefaultAboutSystemConfig(
       maxCards: 4,
       stats: stats.slice(0, 3),
       cards,
+      styles: createDefaultBuilderSectionStyles(),
     },
     pageSections: [
       {
@@ -357,6 +365,7 @@ export function createDefaultAboutSystemConfig(
         primaryButtonLink: '/contact',
         secondaryButtonText: 'Portfolio দেখুন',
         secondaryButtonLink: '/portfolio',
+        styles: createDefaultBuilderSectionStyles(),
       },
       {
         id: 'about-stats',
@@ -368,6 +377,7 @@ export function createDefaultAboutSystemConfig(
         title: 'Numbers with context',
         subtitle: 'Compact proof points from recent creative work.',
         stats,
+        styles: createDefaultBuilderSectionStyles(),
       },
       {
         id: 'about-skills',
@@ -380,6 +390,7 @@ export function createDefaultAboutSystemConfig(
         title: content.skillTitle.value,
         subtitle: 'Creative areas where I bring structure, rhythm and polished execution.',
         cards,
+        styles: createDefaultBuilderSectionStyles(),
       },
       {
         id: 'about-story',
@@ -393,6 +404,7 @@ export function createDefaultAboutSystemConfig(
         subtitle: 'Story, clarity and cinematic mood guide every creative decision.',
         description: content.bio.value,
         image: content.image,
+        styles: createDefaultBuilderSectionStyles(),
       },
       {
         id: 'about-services',
@@ -405,6 +417,7 @@ export function createDefaultAboutSystemConfig(
         title: 'যেভাবে আমি আপনার project এগিয়ে নিতে পারি',
         subtitle: 'Focused creative support for video, graphics and social content systems.',
         cards,
+        styles: createDefaultBuilderSectionStyles(),
       },
       {
         id: 'about-cta',
@@ -421,6 +434,7 @@ export function createDefaultAboutSystemConfig(
         primaryButtonLink: '/contact',
         secondaryButtonText: 'View Portfolio',
         secondaryButtonLink: '/portfolio',
+        styles: createDefaultBuilderSectionStyles(),
       },
     ],
   };
@@ -452,6 +466,7 @@ function sanitizeHomepage(value: unknown, fallback: HomepageAboutConfig): Homepa
     maxCards: Math.max(1, Math.min(8, num(value.maxCards, fallback.maxCards))),
     stats: sanitizeStats(value.stats, fallback.stats),
     cards: sanitizeCards(value.cards, fallback.cards),
+    styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
 
@@ -479,6 +494,10 @@ function sanitizeSection(value: unknown, fallback: AboutPageSectionConfig): Abou
     secondaryButtonLink: text(value.secondaryButtonLink, fallback.secondaryButtonLink || ''),
     stats: sanitizeStats(value.stats, fallback.stats || []),
     cards: sanitizeCards(value.cards, fallback.cards || []),
+    styles: sanitizeBuilderSectionStyles(
+      value.styles,
+      fallback.styles || createDefaultBuilderSectionStyles()
+    ),
   };
 }
 
@@ -520,6 +539,7 @@ export function getAboutSystemConfig(
           alignment: 'left',
           title: 'Custom About Section',
           description: '',
+          styles: createDefaultBuilderSectionStyles(),
         })
       );
 

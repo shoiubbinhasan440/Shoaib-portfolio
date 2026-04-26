@@ -2,17 +2,22 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Navbar from '@/components/Navbar';
+import { getServerGlobalSettings } from '@/lib/server-site-settings';
+import { buildPageMetadata, buildStructuredData } from '@/lib/site-metadata';
 
-export const metadata: Metadata = {
-  title: 'Md. Minhajul Hoque | Video Editor & Graphics Designer',
-  description: 'Professional video editing and motion graphics portfolio',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getServerGlobalSettings();
+  return buildPageMetadata(settings, 'home');
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const settings = await getServerGlobalSettings();
+  const structuredData = buildStructuredData(settings);
+
   return (
     <html lang="bn" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
@@ -20,6 +25,13 @@ export default function RootLayout({
           <Navbar />
           {children}
         </ThemeProvider>
+        {structuredData.map((entry, index) => (
+          <script
+            key={index}
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(entry) }}
+          />
+        ))}
       </body>
     </html>
   );
