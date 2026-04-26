@@ -108,7 +108,7 @@ function getHeroHeightPreset(
     return isMobile ? '86svh' : 'min(92vh, 820px)';
   }
 
-  return isMobile ? 'calc(100svh - 72px)' : 'calc(100vh - 74px)';
+  return isMobile ? '100svh' : '100vh';
 }
 
 function getHeroOverlay(
