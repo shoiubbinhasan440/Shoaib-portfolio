@@ -65,14 +65,14 @@ function getHeightPreset(heightPreset: NavigationConfig['design']['heightPreset'
 
 function getLogoSize(size: NavigationConfig['design']['logo']['logoSize']) {
   if (size === 'sm') {
-    return { image: 34, text: 18 };
+    return { image: '34px', text: '18px' };
   }
 
   if (size === 'lg') {
-    return { image: 54, text: 26 };
+    return { image: '54px', text: '26px' };
   }
 
-  return { image: 42, text: 22 };
+  return { image: '42px', text: '22px' };
 }
 
 function renderThemeLabel(theme: 'dark' | 'light', mounted: boolean) {
@@ -93,6 +93,7 @@ function NavLink({
   active,
   accentColor,
   children,
+  className,
   href,
   newTab,
   onClick,
@@ -101,6 +102,7 @@ function NavLink({
   active?: boolean;
   accentColor?: string;
   children: React.ReactNode;
+  className?: string;
   href: string;
   newTab?: boolean;
   onClick?: () => void;
@@ -115,6 +117,8 @@ function NavLink({
   if (isExternalHref(href)) {
     return (
       <a
+        className={className}
+        data-active={active ? 'true' : undefined}
         href={href}
         onClick={onClick}
         style={sharedStyle}
@@ -128,6 +132,8 @@ function NavLink({
 
   return (
     <Link
+      className={className}
+      data-active={active ? 'true' : undefined}
       href={href}
       onClick={onClick}
       style={sharedStyle}
@@ -196,6 +202,13 @@ export default function NavbarClient({
   const navTextColor = dark ? design.textColorDark : design.textColorLight;
   const navAccent = design.accentColor;
   const activeLinkColor = design.activeLinkColor;
+  const readableActiveLinkColor = dark ? activeLinkColor : '#0f172a';
+  const activeLinkBackground = dark
+    ? 'rgba(56,189,248,0.14)'
+    : 'rgba(14,165,233,0.13)';
+  const activeLinkBorder = dark
+    ? 'rgba(125,211,252,0.22)'
+    : 'rgba(14,165,233,0.22)';
   const hoverColor = design.hoverColor || navAccent;
   const containerWidth = getContainerWidth(design.width);
   const heightPreset = getHeightPreset(design.heightPreset);
@@ -265,6 +278,7 @@ export default function NavbarClient({
 
     return (
       <button
+        className="site-navbar-action"
         key={key}
         onClick={toggleTheme}
         type="button"
@@ -294,6 +308,7 @@ export default function NavbarClient({
     return (
       <NavLink
         key={key}
+        className="site-navbar-action"
         href={loginButton.href}
         newTab={navigationConfig.loginButton.newTab}
         style={{
@@ -316,23 +331,33 @@ export default function NavbarClient({
     renderLoginAction('login-action'),
     themeToggle.position === 'after-login' ? renderThemeButton('theme-after-login') : null,
   ].filter(Boolean);
+  const mobileBottomItems = [
+    { href: '/portfolio', label: 'Portfolio', icon: '▦' },
+    { href: '/tutorial', label: 'Tutorial', icon: '▶' },
+    { href: '/contact', label: 'Contact', icon: '✉' },
+  ];
 
   function renderBrand() {
     return (
       <NavLink
         href={branding.logoLink}
+        className="site-navbar-brand"
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: 12,
           color: design.logo.brandColor,
           fontWeight: 900,
+          minWidth: 0,
+          maxWidth: 'min(260px, calc(100vw - 142px))',
+          overflow: 'hidden',
         }}
       >
         {design.logo.showImageLogo && branding.imageLogoUrl ? (
           <img
             src={branding.imageLogoUrl}
             alt={branding.logoAlt}
+            suppressHydrationWarning
             style={{
               width: logoSize.image,
               height: logoSize.image,
@@ -349,6 +374,9 @@ export default function NavbarClient({
               lineHeight: 1,
               color: design.logo.brandColor,
               whiteSpace: 'nowrap',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
             }}
           >
             {branding.textLogo}
@@ -373,23 +401,33 @@ export default function NavbarClient({
       return (
         <NavLink
           key={item.id}
+          active={active}
+          className="site-nav-link"
           href={item.href}
           newTab={item.newTab}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            color: active ? activeLinkColor : navTextColor,
+            color: active ? readableActiveLinkColor : navTextColor,
             fontSize: 14,
-            fontWeight: item.type === 'button' ? 800 : 600,
-            padding: item.type === 'button' ? '10px 14px' : '8px 0',
-            borderRadius: item.type === 'button' ? 999 : 0,
+            fontWeight: active || item.type === 'button' ? 800 : 650,
+            padding: item.type === 'button' ? '10px 14px' : '10px 12px',
+            borderRadius: 999,
+            border: active ? `1px solid ${activeLinkBorder}` : '1px solid transparent',
             background:
-              item.type === 'button'
+              active
+                ? activeLinkBackground
+                : item.type === 'button'
                 ? dark
                   ? 'rgba(255,255,255,0.06)'
                   : 'rgba(15,23,42,0.05)'
                 : 'transparent',
+            boxShadow: active
+              ? dark
+                ? '0 12px 30px rgba(14,165,233,0.12), inset 0 1px 0 rgba(255,255,255,0.08)'
+                : '0 12px 28px rgba(14,165,233,0.12), inset 0 1px 0 rgba(255,255,255,0.76)'
+              : 'none',
           }}
         >
           {item.icon ? <span>{item.icon}</span> : null}
@@ -416,19 +454,22 @@ export default function NavbarClient({
         style={{ position: 'relative' }}
       >
         <button
+          className="site-nav-link site-nav-button"
+          data-active={active || dropdownOpen ? 'true' : undefined}
           type="button"
           onClick={() =>
             setOpenDropdownId(current => (current === item.id ? null : item.id))
           }
           style={{
-            background: 'transparent',
-            border: 'none',
-            color: active || dropdownOpen ? activeLinkColor : navTextColor,
+            background: active || dropdownOpen ? activeLinkBackground : 'transparent',
+            border: `1px solid ${active || dropdownOpen ? activeLinkBorder : 'transparent'}`,
+            borderRadius: 999,
+            color: active || dropdownOpen ? readableActiveLinkColor : navTextColor,
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            padding: '8px 0',
+            padding: '10px 12px',
             fontSize: 14,
             fontWeight: 700,
           }}
@@ -440,6 +481,7 @@ export default function NavbarClient({
 
         {dropdownOpen ? (
           <div
+            className="site-navbar-dropdown"
             style={{
               position: 'absolute',
               top: 'calc(100% + 16px)',
@@ -449,6 +491,8 @@ export default function NavbarClient({
               border: `1px solid ${dark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)'}`,
               background: dark ? 'rgba(2,6,23,0.96)' : 'rgba(255,255,255,0.96)',
               boxShadow: '0 24px 50px rgba(15,23,42,0.16)',
+              backdropFilter: 'blur(18px)',
+              WebkitBackdropFilter: 'blur(18px)',
               zIndex: 80,
               ...alignStyle,
             }}
@@ -457,6 +501,8 @@ export default function NavbarClient({
               {childItems.map(child => (
                 <NavLink
                   key={child.id}
+                  active={matchesActive(pathname, child)}
+                  className="site-navbar-dropdown-link"
                   href={child.href}
                   newTab={child.newTab}
                   onClick={() => setOpenDropdownId(null)}
@@ -466,7 +512,7 @@ export default function NavbarClient({
                     gap: 10,
                     padding: '10px 12px',
                     borderRadius: 14,
-                    color: matchesActive(pathname, child) ? activeLinkColor : dark ? '#e2e8f0' : '#0f172a',
+                    color: matchesActive(pathname, child) ? readableActiveLinkColor : dark ? '#e2e8f0' : '#0f172a',
                     background: matchesActive(pathname, child)
                       ? dark
                         ? 'rgba(56,189,248,0.14)'
@@ -495,6 +541,8 @@ export default function NavbarClient({
       return (
         <NavLink
           key={item.id}
+          active={active}
+          className="site-navbar-mobile-link"
           href={item.href}
           newTab={item.newTab}
           onClick={() => setMenuOpen(false)}
@@ -503,9 +551,11 @@ export default function NavbarClient({
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 12,
-            padding: '16px 0',
-            borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'}`,
-            color: active ? activeLinkColor : dark ? '#f8fafc' : '#0f172a',
+            padding: '14px 12px',
+            borderRadius: 16,
+            border: `1px solid ${active ? activeLinkBorder : 'transparent'}`,
+            color: active ? readableActiveLinkColor : dark ? '#f8fafc' : '#0f172a',
+            background: active ? activeLinkBackground : 'transparent',
             fontWeight: 700,
           }}
         >
@@ -527,6 +577,8 @@ export default function NavbarClient({
         }}
       >
         <button
+          className="site-navbar-mobile-link"
+          data-active={active || open ? 'true' : undefined}
           type="button"
           onClick={() => setOpenDropdownId(current => (current === item.id ? null : item.id))}
           style={{
@@ -534,10 +586,11 @@ export default function NavbarClient({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'transparent',
-            border: 'none',
-            color: active ? activeLinkColor : dark ? '#f8fafc' : '#0f172a',
-            padding: '4px 0',
+            background: active || open ? activeLinkBackground : 'transparent',
+            border: `1px solid ${active || open ? activeLinkBorder : 'transparent'}`,
+            borderRadius: 16,
+            color: active || open ? readableActiveLinkColor : dark ? '#f8fafc' : '#0f172a',
+            padding: '12px',
             fontWeight: 800,
             cursor: 'pointer',
           }}
@@ -553,6 +606,8 @@ export default function NavbarClient({
             {childItems.map(child => (
               <NavLink
                 key={child.id}
+                active={matchesActive(pathname, child)}
+                className="site-navbar-mobile-link"
                 href={child.href}
                 newTab={child.newTab}
                 onClick={() => setMenuOpen(false)}
@@ -560,8 +615,12 @@ export default function NavbarClient({
                   padding: '10px 14px',
                   borderRadius: 14,
                   marginLeft: 10,
-                  color: matchesActive(pathname, child) ? activeLinkColor : dark ? '#cbd5e1' : '#334155',
-                  background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.04)',
+                  color: matchesActive(pathname, child) ? readableActiveLinkColor : dark ? '#cbd5e1' : '#334155',
+                  background: matchesActive(pathname, child)
+                    ? activeLinkBackground
+                    : dark
+                      ? 'rgba(255,255,255,0.04)'
+                      : 'rgba(15,23,42,0.04)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
@@ -574,6 +633,36 @@ export default function NavbarClient({
           </div>
         ) : null}
       </div>
+    );
+  }
+
+  function renderBottomNavItem(item: (typeof mobileBottomItems)[number]) {
+    const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+
+    return (
+      <NavLink
+        key={item.href}
+        active={active}
+        className="site-mobile-bottom-nav-item"
+        href={item.href}
+        style={{
+          color: active ? readableActiveLinkColor : dark ? 'rgba(226,232,240,0.76)' : 'rgba(15,23,42,0.64)',
+          background: active
+            ? dark
+              ? 'rgba(56,189,248,0.18)'
+              : 'rgba(14,165,233,0.14)'
+            : 'transparent',
+          border: `1px solid ${active ? activeLinkBorder : 'transparent'}`,
+          boxShadow: active
+            ? dark
+              ? '0 10px 26px rgba(14,165,233,0.18), inset 0 1px 0 rgba(255,255,255,0.08)'
+              : '0 10px 24px rgba(14,165,233,0.16), inset 0 1px 0 rgba(255,255,255,0.72)'
+            : 'none',
+        }}
+      >
+        <span className="site-mobile-bottom-nav-icon">{item.icon}</span>
+        <span>{item.label}</span>
+      </NavLink>
     );
   }
 
@@ -597,12 +686,194 @@ export default function NavbarClient({
           [design.mobile.position]: 0,
           width: design.mobile.style === 'fullscreen' ? '100vw' : 'min(420px, 88vw)',
           borderRadius: design.mobile.style === 'fullscreen' ? 0 : 28,
-          padding: '96px 24px 28px',
+          padding: '88px 18px calc(26px + env(safe-area-inset-bottom))',
+          overflowY: 'auto',
         };
 
   return (
     <>
       <style>{`
+        @keyframes navbarDropIn {
+          from {
+            opacity: 0;
+            translate: 0 -8px;
+            scale: 0.98;
+          }
+          to {
+            opacity: 1;
+            translate: 0 0;
+            scale: 1;
+          }
+        }
+        @keyframes mobilePanelIn {
+          from {
+            opacity: 0;
+            translate: 0 -10px;
+            scale: 0.98;
+          }
+          to {
+            opacity: 1;
+            translate: 0 0;
+            scale: 1;
+          }
+        }
+        .site-navbar {
+          will-change: background, box-shadow, border-color;
+        }
+        .site-navbar a,
+        .site-navbar button {
+          -webkit-tap-highlight-color: transparent;
+        }
+        .site-navbar-brand,
+        .site-nav-link,
+        .site-navbar-action,
+        .site-navbar-mobile-link {
+          transform: translate3d(0, 0, 0);
+          transition:
+            color 180ms ease,
+            background 220ms ease,
+            border-color 220ms ease,
+            box-shadow 220ms ease,
+            opacity 180ms ease,
+            transform 220ms cubic-bezier(.2,.8,.2,1);
+          will-change: transform;
+        }
+        .site-navbar-brand:hover,
+        .site-nav-link:hover,
+        .site-navbar-action:hover,
+        .site-navbar-mobile-link:hover {
+          transform: translate3d(0, -1px, 0);
+        }
+        .site-navbar-brand img {
+          transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 220ms ease;
+        }
+        .site-navbar-brand:hover img {
+          transform: rotate(-2deg) scale(1.04);
+          box-shadow: 0 12px 28px rgba(14,165,233,0.18);
+        }
+        .site-nav-link {
+          position: relative;
+          overflow: hidden;
+        }
+        .site-nav-link::after {
+          position: absolute;
+          left: 14px;
+          right: 14px;
+          bottom: 5px;
+          height: 2px;
+          border-radius: 999px;
+          background: ${navAccent};
+          content: "";
+          opacity: 0;
+          transform: scaleX(0);
+          transform-origin: center;
+          transition: opacity 180ms ease, transform 220ms cubic-bezier(.2,.8,.2,1);
+        }
+        .site-nav-link:hover::after,
+        .site-nav-link[data-active="true"]::after {
+          opacity: 1;
+          transform: scaleX(1);
+        }
+        .site-navbar-dropdown {
+          animation: navbarDropIn 180ms cubic-bezier(.2,.8,.2,1);
+          transform-origin: top center;
+        }
+        .site-navbar-dropdown-link,
+        .site-navbar-mobile-link {
+          transition:
+            color 180ms ease,
+            background 220ms ease,
+            border-color 220ms ease,
+            transform 220ms cubic-bezier(.2,.8,.2,1);
+        }
+        .site-navbar-dropdown-link:hover,
+        .site-navbar-mobile-link:hover {
+          transform: translate3d(3px, 0, 0);
+        }
+        .site-navbar-mobile-panel {
+          animation: mobilePanelIn 200ms cubic-bezier(.2,.8,.2,1);
+          transform-origin: top right;
+        }
+        .site-navbar-mobile-backdrop {
+          animation: mobilePanelIn 180ms cubic-bezier(.2,.8,.2,1);
+        }
+        .site-navbar-mobile-panel .site-navbar-action {
+          width: 100%;
+          min-height: 38px;
+          justify-content: center;
+        }
+        .site-navbar-mobile-panel .site-navbar-mobile-link {
+          width: 100%;
+          box-shadow: none;
+        }
+        .site-mobile-bottom-nav {
+          animation: mobilePanelIn 240ms cubic-bezier(.2,.8,.2,1);
+          backdrop-filter: blur(22px) saturate(1.28);
+          -webkit-backdrop-filter: blur(22px) saturate(1.28);
+        }
+        .site-mobile-bottom-nav-item {
+          position: relative;
+          display: flex;
+          min-width: 0;
+          min-height: 44px;
+          align-items: center;
+          justify-content: center;
+          gap: 2px;
+          border-radius: 15px;
+          padding: 4px 5px;
+          flex-direction: column;
+          font-size: 9px;
+          font-weight: 850;
+          line-height: 1;
+          overflow: hidden;
+          transform: translate3d(0, 0, 0);
+          transition:
+            color 180ms ease,
+            background 220ms ease,
+            border-color 220ms ease,
+            box-shadow 220ms ease,
+            transform 220ms cubic-bezier(.2,.8,.2,1);
+        }
+        .site-mobile-bottom-nav-item::before {
+          position: absolute;
+          inset: 3px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(56,189,248,0.18), rgba(37,99,235,0.06));
+          content: "";
+          opacity: 0;
+          transition: opacity 220ms ease;
+        }
+        .site-mobile-bottom-nav-item[data-active="true"]::before,
+        .site-mobile-bottom-nav-item:hover::before {
+          opacity: 1;
+        }
+        .site-mobile-bottom-nav-item:hover {
+          transform: translate3d(0, -3px, 0);
+        }
+        .site-mobile-bottom-nav-item > span {
+          position: relative;
+          z-index: 1;
+        }
+        .site-mobile-bottom-nav-icon {
+          display: inline-flex;
+          width: 18px;
+          height: 15px;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          line-height: 1;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .site-navbar *,
+          .site-navbar-mobile-backdrop,
+          .site-navbar-dropdown,
+          .site-navbar-mobile-panel,
+          .site-mobile-bottom-nav,
+          .site-mobile-bottom-nav-item {
+            animation: none !important;
+            transition: none !important;
+          }
+        }
         .site-navbar a:hover,
         .site-navbar button:hover {
           color: ${hoverColor};
@@ -611,22 +882,66 @@ export default function NavbarClient({
           .site-navbar-mobile {
             display: none !important;
           }
+          .site-mobile-bottom-nav {
+            display: none !important;
+          }
         }
         @media (max-width: 959px) {
+          body {
+            padding-bottom: calc(60px + env(safe-area-inset-bottom));
+          }
           .site-navbar-desktop {
             display: none !important;
           }
         }
       `}</style>
 
+      {menuOpen ? (
+        <>
+          <div
+            className="site-navbar-mobile-backdrop"
+            onClick={() => setMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: dark ? '#020617' : '#ffffff',
+              zIndex: 999,
+            }}
+          />
+          <div
+            className="site-navbar-mobile-panel"
+            style={{
+              ...mobilePanelStyle,
+              background: dark ? '#020617' : '#ffffff',
+              border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'}`,
+              boxShadow: dark
+                ? '0 30px 80px rgba(0,0,0,0.5)'
+                : '0 30px 80px rgba(15,23,42,0.22)',
+              zIndex: 1001,
+            }}
+          >
+            <div style={{ display: 'grid', gap: 2 }}>
+              {items.map(renderMobileItem)}
+            </div>
+
+            <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
+              {design.mobile.showLoginButton ? renderLoginAction('mobile-login-action') : null}
+              {design.mobile.showThemeToggle && themeToggle.visible
+                ? renderThemeButton('mobile-theme-toggle')
+                : null}
+            </div>
+          </div>
+        </>
+      ) : null}
+
       <nav
         className="site-navbar"
         style={{
           position: design.sticky ? 'sticky' : 'relative',
           top: 0,
-          zIndex: 60,
+          zIndex: menuOpen ? 1000 : 60,
           padding: heightPreset.navPadding,
-          transition: 'background 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
+          transition: 'background 260ms ease, border-color 260ms ease, box-shadow 260ms ease, padding 260ms ease',
           backdropFilter: design.blur ? 'blur(22px)' : undefined,
           WebkitBackdropFilter: design.blur ? 'blur(22px)' : undefined,
           background: shellBackground,
@@ -647,17 +962,26 @@ export default function NavbarClient({
             margin: '0 auto',
             display: 'grid',
             gridTemplateColumns:
-              design.layout === 'centered' ? '1fr auto 1fr' : design.layout === 'split' ? 'auto 1fr auto' : 'auto 1fr auto',
+              design.layout === 'centered'
+                ? 'minmax(0, 1fr) auto minmax(0, 1fr)'
+                : design.layout === 'split'
+                  ? 'minmax(0, auto) minmax(0, 1fr) auto'
+                  : 'minmax(0, auto) minmax(0, 1fr) auto',
             alignItems: 'center',
             gap: 18,
+            position: 'relative',
+            zIndex: menuOpen ? 1002 : 1,
           }}
         >
           <div
             style={{
-              justifySelf: design.layout === 'centered' ? 'start' : 'start',
-              display: 'flex',
-              alignItems: 'center',
-            }}
+            justifySelf: design.layout === 'centered' ? 'start' : 'start',
+            display: 'flex',
+            alignItems: 'center',
+            minWidth: 0,
+            position: 'relative',
+            zIndex: menuOpen ? 1002 : 1,
+          }}
           >
             {renderBrand()}
           </div>
@@ -703,6 +1027,7 @@ export default function NavbarClient({
             themeToggle.position !== 'mobile-only' &&
             design.mobile.showThemeToggle ? (
               <button
+                className="site-navbar-action"
                 onClick={toggleTheme}
                 type="button"
                 aria-label={themeRender.sr}
@@ -712,12 +1037,15 @@ export default function NavbarClient({
                   border: `1px solid ${dark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.1)'}`,
                   color: dark ? '#f8fafc' : '#0f172a',
                   background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.64)',
+                  position: 'relative',
+                  zIndex: 1002,
                 }}
               >
                 {themeRender.icon}
               </button>
             ) : null}
             <button
+              className="site-navbar-action"
               type="button"
               onClick={() => setMenuOpen(current => !current)}
               aria-label={menuOpen ? 'Close menu' : 'Open menu'}
@@ -730,42 +1058,43 @@ export default function NavbarClient({
                 color: dark ? '#f8fafc' : '#0f172a',
                 cursor: 'pointer',
                 fontSize: 18,
+                position: 'relative',
+                zIndex: 1002,
               }}
             >
               {menuOpen ? '✕' : '☰'}
             </button>
 
-            {menuOpen ? (
-              <div
-                style={{
-                  ...mobilePanelStyle,
-                  background: dark ? 'rgba(2,6,23,0.98)' : 'rgba(255,255,255,0.98)',
-                  border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)'}`,
-                  boxShadow: '0 30px 60px rgba(15,23,42,0.22)',
-                  zIndex: 90,
-                  animation:
-                    design.mobile.animation === 'fade'
-                      ? 'none'
-                      : design.mobile.animation === 'scale'
-                        ? 'none'
-                        : 'none',
-                }}
-              >
-                <div style={{ display: 'grid', gap: 2 }}>
-                  {items.map(renderMobileItem)}
-                </div>
-
-                <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
-                  {design.mobile.showLoginButton ? renderLoginAction('mobile-login-action') : null}
-                  {design.mobile.showThemeToggle && themeToggle.visible
-                    ? renderThemeButton('mobile-theme-toggle')
-                    : null}
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       </nav>
+
+      {!menuOpen ? (
+        <div
+          className="site-mobile-bottom-nav"
+          style={{
+            position: 'fixed',
+            left: 'max(12px, env(safe-area-inset-left))',
+            right: 'max(12px, env(safe-area-inset-right))',
+            bottom: 'calc(7px + env(safe-area-inset-bottom))',
+            zIndex: 70,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 4,
+            padding: 4,
+            borderRadius: 20,
+            border: `1px solid ${dark ? 'rgba(148,163,184,0.18)' : 'rgba(15,23,42,0.1)'}`,
+            background: dark
+              ? 'linear-gradient(135deg, rgba(2,6,23,0.68), rgba(15,23,42,0.5))'
+              : 'linear-gradient(135deg, rgba(255,255,255,0.72), rgba(241,245,249,0.58))',
+            boxShadow: dark
+              ? '0 22px 60px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08)'
+              : '0 22px 56px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.72)',
+          }}
+        >
+          {mobileBottomItems.map(renderBottomNavItem)}
+        </div>
+      ) : null}
     </>
   );
 }

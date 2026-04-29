@@ -100,15 +100,19 @@ function getHeroHeightPreset(
   preset: HomepageBuilderConfig['hero']['heightPreset'],
   isMobile: boolean
 ) {
+  const navOffset = isMobile ? '64px' : '72px';
+
   if (preset === 'medium') {
-    return isMobile ? '72svh' : 'min(78vh, 680px)';
+    return isMobile ? 'min(72svh, 640px)' : 'min(78vh, 680px)';
   }
 
   if (preset === 'large') {
-    return isMobile ? '86svh' : 'min(92vh, 820px)';
+    return isMobile
+      ? `min(86svh, calc(100svh - ${navOffset}))`
+      : `min(820px, calc(100svh - ${navOffset}))`;
   }
 
-  return isMobile ? '100svh' : '100vh';
+  return `calc(100svh - ${navOffset})`;
 }
 
 function getHeroOverlay(
@@ -296,11 +300,17 @@ export default function HomePage() {
   const aboutStyles = homepageAbout.styles;
   const heroStats = toEnabledStats(hero.stats).slice(0, 3);
   const statsItems = toEnabledStats(statsSection.items);
+  const heroUsesSplitLayout = !isMobile && hero.layout === 'split';
+  const heroContentOrder = heroUsesSplitLayout && hero.alignment === 'right' ? 2 : 1;
+  const heroFloatingOrder = heroContentOrder === 2 ? 1 : 2;
   const currentHeroImage = isMobile
     ? hero.mobileImage || hero.desktopImage
     : hero.desktopImage || hero.mobileImage;
   const heroMaxWidth = getSectionMaxWidth(hero.width, homepageBuilder.global.contentWidth);
   const heroMinHeight = getHeroHeightPreset(hero.heightPreset, isMobile);
+  const heroPanelMaxWidth = heroUsesSplitLayout
+    ? Math.min(hero.contentMaxWidth, 520)
+    : hero.contentMaxWidth;
   const heroOverlay = getHeroOverlay(hero.overlayStrength, isMobile);
   const heroBottomFade = getHeroBottomFade(hero.overlayStrength, isMobile, hero.showBottomOverlay);
   const heroPanelBackground = dark
@@ -376,7 +386,7 @@ export default function HomePage() {
           backgroundImage: currentHeroImage
             ? `url(${currentHeroImage})`
             : 'linear-gradient(135deg, #020617 0%, #0f172a 60%, #1d4ed8 100%)',
-          backgroundPosition: 'center',
+          backgroundPosition: isMobile ? 'center top' : '58% center',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
           transform: isMobile ? 'scale(1.02)' : 'scale(1.01)',
@@ -412,9 +422,11 @@ export default function HomePage() {
           minHeight: heroMinHeight,
           display: 'grid',
           gridTemplateColumns:
-            isMobile || hero.layout !== 'split'
+            !heroUsesSplitLayout
               ? '1fr'
-              : 'minmax(0, 560px) minmax(0, 1fr)',
+              : hero.alignment === 'right'
+                ? 'minmax(420px, 1fr) minmax(360px, 520px)'
+                : 'minmax(360px, 520px) minmax(420px, 1fr)',
           alignItems:
             isMobile && hero.mobileContentPosition === 'center'
               ? 'center'
@@ -428,17 +440,17 @@ export default function HomePage() {
             hero.spacing === 'compact'
               ? isMobile
                 ? '24px 14px calc(10px + env(safe-area-inset-bottom))'
-                : '42px clamp(20px, 5vw, 56px) 48px'
+                : '34px clamp(18px, 4vw, 48px) 38px'
               : hero.spacing === 'spacious'
                 ? isMobile
                   ? '54px 16px calc(14px + env(safe-area-inset-bottom))'
-                  : '72px clamp(28px, 6vw, 84px) 76px'
+                  : '56px clamp(24px, 5vw, 72px) 58px'
                 : isMobile
                   ? '36px 14px calc(10px + env(safe-area-inset-bottom))'
-                  : '56px clamp(24px, 6vw, 72px) 60px'
+                  : '44px clamp(22px, 5vw, 64px) 46px'
           ),
           justifyItems:
-            !isMobile && hero.layout !== 'split' && hero.alignment === 'center'
+            !isMobile && !heroUsesSplitLayout && hero.alignment === 'center'
               ? 'center'
               : 'stretch',
         }}
@@ -446,9 +458,14 @@ export default function HomePage() {
         <div
           style={{
             width: isMobile ? 'min(100%, 380px)' : '100%',
-            maxWidth: isMobile ? 380 : hero.contentMaxWidth,
+            maxWidth: isMobile ? 380 : heroPanelMaxWidth,
+            order: heroContentOrder,
             justifySelf:
-              isMobile || hero.alignment === 'center'
+              heroUsesSplitLayout
+                ? hero.alignment === 'right'
+                  ? 'end'
+                  : 'start'
+                : isMobile || hero.alignment === 'center'
                 ? 'center'
                 : hero.alignment === 'right'
                   ? 'end'
@@ -739,15 +756,16 @@ export default function HomePage() {
           ) : null}
         </div>
 
-        {!isMobile && hero.showFloatingCard ? (
+        {heroUsesSplitLayout && hero.showFloatingCard ? (
           <div
             style={{
+              order: heroFloatingOrder,
               minHeight: '100%',
               display: 'flex',
               alignItems:
                 hero.floatingCardPosition === 'top-right' || hero.floatingCardPosition === 'top-left'
                   ? 'flex-start'
-                  : 'flex-end',
+                  : 'center',
               justifyContent:
                 hero.floatingCardPosition === 'top-left' || hero.floatingCardPosition === 'bottom-left'
                   ? 'flex-start'
@@ -758,7 +776,7 @@ export default function HomePage() {
                   : 0,
               paddingBottom:
                 hero.floatingCardPosition === 'bottom-right' || hero.floatingCardPosition === 'bottom-left'
-                  ? 18
+                  ? 0
                   : 0,
             }}
           >
