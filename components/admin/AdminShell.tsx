@@ -14,6 +14,7 @@ import {
   findAdminModule,
   getAdminModulesByGroup,
 } from '@/components/admin/admin-registry';
+import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 
 type AdminShellProps = {
   actions?: React.ReactNode;
@@ -98,6 +99,23 @@ export default function AdminShell({
       setDrawerOpen(false);
     }
   }, [mobile]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function verifySession() {
+      const ok = await verifyAdminSessionClient();
+      if (active && !ok) {
+        router.replace('/admin/login');
+      }
+    }
+
+    void verifySession();
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!mobile) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
   AdminActionButton,
   AdminBuilderSection,
@@ -665,11 +666,7 @@ export default function AdminNavigationPage() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      router.push('/admin/login');
-      return;
-    }
+    let active = true;
 
     async function boot() {
       try {
@@ -679,7 +676,23 @@ export default function AdminNavigationPage() {
       }
     }
 
-    void boot();
+    async function verifyAndBoot() {
+      const ok = await verifyAdminSessionClient();
+      if (!active) {
+        return;
+      }
+      if (!ok) {
+        router.replace('/admin/login');
+        return;
+      }
+      await boot();
+    }
+
+    void verifyAndBoot();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const inputStyle = getAdminInputStyle(tokens);

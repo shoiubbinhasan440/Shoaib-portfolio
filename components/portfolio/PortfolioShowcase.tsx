@@ -63,6 +63,16 @@ type ShowcaseCategory = PortfolioCategory & {
   displayOrder: number;
 };
 
+type HomepageCategoryPreviewGroup = {
+  key: string;
+  sourceType: PortfolioSourceType;
+  slug: string;
+  title: string;
+  count: number;
+  order: number;
+  items: PortfolioPreviewItem[];
+};
+
 function getOrderedSourceTypes(order: PortfolioPageSettings['allTab']['order']) {
   return order === 'graphic-first'
     ? (['graphic', 'video'] as PortfolioSourceType[])
@@ -344,6 +354,8 @@ export default function PortfolioShowcase({
       ? getColumnsForViewport(viewportWidth, homepageConfig)
       : getPageColumnsForViewport(viewportWidth, pageBuilder);
   const isMobile = viewportWidth < 700;
+  const categoryPreviewMode =
+    variant === 'homepage' && homepageConfig.displayMode === 'category-preview';
 
   const homepageTabs = useMemo(() => {
     if (variant !== 'homepage') {
@@ -549,6 +561,88 @@ export default function PortfolioShowcase({
         },
       ];
   const displayItems = groupedSections.flatMap(section => section.items);
+  const categoryPreviewGroups: HomepageCategoryPreviewGroup[] = useMemo(() => {
+    if (!categoryPreviewMode) {
+      return [];
+    }
+
+    const allowedSourceTypes = getHomepageAllowedSourceTypes(homepageConfig);
+    const grouped = new Map<string, HomepageCategoryPreviewGroup>();
+
+    items
+      .filter(item => item.visible && item.categoryActive && item.categorySlug)
+      .filter(item => allowedSourceTypes.includes(item.sourceType))
+      .forEach(item => {
+        const categorySlug = item.categorySlug || '';
+        const category =
+          categories.find(
+            candidate =>
+              candidate.slug === categorySlug && candidate.type === item.sourceType
+          ) ||
+          categories.find(
+            candidate => candidate.slug === categorySlug && candidate.type === 'both'
+          );
+        const categoryConfig = getHomepageCategoryConfig(
+          {
+            categorySlug,
+            categoryType: category?.type || item.categoryType || item.sourceType,
+            categoryName: category?.name || item.categoryName,
+            order_num: category?.order_num || item.order_num,
+          },
+          homepageConfig.categoryConfig
+        );
+
+        if (!categoryConfig.enabled) {
+          return;
+        }
+
+        const key = `${item.sourceType}:${categorySlug}`;
+        const current = grouped.get(key);
+        if (current) {
+          current.items.push(item);
+          current.count += 1;
+          return;
+        }
+
+        grouped.set(key, {
+          key,
+          sourceType: item.sourceType,
+          slug: categorySlug,
+          title: categoryConfig.label,
+          count: 1,
+          order: categoryConfig.order,
+          items: [item],
+        });
+      });
+
+    const typeOrder = new Map(
+      getHomepageAllowedSourceTypes(homepageConfig).map((sourceType, index) => [
+        sourceType,
+        index,
+      ])
+    );
+
+    return [...grouped.values()]
+      .map(group => ({
+        ...group,
+        items: sortPortfolioItemsByOrder(group.items),
+      }))
+      .sort((leftGroup, rightGroup) => {
+        const leftTypeOrder = typeOrder.get(leftGroup.sourceType) ?? 99;
+        const rightTypeOrder = typeOrder.get(rightGroup.sourceType) ?? 99;
+
+        if (leftTypeOrder !== rightTypeOrder) {
+          return leftTypeOrder - rightTypeOrder;
+        }
+
+        if (leftGroup.order !== rightGroup.order) {
+          return leftGroup.order - rightGroup.order;
+        }
+
+        return leftGroup.title.localeCompare(rightGroup.title);
+      })
+      .slice(0, homepageConfig.maxCategories);
+  }, [categories, categoryPreviewMode, homepageConfig, items]);
   const activeSelectedItem =
     selectedItem && displayItems.some(item => getItemKey(item) === getItemKey(selectedItem))
       ? selectedItem
@@ -570,13 +664,17 @@ export default function PortfolioShowcase({
   const filtersVisible =
     variant === 'page'
       ? (pageBuilder?.showcase.showCategoryFilters ?? true) && categoriesForTab.length > 0
-      : homepageConfig.showCategoryFilters &&
+      : !categoryPreviewMode &&
+        homepageConfig.showCategoryFilters &&
         categoriesForTab.length > 0 &&
         (!isMobile || homepageConfig.mobileFilterVisibility);
   const tabsVisible =
     variant === 'page'
       ? (pageBuilder?.showcase.showTabs ?? true) && tabs.length > 1
-      : homepageConfig.showTabs && tabs.length > 1 && (!isMobile || homepageConfig.mobileFilterVisibility);
+      : !categoryPreviewMode &&
+        homepageConfig.showTabs &&
+        tabs.length > 1 &&
+        (!isMobile || homepageConfig.mobileFilterVisibility);
   const previewFooterLink =
     variant === 'homepage'
       ? homepageConfig.viewAllButtonLink || homepageConfig.buttonLink || '/portfolio'
@@ -1179,6 +1277,231 @@ export default function PortfolioShowcase({
                   />
                 ))}
                 </div>
+              ) : categoryPreviewMode ? (
+                categoryPreviewGroups.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '54px 24px',
+                      borderRadius: 24,
+                      border: `1px dashed ${soft}`,
+                      background: dark ? 'rgba(2,6,23,0.28)' : 'rgba(255,255,255,0.78)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: text,
+                        marginBottom: 8,
+                      }}
+                    >
+                      Homepage category preview-র জন্য কোনো category পাওয়া যায়নি
+                    </div>
+                    <div style={{ fontSize: 14, color: muted }}>
+                      Category visibility, content type, বা item visibility settings চেক করুন।
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                      gap: showcaseGap,
+                    }}
+                  >
+                    {categoryPreviewGroups.map(group => {
+                      const previewItems = group.items.slice(0, homepageConfig.thumbnailsPerCategory);
+                      const typeLabel = group.sourceType === 'video' ? 'Video' : 'Graphics';
+                      const accentColor = resolveSectionThemeColor(
+                        showcaseStyles?.colors.accentLight || '',
+                        showcaseStyles?.colors.accentDark || '',
+                        dark,
+                        '#38bdf8'
+                      );
+
+                      return (
+                        <Link
+                          key={group.key}
+                          href={`/portfolio/category/${group.sourceType}/${encodeURIComponent(group.slug)}`}
+                          style={{
+                            position: 'relative',
+                            display: 'grid',
+                            gap: 16,
+                            minHeight: homepageConfig.cardDensity === 'compact' ? 300 : 360,
+                            padding: isMobile ? 16 : 18,
+                            borderRadius: 24,
+                            overflow: 'hidden',
+                            textDecoration: 'none',
+                            color: text,
+                            border: `1px solid ${soft}`,
+                            background: cardSurface,
+                            boxShadow: dark
+                              ? '0 24px 44px rgba(2,6,23,0.24)'
+                              : '0 18px 32px rgba(15,23,42,0.08)',
+                            transition:
+                              'transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease',
+                            ...cardStyleOverrides,
+                          }}
+                          onMouseEnter={() => setFocusItemKey(group.key)}
+                          onMouseLeave={() =>
+                            setFocusItemKey(currentKey =>
+                              currentKey === group.key ? '' : currentKey
+                            )
+                          }
+                          onFocus={() => setFocusItemKey(group.key)}
+                          onBlur={() =>
+                            setFocusItemKey(currentKey =>
+                              currentKey === group.key ? '' : currentKey
+                            )
+                          }
+                        >
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns:
+                                previewItems.length > 1 ? '1.15fr 0.85fr' : '1fr',
+                              gap: 8,
+                              minHeight: isMobile ? 170 : 210,
+                            }}
+                          >
+                            {previewItems[0] ? (
+                              <div
+                                style={{
+                                  position: 'relative',
+                                  overflow: 'hidden',
+                                  borderRadius: 18,
+                                  background: dark ? '#0f172a' : '#dbeafe',
+                                }}
+                              >
+                                <img
+                                  src={previewItems[0].imageUrl}
+                                  alt={previewItems[0].title}
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                  }}
+                                />
+                              </div>
+                            ) : null}
+                            {previewItems.length > 1 ? (
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: previewItems.length > 3 ? '1fr 1fr' : '1fr',
+                                  gap: 8,
+                                }}
+                              >
+                                {previewItems.slice(1, 6).map(item => (
+                                  <div
+                                    key={getItemKey(item)}
+                                    style={{
+                                      position: 'relative',
+                                      minHeight: 0,
+                                      borderRadius: 16,
+                                      overflow: 'hidden',
+                                      background: dark ? '#0f172a' : '#dbeafe',
+                                    }}
+                                  >
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.title}
+                                      style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: item.sourceType === 'graphic' ? 'contain' : 'cover',
+                                        background: dark ? '#020617' : '#f8fafc',
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div style={{ display: 'grid', gap: 14 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: 8,
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '6px 10px',
+                                  borderRadius: 999,
+                                  background:
+                                    group.sourceType === 'video'
+                                      ? 'rgba(59,130,246,0.16)'
+                                      : 'rgba(16,185,129,0.16)',
+                                  color:
+                                    group.sourceType === 'video' ? '#93c5fd' : '#6ee7b7',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.08em',
+                                }}
+                              >
+                                {typeLabel}
+                              </span>
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '6px 10px',
+                                  borderRadius: 999,
+                                  background: dark
+                                    ? 'rgba(15,23,42,0.58)'
+                                    : 'rgba(226,232,240,0.82)',
+                                  color: muted,
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {group.count} item{group.count > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                fontSize: homepageConfig.cardDensity === 'compact' ? 20 : 24,
+                                fontWeight: 900,
+                                color: text,
+                                lineHeight: 1.1,
+                              }}
+                            >
+                              {group.title}
+                            </div>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: 12,
+                                color: accentColor,
+                                fontSize: 12,
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.08em',
+                              }}
+                            >
+                              <span>সব দেখুন</span>
+                              <span>↗</span>
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )
               ) : displayItems.length === 0 ? (
                 <div
                   style={{

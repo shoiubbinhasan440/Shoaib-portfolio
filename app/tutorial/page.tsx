@@ -1158,6 +1158,8 @@ export default function TutorialPage() {
             <div style={{ position: 'relative', paddingBottom: '56.25%' }}>
               <iframe
                 src={`${selectedTutorial.youtube_url}${selectedTutorial.youtube_url.includes('?') ? '&' : '?'}autoplay=1`}
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

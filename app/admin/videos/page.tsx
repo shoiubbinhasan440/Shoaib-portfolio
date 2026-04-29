@@ -7,6 +7,7 @@ import PortfolioManagerWorkspace, {
   type PortfolioManagerCategoryOption,
   type PortfolioManagerItem,
 } from '@/components/admin/PortfolioManagerWorkspace';
+import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import { toSettingMap } from '@/lib/hero-settings';
 import {
   fetchPortfolioDataset,
@@ -103,13 +104,25 @@ export default function AdminVideos() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      router.push('/admin/login');
-      return;
+    let active = true;
+
+    async function verifyAndRefresh() {
+      const ok = await verifyAdminSessionClient();
+      if (!active) {
+        return;
+      }
+      if (!ok) {
+        router.replace('/admin/login');
+        return;
+      }
+      await refreshData();
     }
 
-    void refreshData();
+    void verifyAndRefresh();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   async function upsertSetting(key: string, value: string) {

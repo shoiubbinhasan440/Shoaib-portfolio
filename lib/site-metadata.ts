@@ -7,6 +7,7 @@ import {
   SEO_PAGE_OPTIONS,
   type SeoPageId,
 } from '@/lib/site-seo';
+import type { PortfolioSourceType } from '@/lib/portfolio-content';
 
 function asUrl(value: string) {
   try {
@@ -75,6 +76,49 @@ export function buildPageMetadata(
   };
 }
 
+function readableSlug(value: string) {
+  return value
+    .split('-')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export function buildPortfolioCategoryMetadata(
+  settings: GlobalSettingsConfig,
+  params: {
+    categoryTitle?: string;
+    slug: string;
+    sourceType: PortfolioSourceType;
+  }
+): Metadata {
+  const categoryTitle = params.categoryTitle || readableSlug(params.slug) || 'Portfolio Category';
+  const typeLabel = params.sourceType === 'video' ? 'Video Editing' : 'Graphics Design';
+  const base = buildPageMetadata(settings, 'portfolio');
+  const path = `/portfolio/category/${params.sourceType}/${params.slug}`;
+  const canonical = buildCanonicalUrl(settings.seo.canonicalUrl, path);
+  const title = `${categoryTitle} ${typeLabel} | ${settings.siteIdentity.siteName}`;
+  const description = `Browse ${categoryTitle} ${typeLabel.toLowerCase()} portfolio work, previews, and selected project details.`;
+
+  return {
+    ...base,
+    title,
+    description,
+    alternates: canonical ? { canonical } : base.alternates,
+    openGraph: {
+      ...base.openGraph,
+      title,
+      description,
+      url: canonical || undefined,
+    },
+    twitter: {
+      ...base.twitter,
+      title,
+      description,
+    },
+  };
+}
+
 export function buildStructuredData(settings: GlobalSettingsConfig) {
   if (!settings.seo.structuredDataEnabled) {
     return [];
@@ -136,12 +180,15 @@ export function buildRobots(settings: GlobalSettingsConfig): MetadataRoute.Robot
   };
 }
 
-export function buildSitemap(settings: GlobalSettingsConfig): MetadataRoute.Sitemap {
+export function buildSitemap(
+  settings: GlobalSettingsConfig,
+  extraEntries: MetadataRoute.Sitemap = []
+): MetadataRoute.Sitemap {
   if (!settings.seo.sitemapEnabled || !settings.seo.canonicalUrl) {
     return [];
   }
 
-  return SEO_PAGE_OPTIONS.map(page => {
+  const pageEntries = SEO_PAGE_OPTIONS.map(page => {
     const effective = getEffectiveSeoPage(
       settings.seo,
       page.id,
@@ -151,7 +198,7 @@ export function buildSitemap(settings: GlobalSettingsConfig): MetadataRoute.Site
     return {
       url: buildCanonicalUrl(settings.seo.canonicalUrl, effective.canonicalPath),
       lastModified: new Date(),
-      changeFrequency: page.id === 'home' ? 'weekly' : 'monthly',
+      changeFrequency: page.id === 'home' ? ('weekly' as const) : ('monthly' as const),
       priority: page.id === 'home' ? 1 : 0.7,
       images:
         settings.seo.sitemapIncludeImages && effective.ogImage
@@ -159,4 +206,6 @@ export function buildSitemap(settings: GlobalSettingsConfig): MetadataRoute.Site
           : undefined,
     };
   });
+
+  return [...pageEntries, ...extraEntries];
 }

@@ -505,8 +505,11 @@ function hashAccessCode(code: string) {
   const secret =
     process.env.APP_SESSION_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.ADMIN_PASSWORD ||
-    'portfolio-client-portal';
+    process.env.ADMIN_PASSWORD;
+
+  if (!secret) {
+    throw new Error('Access-code hash secret is missing.');
+  }
 
   return createHash('sha256').update(`${secret}:${code}`).digest('hex');
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import {
+  ADMIN_SESSION_COOKIE,
   CLIENT_SESSION_COOKIE,
   verifyAdminSessionToken,
   verifyClientSessionToken,
@@ -10,7 +11,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-    const token = request.cookies.get('admin_token')?.value;
+    const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
     if (!verifyAdminSessionToken(token)) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }

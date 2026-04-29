@@ -34,8 +34,7 @@ function getSessionSecret() {
   const secret =
     process.env.APP_SESSION_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.ADMIN_PASSWORD ||
-    process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    process.env.ADMIN_PASSWORD;
 
   if (!secret) {
     throw new Error('Session secret is missing.');
@@ -100,9 +99,8 @@ function readSignedToken<T extends SessionBase>(token?: string | null) {
 
 export function getAdminCredentials() {
   return {
-    email: (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').trim(),
-    password:
-      process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '',
+    email: (process.env.ADMIN_EMAIL || '').trim(),
+    password: process.env.ADMIN_PASSWORD || '',
   };
 }
 

@@ -22,11 +22,23 @@ export async function POST(request: NextRequest) {
     if (!validateAdminCredentials(email, password)) {
       return NextResponse.json(
         { error: 'Invalid admin credentials.' },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            'Cache-Control': 'no-store',
+          },
+        }
       );
     }
 
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json(
+      { ok: true },
+      {
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
     response.cookies.set(
       ADMIN_SESSION_COOKIE,
       createAdminSessionToken(email, SESSION_MAX_AGE),
@@ -36,6 +48,14 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Admin login failed.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
   }
 }

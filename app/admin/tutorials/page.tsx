@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import { AdminBuilderSection } from '@/components/admin/admin-ui';
 import {
@@ -270,11 +271,7 @@ export default function AdminTutorialPage() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      router.push('/admin/login');
-      return;
-    }
+    let active = true;
 
     async function load() {
       try {
@@ -284,7 +281,23 @@ export default function AdminTutorialPage() {
       }
     }
 
-    void load();
+    async function verifyAndLoad() {
+      const ok = await verifyAdminSessionClient();
+      if (!active) {
+        return;
+      }
+      if (!ok) {
+        router.replace('/admin/login');
+        return;
+      }
+      await load();
+    }
+
+    void verifyAndLoad();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const inputStyle: React.CSSProperties = {

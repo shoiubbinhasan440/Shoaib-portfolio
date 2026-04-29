@@ -41,6 +41,14 @@ function toRatioLabel(width: number, height: number) {
   return `${Math.round(width / divisor)}:${Math.round(height / divisor)}`;
 }
 
+function toCssAspectRatio(value: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  return value.includes(':') ? value.replace(':', ' / ') : value;
+}
+
 function normalizeEmbedUrl(url: string) {
   if (!url) {
     return '';
@@ -140,6 +148,12 @@ function ActivePortfolioPreviewModal({
     : '';
   const ratioLabel =
     activeMeta?.aspectRatio || toRatioLabel(naturalSize.width, naturalSize.height);
+  const graphicAspectRatio =
+    activeItem.sourceType === 'graphic'
+      ? naturalSize.width && naturalSize.height
+        ? `${naturalSize.width} / ${naturalSize.height}`
+        : toCssAspectRatio(activeMeta?.aspectRatio || '')
+      : undefined;
   const sizeLabel =
     naturalSize.width && naturalSize.height
       ? `${naturalSize.width} x ${naturalSize.height}`
@@ -494,6 +508,8 @@ function ActivePortfolioPreviewModal({
                 >
                   <iframe
                     src={previewVideoUrl}
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
                     style={{
                       position: 'absolute',
                       inset: 0,
@@ -685,6 +701,7 @@ function ActivePortfolioPreviewModal({
                       maxHeight: '72vh',
                       width: 'auto',
                       height: 'auto',
+                      aspectRatio: graphicAspectRatio,
                       objectFit: 'contain',
                       borderRadius: 18,
                       boxShadow: dark

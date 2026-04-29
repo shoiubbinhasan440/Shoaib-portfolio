@@ -44,6 +44,7 @@ import {
   getHomepagePortfolioPreviewItems,
   getHomepagePortfolioSettings,
   getPortfolioPageSettings,
+  isHomepageItemAllowed,
   parsePortfolioItemMetaConfig,
   PORTFOLIO_ITEM_META_SETTING_KEY,
   toPortfolioPreviewItems,
@@ -268,6 +269,19 @@ export default function HomePage() {
         itemMetaConfig: portfolioItemMetaConfig,
       }),
     [allPortfolioItems, homepagePortfolioSettings, portfolioItemMetaConfig]
+  );
+
+  const homepageCategoryPreviewItems = useMemo(
+    () =>
+      allPortfolioItems.filter(item =>
+        isHomepageItemAllowed(item, {
+          itemConfig: homepagePortfolioSettings.itemConfig,
+          showVideos: homepagePortfolioSettings.showVideos,
+          showGraphics: homepagePortfolioSettings.showGraphics,
+          categoryConfig: homepagePortfolioSettings.categoryConfig,
+        })
+      ),
+    [allPortfolioItems, homepagePortfolioSettings]
   );
 
   const openLink = (href: string) => {
@@ -805,10 +819,17 @@ export default function HomePage() {
   ) : null;
 
   const portfolioSection =
-    homepagePortfolioSettings.enabled && homepagePreviewItems.length > 0 ? (
+    homepagePortfolioSettings.enabled &&
+    (homepagePortfolioSettings.displayMode === 'category-preview'
+      ? homepageCategoryPreviewItems.length > 0
+      : homepagePreviewItems.length > 0) ? (
       <PortfolioShowcase
         variant="homepage"
-        items={homepagePreviewItems}
+        items={
+          homepagePortfolioSettings.displayMode === 'category-preview'
+            ? homepageCategoryPreviewItems
+            : homepagePreviewItems
+        }
         categories={portfolioCategories}
         pageSettings={portfolioPageSettings}
         badge={homepagePortfolioSettings.badge}
@@ -1153,7 +1174,7 @@ export default function HomePage() {
           {showreelSection.showInlinePreview ? (
             <div style={{ borderRadius: 20, overflow: 'hidden', border: `1px solid ${border}`, boxShadow: dark ? '0 40px 100px rgba(0,0,0,0.7)' : '0 20px 60px rgba(0,0,0,0.08)', ...getCardSurfaceOverrides(showreelStyles, { dark, fallbackBackground: card, fallbackBorder: border, fallbackShadow: dark ? '0 40px 100px rgba(0,0,0,0.7)' : '0 20px 60px rgba(0,0,0,0.08)' }) }}>
               <div style={{ paddingBottom: '56.25%', position: 'relative' }}>
-                <iframe src={showreelSection.videoUrl} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                <iframe src={showreelSection.videoUrl} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
               </div>
             </div>
           ) : (
@@ -1399,7 +1420,7 @@ export default function HomePage() {
               <button onClick={() => setShowModal(false)} style={{ background: dark ? '#111' : '#f5f5f5', border: `1px solid ${border}`, color: sub, width: 32, height: 32, borderRadius: 8, cursor: 'pointer', fontSize: 16 }}>✕</button>
             </div>
             <div style={{ paddingBottom: '56.25%', position: 'relative' }}>
-              <iframe src={`${showreelSection.videoUrl}${showreelSection.videoUrl.includes('?') ? '&autoplay=1' : '?autoplay=1'}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+              <iframe src={`${showreelSection.videoUrl}${showreelSection.videoUrl.includes('?') ? '&autoplay=1' : '?autoplay=1'}`} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
             </div>
           </div>
         </div>

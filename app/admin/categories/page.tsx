@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,11 +42,7 @@ export default function AdminCategories() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      router.push('/admin/login');
-      return;
-    }
+    let active = true;
 
     async function load() {
       const data = await getCategories();
@@ -53,7 +50,23 @@ export default function AdminCategories() {
       setLoading(false);
     }
 
-    void load();
+    async function verifyAndLoad() {
+      const ok = await verifyAdminSessionClient();
+      if (!active) {
+        return;
+      }
+      if (!ok) {
+        router.replace('/admin/login');
+        return;
+      }
+      await load();
+    }
+
+    void verifyAndLoad();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   async function refreshCats() {

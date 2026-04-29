@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import { AdminBuilderSection } from '@/components/admin/admin-ui';
 import PortfolioShowcase from '@/components/portfolio/PortfolioShowcase';
@@ -69,6 +70,7 @@ import {
   getHomepagePortfolioPreviewItems,
   getHomepagePortfolioSettings,
   getPortfolioPageSettings,
+  isHomepageItemAllowed,
   serializeHomepagePortfolioItemConfig,
   serializeHomepagePortfolioSettings,
   toPortfolioPreviewItems,
@@ -78,6 +80,7 @@ import {
   type HomepagePortfolioClickAction,
   type HomepagePortfolioConfigMap,
   type HomepagePortfolioDensity,
+  type HomepagePortfolioDisplayMode,
   type HomepagePortfolioFilterAlignment,
   type HomepagePortfolioGap,
   type HomepagePortfolioLayoutType,
@@ -242,6 +245,11 @@ const chipStyleOptions: Array<{ value: HomepagePortfolioChipStyle; label: string
   { value: 'soft', label: 'Soft' },
   { value: 'glass', label: 'Glass' },
   { value: 'editorial', label: 'Editorial' },
+];
+
+const displayModeOptions: Array<{ value: HomepagePortfolioDisplayMode; label: string }> = [
+  { value: 'item-grid', label: 'Item Grid' },
+  { value: 'category-preview', label: 'Category Preview' },
 ];
 
 const footerLayoutOptions: Option<HomepageBuilderConfig['footer']['layout']>[] = [
@@ -561,11 +569,7 @@ export default function AdminHomepageBuilderPage() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (!token) {
-      router.push('/admin/login');
-      return;
-    }
+    let active = true;
 
     async function boot() {
       try {
@@ -579,7 +583,23 @@ export default function AdminHomepageBuilderPage() {
       }
     }
 
-    void boot();
+    async function verifyAndBoot() {
+      const ok = await verifyAdminSessionClient();
+      if (!active) {
+        return;
+      }
+      if (!ok) {
+        router.replace('/admin/login');
+        return;
+      }
+      await boot();
+    }
+
+    void verifyAndBoot();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const duplicateOrders = useMemo(() => {
@@ -608,6 +628,19 @@ export default function AdminHomepageBuilderPage() {
         showGraphics: portfolioConfig.showGraphics,
         categoryConfig: portfolioConfig.categoryConfig,
       }),
+    [items, portfolioConfig]
+  );
+
+  const categoryPreviewItems = useMemo(
+    () =>
+      items.filter(item =>
+        isHomepageItemAllowed(item, {
+          itemConfig: portfolioConfig.itemConfig,
+          showVideos: portfolioConfig.showVideos,
+          showGraphics: portfolioConfig.showGraphics,
+          categoryConfig: portfolioConfig.categoryConfig,
+        })
+      ),
     [items, portfolioConfig]
   );
 
@@ -1683,7 +1716,25 @@ export default function AdminHomepageBuilderPage() {
                   style={inputStyle}
                 />
               </Field>
-              <Field label="Item limit">
+              <Field label="Display mode">
+                <select
+                  value={portfolioConfig.displayMode}
+                  onChange={event =>
+                    updatePortfolio(
+                      'displayMode',
+                      event.target.value as HomepagePortfolioDisplayMode
+                    )
+                  }
+                  style={inputStyle}
+                >
+                  {displayModeOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Item limit" hint="Used only when Display mode is Item Grid.">
                 <input
                   type="number"
                   min={1}
@@ -1691,6 +1742,36 @@ export default function AdminHomepageBuilderPage() {
                   value={portfolioConfig.itemLimit}
                   onChange={event =>
                     updatePortfolio('itemLimit', Number(event.target.value) || 1)
+                  }
+                  style={inputStyle}
+                />
+              </Field>
+              <Field
+                label="Thumbnails per category"
+                hint="Used only in Category Preview mode. Recommended range: 3-6."
+              >
+                <input
+                  type="number"
+                  min={3}
+                  max={6}
+                  value={portfolioConfig.thumbnailsPerCategory}
+                  onChange={event =>
+                    updatePortfolio(
+                      'thumbnailsPerCategory',
+                      Number(event.target.value) || 4
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </Field>
+              <Field label="Max categories" hint="Used only in Category Preview mode.">
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={portfolioConfig.maxCategories}
+                  onChange={event =>
+                    updatePortfolio('maxCategories', Number(event.target.value) || 8)
                   }
                   style={inputStyle}
                 />
@@ -2347,7 +2428,11 @@ export default function AdminHomepageBuilderPage() {
               >
                 <PortfolioShowcase
                   variant="homepage"
-                  items={previewItems}
+                  items={
+                    portfolioConfig.displayMode === 'category-preview'
+                      ? categoryPreviewItems
+                      : previewItems
+                  }
                   categories={categories}
                   pageSettings={pageSettings}
                   badge={portfolioConfig.badge}

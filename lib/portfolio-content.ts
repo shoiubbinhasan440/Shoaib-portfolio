@@ -29,6 +29,7 @@ export type HomepagePortfolioCardStyle =
 export type HomepagePortfolioResponsivePreset = 'compact' | 'balanced' | 'showcase';
 export type HomepagePortfolioClickAction = 'preview' | 'portfolio' | 'preview-with-link';
 export type HomepagePortfolioChipStyle = 'soft' | 'glass' | 'editorial';
+export type HomepagePortfolioDisplayMode = 'item-grid' | 'category-preview';
 
 export type PortfolioItemStory = {
   challenge?: string;
@@ -138,11 +139,14 @@ export type HomepagePortfolioSectionSettings = {
   showViewAllButton: boolean;
   viewAllButtonText: string;
   viewAllButtonLink: string;
+  displayMode: HomepagePortfolioDisplayMode;
   itemLimit: number;
   maxRows: number;
   showVideos: boolean;
   showGraphics: boolean;
   mixedOrder: PortfolioAllOrder;
+  thumbnailsPerCategory: number;
+  maxCategories: number;
   showTabs: boolean;
   showCategoryFilters: boolean;
   showAllChip: boolean;
@@ -246,11 +250,14 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
   showViewAllButton: true,
   viewAllButtonText: 'View All Portfolio',
   viewAllButtonLink: '/portfolio',
+  displayMode: 'item-grid',
   itemLimit: 6,
   maxRows: 0,
   showVideos: true,
   showGraphics: true,
   mixedOrder: 'video-first',
+  thumbnailsPerCategory: 4,
+  maxCategories: 8,
   showTabs: true,
   showCategoryFilters: true,
   showAllChip: true,
@@ -767,11 +774,23 @@ function sanitizeHomepagePortfolioSettings(
     showViewAllButton: boolValue(value.showViewAllButton, fallback.showViewAllButton),
     viewAllButtonText: textValue(value.viewAllButtonText, fallback.viewAllButtonText),
     viewAllButtonLink: textValue(value.viewAllButtonLink, fallback.viewAllButtonLink),
+    displayMode: pickEnum(
+      value.displayMode,
+      ['item-grid', 'category-preview'],
+      fallback.displayMode
+    ),
     itemLimit: clampNumber(value.itemLimit, fallback.itemLimit, 1, 24),
     maxRows: clampNumber(value.maxRows, fallback.maxRows, 0, 6),
     showVideos: boolValue(value.showVideos, fallback.showVideos),
     showGraphics: boolValue(value.showGraphics, fallback.showGraphics),
     mixedOrder: pickEnum(value.mixedOrder, ['video-first', 'graphic-first'], fallback.mixedOrder),
+    thumbnailsPerCategory: clampNumber(
+      value.thumbnailsPerCategory,
+      fallback.thumbnailsPerCategory,
+      3,
+      6
+    ),
+    maxCategories: clampNumber(value.maxCategories, fallback.maxCategories, 1, 24),
     showTabs: boolValue(value.showTabs, fallback.showTabs),
     showCategoryFilters: boolValue(value.showCategoryFilters, fallback.showCategoryFilters),
     showAllChip: boolValue(value.showAllChip, fallback.showAllChip),
