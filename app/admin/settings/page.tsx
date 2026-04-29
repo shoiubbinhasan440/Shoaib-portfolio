@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminSeoEditor from '@/components/admin/SeoEditor';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import {
   AdminActionButton,
   AdminBuilderSection,
@@ -285,12 +286,7 @@ export default function AdminSettingsPage() {
     setUploadingField(field);
 
     try {
-      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
+      const { publicUrl } = await adminUploadFile('media', path, file);
       setConfig(current => {
         if (!current) {
           return current;
@@ -299,21 +295,21 @@ export default function AdminSettingsPage() {
         if (field === 'logo') {
           return {
             ...current,
-            siteIdentity: { ...current.siteIdentity, logoUrl: data.publicUrl },
+            siteIdentity: { ...current.siteIdentity, logoUrl: publicUrl },
           };
         }
 
         if (field === 'favicon') {
           return {
             ...current,
-            siteIdentity: { ...current.siteIdentity, faviconUrl: data.publicUrl },
+            siteIdentity: { ...current.siteIdentity, faviconUrl: publicUrl },
           };
         }
 
         if (field === 'default') {
           return {
             ...current,
-            seo: { ...current.seo, defaultOgImage: data.publicUrl },
+            seo: { ...current.seo, defaultOgImage: publicUrl },
           };
         }
 
@@ -325,7 +321,7 @@ export default function AdminSettingsPage() {
               ...current.seo.pages,
               [field]: {
                 ...current.seo.pages[field],
-                ogImage: data.publicUrl,
+                ogImage: publicUrl,
               },
             },
           },

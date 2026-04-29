@@ -185,6 +185,15 @@ export const ADMIN_MODULES: AdminModuleItem[] = [
   },
   {
     group: 'settings',
+    href: '/admin/system-monitor',
+    icon: '!',
+    label: 'System Monitor',
+    meta: 'Production security, API, storage, database, and SEO issue reports',
+    badge: 'Safety',
+    keywords: ['security', 'health', 'issues', 'rls', 'logs', 'production'],
+  },
+  {
+    group: 'settings',
     href: '/',
     icon: '↗',
     label: 'View Site',

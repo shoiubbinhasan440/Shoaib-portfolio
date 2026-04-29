@@ -229,8 +229,12 @@ export function createDefaultGlobalSettingsConfig(map: SettingMap): GlobalSettin
     .filter(item => item.enabled)
     .map(item => ({ label: item.label, value: item.value }));
   const siteName = getFirstSetting(map, 'site_name') || 'Md. Minhajul Hoque';
+  const envCanonicalUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
   const fallbackSeo = createDefaultSiteSeoSettings(siteName, {
-    canonicalUrl: getFirstSetting(map, 'site_canonical_url'),
+    canonicalUrl: getFirstSetting(map, 'site_canonical_url') || envCanonicalUrl,
     metaDescription:
       getFirstSetting(map, 'seo_meta_description') ||
       'Professional portfolio for video editing, motion graphics, and design services.',

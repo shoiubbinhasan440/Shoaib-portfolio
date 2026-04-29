@@ -140,6 +140,22 @@ export function buildStructuredData(settings: GlobalSettingsConfig) {
     url: siteUrl,
     description: settings.seo.metaDescription,
   };
+  const organization = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: settings.siteIdentity.siteName,
+    url: siteUrl,
+    logo: settings.siteIdentity.logoUrl || undefined,
+    sameAs,
+  };
+  const portfolio = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `${settings.siteIdentity.siteName} Portfolio`,
+    url: siteUrl ? `${siteUrl}/portfolio` : undefined,
+    description: settings.seo.metaDescription,
+    about: ['Video Editing', 'Motion Graphics', 'Graphic Design'],
+  };
 
   const entity =
     settings.seo.structuredDataType === 'professional-service'
@@ -163,7 +179,7 @@ export function buildStructuredData(settings: GlobalSettingsConfig) {
           sameAs,
         };
 
-  return [website, entity];
+  return [website, entity, organization, portfolio];
 }
 
 export function buildRobots(settings: GlobalSettingsConfig): MetadataRoute.Robots {

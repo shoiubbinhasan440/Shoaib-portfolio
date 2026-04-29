@@ -456,6 +456,21 @@ export default function AdminInboxPage() {
     pushNotice('Opened WhatsApp reply.');
   }
 
+  async function openEmailReply() {
+    if (!selectedLead) {
+      return;
+    }
+
+    const subject = encodeURIComponent(`Re: ${selectedLead.subject || selectedLead.projectType || 'Your inquiry'}`);
+    const body = encodeURIComponent(whatsAppDraft || `Hi ${selectedLead.name},\n\nThanks for reaching out.`);
+    window.open(`mailto:${selectedLead.email}?subject=${subject}&body=${body}`, '_blank', 'noopener,noreferrer');
+    await patchLead(selectedLead.id, {
+      lastContactedAt: new Date().toISOString(),
+      read: true,
+      status: 'Contacted',
+    });
+  }
+
   async function sendWhatsAppDirect() {
     if (!selectedLead) {
       return;
@@ -1139,6 +1154,16 @@ export default function AdminInboxPage() {
                     ))}
                   </select>
                 </Field>
+                <Field label="Admin notes" full tokens={tokens}>
+                  <textarea
+                    value={selectedLead.notes || ''}
+                    onChange={event =>
+                      void patchLead(selectedLead.id, { notes: event.target.value })
+                    }
+                    placeholder="Private notes, next step, quote context..."
+                    style={textareaStyle}
+                  />
+                </Field>
               </div>
 
               <section
@@ -1306,6 +1331,13 @@ export default function AdminInboxPage() {
                     style={quickButtonStyle(tokens)}
                   >
                     Open WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void openEmailReply()}
+                    style={quickButtonStyle(tokens)}
+                  >
+                    Email reply
                   </button>
                   <button
                     type="button"

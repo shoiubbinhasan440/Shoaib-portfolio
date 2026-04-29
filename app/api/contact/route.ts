@@ -113,12 +113,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, lead: created });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Contact submission failed.';
+    console.error('[contact-api-error]', { message, method: 'POST' });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) {
+    console.warn('[auth-failed]', { path: '/api/contact', method: 'GET' });
     return badRequest('Unauthorized.', 401);
   }
 
@@ -128,12 +130,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ leads });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to load messages.';
+    console.error('[contact-api-error]', { message, method: 'GET' });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   if (!isAdminRequest(request)) {
+    console.warn('[auth-failed]', { path: '/api/contact', method: 'PATCH' });
     return badRequest('Unauthorized.', 401);
   }
 
@@ -145,6 +149,7 @@ export async function PATCH(request: NextRequest) {
       id?: string;
       important?: boolean;
       lastContactedAt?: string;
+      notes?: string;
       preferredContactMethod?: PreferredContactMethod;
       priority?: LeadPriority;
       projectId?: string;
@@ -165,6 +170,7 @@ export async function PATCH(request: NextRequest) {
       category: body.category,
       important: typeof body.important === 'boolean' ? body.important : undefined,
       lastContactedAt: body.lastContactedAt,
+      notes: body.notes,
       preferredContactMethod: body.preferredContactMethod,
       priority: body.priority,
       projectId: body.projectId,
@@ -177,12 +183,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ ok: true, lead });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to update message.';
+    console.error('[contact-api-error]', { message, method: 'PATCH' });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   if (!isAdminRequest(request)) {
+    console.warn('[auth-failed]', { path: '/api/contact', method: 'DELETE' });
     return badRequest('Unauthorized.', 401);
   }
 
@@ -198,6 +206,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete message.';
+    console.error('[contact-api-error]', { message, method: 'DELETE' });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

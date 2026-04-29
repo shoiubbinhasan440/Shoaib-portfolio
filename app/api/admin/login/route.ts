@@ -18,8 +18,10 @@ export async function POST(request: NextRequest) {
 
     const email = body.email?.trim() || '';
     const password = body.password || '';
+    console.info('[admin-login-attempt]', { email, ok: false });
 
     if (!validateAdminCredentials(email, password)) {
+      console.warn('[admin-login-failed]', { email });
       return NextResponse.json(
         { error: 'Invalid admin credentials.' },
         {
@@ -44,10 +46,12 @@ export async function POST(request: NextRequest) {
       createAdminSessionToken(email, SESSION_MAX_AGE),
       createAuthCookieOptions(SESSION_MAX_AGE)
     );
+    console.info('[admin-login-success]', { email });
 
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Admin login failed.';
+    console.error('[admin-login-error]', { message });
     return NextResponse.json(
       { error: message },
       {

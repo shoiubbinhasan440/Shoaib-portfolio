@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 
 const supabase = createClient(
@@ -83,22 +84,22 @@ export default function AdminCategories() {
     }
     setSaving(true);
     const payload = { name: form.name, slug: form.slug, type: form.type, order_num: form.order_num, active: form.active };
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from('categories').update(payload).eq('id', editingId));
-    } else {
-      ({ error } = await supabase.from('categories').insert([payload]));
-    }
-    setSaving(false);
-    if (error) {
-      setMsg('❌ সমস্যা: ' + error.message);
-    } else {
+    try {
+      if (editingId) {
+        await adminUpdateRows('categories', payload, { id: editingId });
+      } else {
+        await adminInsertRows('categories', [payload]);
+      }
       setMsg(editingId ? '✅ ক্যাটাগরি আপডেট হয়েছে!' : '✅ ক্যাটাগরি যোগ হয়েছে!');
       setShowForm(false);
       setEditingId(null);
       setForm(EMPTY_FORM);
       void refreshCats();
       setTimeout(() => setMsg(''), 3000);
+    } catch (error) {
+      setMsg('❌ সমস্যা: ' + (error instanceof Error ? error.message : 'Save failed.'));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -111,14 +112,14 @@ export default function AdminCategories() {
 
   async function handleDelete(id: number) {
     if (!confirm('এই ক্যাটাগরিটি ডিলিট করবেন? এর সাথে যুক্ত ভিডিওগুলো প্রভাবিত হবে না।')) return;
-    await supabase.from('categories').delete().eq('id', id);
+    await adminDeleteRows('categories', { id });
     setMsg('🗑️ ক্যাটাগরি ডিলিট হয়েছে।');
     void refreshCats();
     setTimeout(() => setMsg(''), 3000);
   }
 
   async function toggleActive(c: Category) {
-    await supabase.from('categories').update({ active: !c.active }).eq('id', c.id);
+    await adminUpdateRows('categories', { active: !c.active }, { id: c.id });
     void refreshCats();
   }
 

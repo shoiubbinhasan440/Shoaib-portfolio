@@ -8,6 +8,8 @@ import PortfolioManagerWorkspace, {
   type PortfolioManagerItem,
 } from '@/components/admin/PortfolioManagerWorkspace';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
+import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { toSettingMap } from '@/lib/hero-settings';
 import {
   fetchPortfolioDataset,
@@ -332,26 +334,10 @@ export default function AdminGraphics() {
 
     let savedId = draft.id;
     if (options.mode === 'update') {
-      const { error } = await supabase
-        .from('graphics')
-        .update(payload)
-        .eq('id', draft.id);
-
-      if (error) {
-        throw error;
-      }
+      await adminUpdateRows('graphics', payload, { id: draft.id });
     } else {
-      const { data, error } = await supabase
-        .from('graphics')
-        .insert([payload])
-        .select('id')
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      savedId = String(data?.id || '');
+      const data = await adminInsertRows<Array<{ id: string }>>('graphics', [payload], 'id');
+      savedId = String(data?.[0]?.id || '');
     }
 
     await persistConfigs(savedId, {
@@ -411,10 +397,7 @@ export default function AdminGraphics() {
   async function handleDeleteItem(item: PortfolioManagerItem) {
     setSaving(true);
     try {
-      const { error } = await supabase.from('graphics').delete().eq('id', item.id);
-      if (error) {
-        throw error;
-      }
+      await adminDeleteRows('graphics', { id: item.id });
 
       const homepageKey = getHomepagePortfolioItemKey('graphic', item.id);
       const nextHomepageConfig = { ...homepageConfig };
@@ -468,17 +451,8 @@ export default function AdminGraphics() {
         order_num: items.length > 0 ? Math.max(...items.map(entry => entry.order_num)) + 1 : 1,
       };
 
-      const { data, error } = await supabase
-        .from('graphics')
-        .insert([insertPayload])
-        .select('id')
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const duplicatedId = String(data?.id || '');
+      const data = await adminInsertRows<Array<{ id: string }>>('graphics', [insertPayload], 'id');
+      const duplicatedId = String(data?.[0]?.id || '');
       const duplicatedItem = {
         ...item,
         id: duplicatedId,
@@ -508,16 +482,8 @@ export default function AdminGraphics() {
     try {
       const extension = file.name.split('.').pop() || 'jpg';
       const fileName = `graphics-${Date.now()}.${extension}`;
-      const { error } = await supabase.storage
-        .from('graphics')
-        .upload(fileName, file, { upsert: true });
-
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('graphics').getPublicUrl(fileName);
-      return data.publicUrl;
+      const { publicUrl } = await adminUploadFile('graphics', fileName, file);
+      return publicUrl;
     } catch (error) {
       const nextMessage =
         error instanceof Error ? `❌ ${error.message}` : '❌ Artwork upload failed.';

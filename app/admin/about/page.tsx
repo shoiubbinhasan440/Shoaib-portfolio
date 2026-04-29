@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
   AdminBuilderSection,
@@ -199,13 +200,8 @@ export default function AdminAboutPage() {
     setUploadingField(fieldKey);
 
     try {
-      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
-      onUploaded(data.publicUrl);
+      const { publicUrl } = await adminUploadFile('media', path, file);
+      onUploaded(publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'About image upload failed.';
       setMsg(`❌ ${message}`);

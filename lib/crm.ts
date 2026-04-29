@@ -46,6 +46,9 @@ export const LEAD_CATEGORIES = [
 
 export const LEAD_STATUSES = [
   'New',
+  'Contacted',
+  'In Progress',
+  'Closed',
   'Read',
   'Pending Reply',
   'Brief Sent',
@@ -156,6 +159,7 @@ export type ContactLead = {
   message: string;
   mobileNumber: string;
   name: string;
+  notes: string;
   preferredContactMethod: PreferredContactMethod;
   priority: LeadPriority;
   projectId: string;
@@ -669,6 +673,7 @@ function sanitizeLead(value: unknown): ContactLead | null {
     message: sanitizeMultiline(value.message, 4000),
     mobileNumber: sanitizePhone(value.mobileNumber || value.mobile),
     name: sanitizeSingleLine(value.name, 120),
+    notes: sanitizeMultiline(value.notes, 4000),
     preferredContactMethod: enumValue(
       value.preferredContactMethod,
       PREFERRED_CONTACT_METHODS,
@@ -1181,6 +1186,7 @@ export async function createContactLead(
     message: sanitizeMultiline(input.message, 4000),
     mobileNumber: sanitizePhone(input.mobileNumber),
     name: sanitizeSingleLine(input.name, 120),
+    notes: '',
     preferredContactMethod,
     priority: leadPriorityFromIntent(intent),
     projectId: '',
@@ -1221,6 +1227,7 @@ export type UpdateLeadPatch = Partial<
     | 'deadline'
     | 'important'
     | 'lastContactedAt'
+    | 'notes'
     | 'preferredContactMethod'
     | 'priority'
     | 'projectId'
@@ -1298,6 +1305,10 @@ export async function updateContactLead(
         patch.lastContactedAt !== undefined
           ? sanitizeIsoDate(patch.lastContactedAt)
           : lead.lastContactedAt,
+      notes:
+        patch.notes !== undefined
+          ? sanitizeMultiline(patch.notes, 4000)
+          : lead.notes,
       preferredContactMethod:
         patch.preferredContactMethod !== undefined
           ? enumValue(

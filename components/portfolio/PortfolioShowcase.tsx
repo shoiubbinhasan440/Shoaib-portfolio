@@ -325,6 +325,7 @@ export default function PortfolioShowcase({
   });
   const [selectedItem, setSelectedItem] = useState<PortfolioPreviewItem | null>(null);
   const [focusItemKey, setFocusItemKey] = useState('');
+  const [hoverPreviewKey, setHoverPreviewKey] = useState('');
   const [smartShowcaseMode, setSmartShowcaseMode] = useState(false);
 
   useEffect(() => {
@@ -1656,17 +1657,30 @@ export default function PortfolioShowcase({
                         const visibleTags: string[] = itemMeta.showTags
                           ? itemMeta.tags.slice(0, 3)
                           : [];
+                        const showHoverVideoPreview =
+                          !isMobile &&
+                          focusMatch &&
+                          item.sourceType === 'video' &&
+                          Boolean(item.youtube_url);
 
                         return (
                           <button
                             key={focusKey}
                             type="button"
                             onClick={() => handleItemAction(item)}
-                            onMouseEnter={() => setFocusItemKey(focusKey)}
+                            onMouseEnter={() => {
+                              setFocusItemKey(focusKey);
+                              setHoverPreviewKey(focusKey);
+                            }}
                             onMouseLeave={() =>
-                              setFocusItemKey(currentKey =>
-                                currentKey === focusKey ? '' : currentKey
-                              )
+                              {
+                                setHoverPreviewKey(currentKey =>
+                                  currentKey === focusKey ? '' : currentKey
+                                );
+                                setFocusItemKey(currentKey =>
+                                  currentKey === focusKey ? '' : currentKey
+                                );
+                              }
                             }
                             onFocus={() => setFocusItemKey(focusKey)}
                             onBlur={() =>
@@ -1721,9 +1735,30 @@ export default function PortfolioShowcase({
                                         homepageConfig.layoutType === 'simple-preview'
                                           ? 'contain'
                                           : 'cover',
-                                      transform: focusMatch ? 'scale(1.04)' : 'scale(1)',
-                                      transition: 'transform 0.28s ease',
+                                      transform:
+                                        focusMatch && item.sourceType === 'graphic'
+                                          ? 'scale(1.07)'
+                                          : focusMatch
+                                            ? 'scale(1.04)'
+                                            : 'scale(1)',
+                                      transition: 'transform 0.32s ease',
                                     }}
+                                  />
+                                ) : null}
+                                {showHoverVideoPreview && hoverPreviewKey === focusKey ? (
+                                  <iframe
+                                    src={`${item.youtube_url || ''}${(item.youtube_url || '').includes('?') ? '&' : '?'}autoplay=1&mute=1&controls=0&playsinline=1&rel=0`}
+                                    loading="lazy"
+                                    referrerPolicy="strict-origin-when-cross-origin"
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      width: '100%',
+                                      height: '100%',
+                                      border: 'none',
+                                      pointerEvents: 'none',
+                                    }}
+                                    allow="autoplay; encrypted-media; picture-in-picture"
                                   />
                                 ) : null}
                                 <div

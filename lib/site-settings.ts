@@ -1,10 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { adminUpsertRows } from '@/lib/admin-data-client';
 
 export async function writeSiteSetting(
   supabase: SupabaseClient,
   key: string,
   value: string
 ) {
+  if (typeof window !== 'undefined') {
+    await adminUpsertRows('site_settings', { key, value }, 'key');
+    return;
+  }
+
   const { data: existingRows, error: selectError } = await supabase
     .from('site_settings')
     .select('id')

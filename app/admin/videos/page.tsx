@@ -8,6 +8,8 @@ import PortfolioManagerWorkspace, {
   type PortfolioManagerItem,
 } from '@/components/admin/PortfolioManagerWorkspace';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
+import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { toSettingMap } from '@/lib/hero-settings';
 import {
   fetchPortfolioDataset,
@@ -360,26 +362,10 @@ export default function AdminVideos() {
 
     let savedId = draft.id;
     if (options.mode === 'update') {
-      const { error } = await supabase
-        .from('videos')
-        .update(payload)
-        .eq('id', draft.id);
-
-      if (error) {
-        throw error;
-      }
+      await adminUpdateRows('videos', payload, { id: draft.id });
     } else {
-      const { data, error } = await supabase
-        .from('videos')
-        .insert([payload])
-        .select('id')
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      savedId = String(data?.id || '');
+      const data = await adminInsertRows<Array<{ id: number }>>('videos', [payload], 'id');
+      savedId = String(data?.[0]?.id || '');
     }
 
     await persistConfigs(savedId, {
@@ -441,10 +427,7 @@ export default function AdminVideos() {
   async function handleDeleteItem(item: PortfolioManagerItem) {
     setSaving(true);
     try {
-      const { error } = await supabase.from('videos').delete().eq('id', item.id);
-      if (error) {
-        throw error;
-      }
+      await adminDeleteRows('videos', { id: item.id });
 
       const homepageKey = getHomepagePortfolioItemKey('video', item.id);
       const nextHomepageConfig = { ...homepageConfig };
@@ -501,17 +484,8 @@ export default function AdminVideos() {
         visible: item.visible,
       };
 
-      const { data, error } = await supabase
-        .from('videos')
-        .insert([insertPayload])
-        .select('id')
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const duplicatedId = String(data?.id || '');
+      const data = await adminInsertRows<Array<{ id: number }>>('videos', [insertPayload], 'id');
+      const duplicatedId = String(data?.[0]?.id || '');
       const duplicatedItem = {
         ...item,
         id: duplicatedId,
@@ -541,16 +515,8 @@ export default function AdminVideos() {
     try {
       const extension = file.name.split('.').pop() || 'jpg';
       const path = `videos/thumb-${Date.now()}.${extension}`;
-      const { error } = await supabase.storage.from('media').upload(path, file, {
-        upsert: true,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
-      return data.publicUrl;
+      const { publicUrl } = await adminUploadFile('media', path, file);
+      return publicUrl;
     } catch (error) {
       const nextMessage =
         error instanceof Error ? `❌ ${error.message}` : '❌ Thumbnail upload failed.';

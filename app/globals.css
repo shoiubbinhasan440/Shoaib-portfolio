@@ -28,3 +28,23 @@ html[data-theme-switching] * {
   transition: none !important;
   animation: none !important;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a,
+  [role='button'] {
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      color 180ms ease,
+      opacity 180ms ease,
+      transform 180ms ease;
+  }
+}
+
+button:active,
+a:active,
+[role='button']:active {
+  transform: translateY(1px) scale(0.995);
+}

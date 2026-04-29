@@ -52,6 +52,9 @@ export const LEAD_CATEGORY_OPTIONS = [
 
 export const LEAD_STATUS_OPTIONS = [
   'New',
+  'Contacted',
+  'In Progress',
+  'Closed',
   'Read',
   'Pending Reply',
   'Brief Sent',

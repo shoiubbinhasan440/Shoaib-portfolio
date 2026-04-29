@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import { AdminBuilderSection } from '@/components/admin/admin-ui';
@@ -575,15 +576,8 @@ export default function PortfolioAdminPage() {
     setUploadingField('banner');
 
     try {
-      const { error } = await supabase.storage.from('media').upload(path, file, {
-        upsert: true,
-      });
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
-      updateHero('bannerImage', data.publicUrl);
+      const { publicUrl } = await adminUploadFile('media', path, file);
+      updateHero('bannerImage', publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Banner upload failed.';
       setMsg(`❌ ${message}`);

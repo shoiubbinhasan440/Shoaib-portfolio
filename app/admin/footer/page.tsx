@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
   AdminActionButton,
@@ -181,13 +182,8 @@ export default function FooterAdminPage() {
     setUploadingField('logo');
 
     try {
-      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
-      updateFooter('logoUrl', data.publicUrl);
+      const { publicUrl } = await adminUploadFile('media', path, file);
+      updateFooter('logoUrl', publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Footer logo upload failed.';
       setMsg(`❌ ${message}`);

@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import { AdminBuilderSection } from '@/components/admin/admin-ui';
@@ -982,16 +983,8 @@ export default function AdminHomepageBuilderPage() {
   async function uploadMedia(file: File, folder: string) {
     const ext = file.name.split('.').pop();
     const path = `homepage-builder/${folder}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('media').upload(path, file, {
-      upsert: true,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    const { data } = supabase.storage.from('media').getPublicUrl(path);
-    return data.publicUrl;
+    const { publicUrl } = await adminUploadFile('media', path, file);
+    return publicUrl;
   }
 
   async function handleImageUpload(

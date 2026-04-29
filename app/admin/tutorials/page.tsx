@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import { AdminBuilderSection } from '@/components/admin/admin-ui';
@@ -420,13 +422,8 @@ export default function AdminTutorialPage() {
     setUploadingId(String(item.id));
 
     try {
-      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
-      if (error) {
-        throw error;
-      }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(path);
-      updateTutorial(item.id, { thumbnail: data.publicUrl });
+      const { publicUrl } = await adminUploadFile('media', path, file);
+      updateTutorial(item.id, { thumbnail: publicUrl });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Thumbnail upload failed.';
       setMsg(`❌ ${message}`);
@@ -471,10 +468,7 @@ export default function AdminTutorialPage() {
       ]);
 
       if (deletedIds.length > 0) {
-        const { error } = await supabase.from('tutorials').delete().in('id', deletedIds);
-        if (error) {
-          throw error;
-        }
+        await adminDeleteRows('tutorials', { id: deletedIds });
       }
 
       for (const tutorial of tutorials) {
@@ -491,15 +485,9 @@ export default function AdminTutorialPage() {
         };
 
         if (tutorial.isNew) {
-          const { error } = await supabase.from('tutorials').insert(payload);
-          if (error) {
-            throw error;
-          }
+          await adminInsertRows('tutorials', payload);
         } else {
-          const { error } = await supabase.from('tutorials').update(payload).eq('id', tutorial.id);
-          if (error) {
-            throw error;
-          }
+          await adminUpdateRows('tutorials', payload, { id: tutorial.id });
         }
       }
 
