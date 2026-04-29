@@ -4,6 +4,7 @@ import {
   ADMIN_SESSION_COOKIE,
   createAdminSessionToken,
   createAuthCookieOptions,
+  getAdminCredentials,
   validateAdminCredentials,
 } from '@/lib/auth-sessions';
 
@@ -18,7 +19,20 @@ export async function POST(request: NextRequest) {
 
     const email = body.email?.trim() || '';
     const password = body.password || '';
-    console.info('[admin-login-attempt]', { email, ok: false });
+    const admin = getAdminCredentials();
+    const emailMatches =
+      Boolean(admin.email) && admin.email.toLowerCase() === email.toLowerCase();
+    const passwordMatches = Boolean(admin.password) && admin.password === password;
+    const debugLogin = process.env.NODE_ENV !== 'production';
+
+    if (debugLogin) {
+      console.info('[admin-login-debug]', {
+        adminEmailDefined: Boolean(admin.email),
+        passwordComparisonPassed: passwordMatches,
+        requestEmail: email,
+        requestEmailMatchesAdmin: emailMatches,
+      });
+    }
 
     if (!validateAdminCredentials(email, password)) {
       console.warn('[admin-login-failed]', { email });
