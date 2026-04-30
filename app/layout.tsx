@@ -19,6 +19,8 @@ export default async function RootLayout({
   const settings = await getServerGlobalSettings();
   const structuredData = buildStructuredData(settings);
 
+  console.log("GA ID:", process.env.NEXT_PUBLIC_GA_ID);
+
   return (
     <html lang="bn" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
