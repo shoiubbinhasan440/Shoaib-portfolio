@@ -5,7 +5,6 @@ import {
   createAdminSessionToken,
   createAuthCookieOptions,
   getAdminCredentials,
-  validateAdminCredentials,
 } from '@/lib/auth-sessions';
 
 const SESSION_MAX_AGE = 60 * 60 * 24;
@@ -27,14 +26,16 @@ export async function POST(request: NextRequest) {
 
     if (debugLogin) {
       console.info('[admin-login-debug]', {
-        adminEmailDefined: Boolean(admin.email),
+        adminEmailConfigured: Boolean(process.env.ADMIN_EMAIL),
+        adminPasswordConfigured: Boolean(process.env.ADMIN_PASSWORD),
+        sessionSecretConfigured: Boolean(process.env.APP_SESSION_SECRET),
         passwordComparisonPassed: passwordMatches,
         requestEmail: email,
         requestEmailMatchesAdmin: emailMatches,
       });
     }
 
-    if (!validateAdminCredentials(email, password)) {
+    if (!emailMatches || !passwordMatches) {
       console.warn('[admin-login-failed]', { email });
       return NextResponse.json(
         { error: 'Invalid admin credentials.' },

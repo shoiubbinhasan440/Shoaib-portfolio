@@ -33,9 +33,10 @@ export default async function RootLayout({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(entry) }}
           />
         ))}
-        {process.env.NEXT_PUBLIC_GA_ID && (
-          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
-        )}
+        {process.env.NODE_ENV === 'production' &&
+          process.env.NEXT_PUBLIC_GA_ID_PUBLIC && (
+            <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID_PUBLIC} />
+          )}
       </body>
     </html>
   );

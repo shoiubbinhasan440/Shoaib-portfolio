@@ -27,7 +27,6 @@ export default function AdminLogin() {
         throw new Error(result.error || 'লগইন ব্যর্থ হয়েছে।');
       }
 
-      localStorage.setItem('admin_token', 'active');
       router.push('/admin/dashboard');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'ইমেইল বা পাসওয়ার্ড ভুল।');

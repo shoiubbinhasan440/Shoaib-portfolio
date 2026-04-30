@@ -6,14 +6,11 @@ export async function verifyAdminSessionClient() {
     });
 
     if (!response.ok) {
-      localStorage.removeItem('admin_token');
       return false;
     }
 
-    localStorage.setItem('admin_token', 'active');
     return true;
   } catch {
-    localStorage.removeItem('admin_token');
     return false;
   }
 }

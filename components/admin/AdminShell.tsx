@@ -137,7 +137,6 @@ export default function AdminShell({
     try {
       await fetch('/api/admin/logout', { method: 'POST' });
     } finally {
-      localStorage.removeItem('admin_token');
       router.replace('/admin/login');
     }
   }
