@@ -8,6 +8,7 @@ import {
   type SeoPageId,
 } from '@/lib/site-seo';
 import type { PortfolioSourceType } from '@/lib/portfolio-content';
+import { absoluteAssetUrl, absoluteSiteUrl, SITE_CONFIG } from '@/lib/site-config';
 
 function asUrl(value: string) {
   try {
@@ -21,47 +22,78 @@ export function buildPageMetadata(
   settings: GlobalSettingsConfig,
   pageId: SeoPageId
 ): Metadata {
-  const metadataBase = asUrl(settings.seo.canonicalUrl);
+  const canonicalBase = SITE_CONFIG.url;
+  const metadataBase = asUrl(canonicalBase);
   const effective = getEffectiveSeoPage(
     settings.seo,
     pageId,
-    settings.siteIdentity.siteName
+    SITE_CONFIG.siteName
   );
-  const canonical = buildCanonicalUrl(settings.seo.canonicalUrl, effective.canonicalPath);
+  const canonical = buildCanonicalUrl(canonicalBase, effective.canonicalPath);
   const keywords = getCombinedKeywords(settings.seo, pageId);
-  const image = effective.ogImage || settings.seo.defaultOgImage;
+  const image = effective.ogImage || settings.seo.defaultOgImage || SITE_CONFIG.ogImage;
+  const imageUrl = absoluteAssetUrl(image);
   const imageAlt =
     effective.ogImageAlt ||
     settings.seo.defaultOgImageAlt ||
-    `${settings.siteIdentity.siteName} social preview`;
+    `${SITE_CONFIG.siteName} social preview`;
 
   return {
     metadataBase,
-    title: effective.seoTitle,
+    title:
+      pageId === 'home'
+        ? {
+            default: SITE_CONFIG.title,
+            template: `%s | ${SITE_CONFIG.siteName}`,
+          }
+        : {
+            absolute: effective.seoTitle,
+          },
     description: effective.seoDescription,
     keywords,
+    applicationName: SITE_CONFIG.siteName,
+    authors: [{ name: SITE_CONFIG.siteName, url: SITE_CONFIG.url }],
+    creator: SITE_CONFIG.siteName,
+    publisher: SITE_CONFIG.siteName,
+    category: 'portfolio',
     alternates: canonical ? { canonical } : undefined,
     icons: settings.siteIdentity.faviconUrl
       ? {
           icon: settings.siteIdentity.faviconUrl,
           shortcut: settings.siteIdentity.faviconUrl,
+          apple: '/apple-touch-icon.png',
         }
-      : undefined,
+      : {
+          icon: '/favicon.ico',
+          shortcut: '/favicon.ico',
+          apple: '/apple-touch-icon.png',
+          other: [
+            { rel: 'icon', url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { rel: 'icon', url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          ],
+        },
     robots: {
-      index: settings.seo.robotsIndex,
-      follow: settings.seo.robotsFollow,
+      index: true,
+      follow: true,
       noarchive: settings.seo.robotsNoarchive || undefined,
+      googleBot: {
+        index: true,
+        follow: true,
+      },
     },
     openGraph: {
-      title: effective.ogTitle,
+      title: pageId === 'home' ? SITE_CONFIG.title : effective.ogTitle,
       description: effective.ogDescription,
       url: canonical || undefined,
-      siteName: settings.siteIdentity.siteName,
+      siteName: SITE_CONFIG.siteName,
       type: 'website',
-      images: image
+      locale: 'en_US',
+      images: imageUrl
         ? [
             {
-              url: image,
+              url: imageUrl,
+              width: 1200,
+              height: 630,
               alt: imageAlt,
             },
           ]
@@ -69,9 +101,9 @@ export function buildPageMetadata(
     },
     twitter: {
       card: effective.twitterCard,
-      title: effective.ogTitle,
-      description: effective.ogDescription,
-      images: image ? [image] : undefined,
+      title: pageId === 'home' ? SITE_CONFIG.title : effective.ogTitle,
+      description: pageId === 'home' ? SITE_CONFIG.shortDescription : effective.ogDescription,
+      images: imageUrl ? [imageUrl] : undefined,
     },
   };
 }
@@ -96,13 +128,13 @@ export function buildPortfolioCategoryMetadata(
   const typeLabel = params.sourceType === 'video' ? 'Video Editing' : 'Graphics Design';
   const base = buildPageMetadata(settings, 'portfolio');
   const path = `/portfolio/category/${params.sourceType}/${params.slug}`;
-  const canonical = buildCanonicalUrl(settings.seo.canonicalUrl, path);
-  const title = `${categoryTitle} ${typeLabel} | ${settings.siteIdentity.siteName}`;
+  const canonical = buildCanonicalUrl(SITE_CONFIG.url, path);
+  const title = `${categoryTitle} ${typeLabel} | ${SITE_CONFIG.siteName}`;
   const description = `Browse ${categoryTitle} ${typeLabel.toLowerCase()} portfolio work, previews, and selected project details.`;
 
   return {
     ...base,
-    title,
+    title: { absolute: title },
     description,
     alternates: canonical ? { canonical } : base.alternates,
     openGraph: {
@@ -120,66 +152,42 @@ export function buildPortfolioCategoryMetadata(
 }
 
 export function buildStructuredData(settings: GlobalSettingsConfig) {
-  if (!settings.seo.structuredDataEnabled) {
-    return [];
-  }
-
-  const sameAs = [
+  const sameAs = Array.from(new Set([
+    SITE_CONFIG.linkedIn,
     settings.social.facebook,
     settings.social.instagram,
     settings.social.youtube,
     settings.social.linkedIn,
     settings.social.behance,
-  ].filter(Boolean);
+  ].filter(Boolean)));
 
-  const siteUrl = settings.seo.canonicalUrl || undefined;
   const website = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: settings.siteIdentity.siteName,
-    url: siteUrl,
-    description: settings.seo.metaDescription,
+    name: SITE_CONFIG.siteName,
+    alternateName: SITE_CONFIG.alternateSiteNames,
+    url: SITE_CONFIG.url,
   };
-  const organization = {
+  const person = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: settings.siteIdentity.siteName,
-    url: siteUrl,
-    logo: settings.siteIdentity.logoUrl || undefined,
+    '@type': 'Person',
+    name: SITE_CONFIG.ownerName,
+    alternateName: SITE_CONFIG.alternatePersonNames,
+    jobTitle: SITE_CONFIG.profession,
+    url: SITE_CONFIG.url,
     sameAs,
+    knowsAbout: SITE_CONFIG.knowsAbout,
   };
   const portfolio = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: `${settings.siteIdentity.siteName} Portfolio`,
-    url: siteUrl ? `${siteUrl}/portfolio` : undefined,
-    description: settings.seo.metaDescription,
-    about: ['Video Editing', 'Motion Graphics', 'Graphic Design'],
+    name: `${SITE_CONFIG.siteName} Portfolio`,
+    url: absoluteSiteUrl('/portfolio'),
+    description: settings.seo.metaDescription || SITE_CONFIG.description,
+    about: SITE_CONFIG.knowsAbout,
   };
 
-  const entity =
-    settings.seo.structuredDataType === 'professional-service'
-      ? {
-          '@context': 'https://schema.org',
-          '@type': 'ProfessionalService',
-          name: settings.siteIdentity.siteName,
-          url: siteUrl,
-          description: settings.siteIdentity.tagline || settings.seo.metaDescription,
-          email: settings.contact.email || undefined,
-          telephone: settings.contact.phone || undefined,
-          sameAs,
-        }
-      : {
-          '@context': 'https://schema.org',
-          '@type': 'Person',
-          name: settings.siteIdentity.siteName,
-          url: siteUrl,
-          description: settings.siteIdentity.tagline || settings.seo.metaDescription,
-          image: settings.siteIdentity.logoUrl || settings.seo.defaultOgImage || undefined,
-          sameAs,
-        };
-
-  return [website, entity, organization, portfolio];
+  return [website, person, portfolio];
 }
 
 export function buildRobots(settings: GlobalSettingsConfig): MetadataRoute.Robots {
@@ -187,11 +195,10 @@ export function buildRobots(settings: GlobalSettingsConfig): MetadataRoute.Robot
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: settings.seo.robotsIndex ? undefined : '/',
     },
     sitemap:
-      settings.seo.sitemapEnabled && settings.seo.canonicalUrl
-        ? `${settings.seo.canonicalUrl}/sitemap.xml`
+      settings.seo.sitemapEnabled
+        ? absoluteSiteUrl('/sitemap.xml')
         : undefined,
   };
 }
@@ -200,7 +207,7 @@ export function buildSitemap(
   settings: GlobalSettingsConfig,
   extraEntries: MetadataRoute.Sitemap = []
 ): MetadataRoute.Sitemap {
-  if (!settings.seo.sitemapEnabled || !settings.seo.canonicalUrl) {
+  if (!settings.seo.sitemapEnabled) {
     return [];
   }
 
@@ -208,17 +215,24 @@ export function buildSitemap(
     const effective = getEffectiveSeoPage(
       settings.seo,
       page.id,
-      settings.siteIdentity.siteName
+      SITE_CONFIG.siteName
     );
 
     return {
-      url: buildCanonicalUrl(settings.seo.canonicalUrl, effective.canonicalPath),
+      url: buildCanonicalUrl(SITE_CONFIG.url, effective.canonicalPath),
       lastModified: new Date(),
       changeFrequency: page.id === 'home' ? ('weekly' as const) : ('monthly' as const),
-      priority: page.id === 'home' ? 1 : 0.7,
+      priority:
+        page.id === 'home'
+          ? 1
+          : page.id === 'portfolio'
+            ? 0.9
+            : page.id === 'about' || page.id === 'contact'
+              ? 0.8
+              : 0.65,
       images:
         settings.seo.sitemapIncludeImages && effective.ogImage
-          ? [effective.ogImage]
+          ? [absoluteAssetUrl(effective.ogImage)]
           : undefined,
     };
   });

@@ -1,5 +1,6 @@
 import { getGlobalFooterConfig } from '@/lib/footer-content';
 import { getFirstSetting, type SettingMap } from '@/lib/hero-settings';
+import { SITE_CONFIG } from '@/lib/site-config';
 import {
   createDefaultSeoPageSettings,
   createDefaultSiteSeoSettings,
@@ -20,8 +21,14 @@ export type GlobalSettingsTab =
   | 'contact'
   | 'social'
   | 'uploads'
+  | 'loader'
   | 'admin'
   | 'advanced';
+
+export type PremiumLoaderStyle = 'portfolio-circle' | 'simple-line' | 'minimal-fade';
+export type PremiumLoaderImageSource = 'graphics-only' | 'manual' | 'profile-fallback';
+export type PremiumLoaderMinimumDuration = 500 | 800 | 1200;
+export type PremiumLoaderRotationSpeed = 250 | 300 | 400 | 800 | 1200;
 
 export type GlobalSettingsConfig = {
   siteIdentity: {
@@ -49,6 +56,19 @@ export type GlobalSettingsConfig = {
     instagram: string;
     linkedIn: string;
     youtube: string;
+  };
+  loader: {
+    applyToAdmin: boolean;
+    applyToPublic: boolean;
+    enabled: boolean;
+    imageSource: PremiumLoaderImageSource;
+    manualImages: string[];
+    minimumDuration: PremiumLoaderMinimumDuration;
+    rotationSpeed: PremiumLoaderRotationSpeed;
+    showProgressDots: boolean;
+    showRotatingStroke: boolean;
+    style: PremiumLoaderStyle;
+    text: string;
   };
   admin: {
     dashboardStyle: 'immersive' | 'compact' | 'balanced';
@@ -111,6 +131,65 @@ function dashboardStyle(
   return value === 'immersive' || value === 'compact' || value === 'balanced'
     ? value
     : fallback;
+}
+
+function loaderStyle(value: unknown, fallback: PremiumLoaderStyle): PremiumLoaderStyle {
+  return value === 'portfolio-circle' || value === 'simple-line' || value === 'minimal-fade'
+    ? value
+    : fallback;
+}
+
+function loaderImageSource(
+  value: unknown,
+  fallback: PremiumLoaderImageSource
+): PremiumLoaderImageSource {
+  if (value === 'graphics-only' || value === 'manual' || value === 'profile-fallback') {
+    return value;
+  }
+
+  if (value === 'featured-portfolio' || value === 'latest-portfolio') {
+    return 'graphics-only';
+  }
+
+  return fallback;
+}
+
+function loaderMinimumDuration(
+  value: unknown,
+  fallback: PremiumLoaderMinimumDuration
+): PremiumLoaderMinimumDuration {
+  return value === 500 || value === 800 || value === 1200 ? value : fallback;
+}
+
+function loaderRotationSpeed(
+  value: unknown,
+  fallback: PremiumLoaderRotationSpeed
+): PremiumLoaderRotationSpeed {
+  if (value === 250 || value === 300 || value === 400 || value === 800 || value === 1200) {
+    return value;
+  }
+
+  if (value === 700) {
+    return 400;
+  }
+
+  if (value === 1000) {
+    return 800;
+  }
+
+  if (value === 1500 || value === 1800) {
+    return 1200;
+  }
+
+  return fallback;
+}
+
+function textList(value: unknown, fallback: string[] = []) {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 }
 
 function twitterCard(
@@ -228,18 +307,19 @@ export function createDefaultGlobalSettingsConfig(map: SettingMap): GlobalSettin
   const footerContacts = footer.contactItems
     .filter(item => item.enabled)
     .map(item => ({ label: item.label, value: item.value }));
-  const siteName = getFirstSetting(map, 'site_name') || 'Md. Minhajul Hoque';
+  const siteName = getFirstSetting(map, 'site_name') || SITE_CONFIG.siteName;
   const envCanonicalUrl =
+    getFirstSetting(map, 'site_canonical_url') ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : SITE_CONFIG.url);
   const fallbackSeo = createDefaultSiteSeoSettings(siteName, {
-    canonicalUrl: getFirstSetting(map, 'site_canonical_url') || envCanonicalUrl,
+    canonicalUrl: envCanonicalUrl || SITE_CONFIG.url,
     metaDescription:
       getFirstSetting(map, 'seo_meta_description') ||
-      'Professional portfolio for video editing, motion graphics, and design services.',
+      SITE_CONFIG.description,
     socialPreviewImage: getFirstSetting(map, 'seo_social_preview_image'),
-    metaTitle: getFirstSetting(map, 'seo_meta_title') || `${siteName} | Creative Portfolio`,
+    metaTitle: getFirstSetting(map, 'seo_meta_title') || SITE_CONFIG.title,
   });
 
   fallbackSeo.defaultOgImageAlt = getFirstSetting(map, 'seo_default_og_alt');
@@ -275,7 +355,7 @@ export function createDefaultGlobalSettingsConfig(map: SettingMap): GlobalSettin
       logoUrl: getFirstSetting(map, 'site_logo'),
       siteName,
       tagline:
-        getFirstSetting(map, 'site_tagline') || 'Creative editor and designer portfolio',
+        getFirstSetting(map, 'site_tagline') || SITE_CONFIG.profession,
     },
     theme: {
       defaultTheme: themeValue(getFirstSetting(map, 'default_theme'), 'dark'),
@@ -320,6 +400,28 @@ export function createDefaultGlobalSettingsConfig(map: SettingMap): GlobalSettin
         getFirstSetting(map, 'social_linkedin') || findSocialLink('linkedin', footerSocials),
       youtube: getFirstSetting(map, 'social_youtube') || findSocialLink('youtube', footerSocials),
     },
+    loader: {
+      applyToAdmin: settingBool(getFirstSetting(map, 'premium_loader_apply_admin'), true),
+      applyToPublic: settingBool(getFirstSetting(map, 'premium_loader_apply_public'), true),
+      enabled: settingBool(getFirstSetting(map, 'premium_loader_enabled'), true),
+      imageSource: loaderImageSource(
+        getFirstSetting(map, 'premium_loader_image_source'),
+        'graphics-only'
+      ),
+      manualImages: [],
+      minimumDuration: loaderMinimumDuration(
+        Number(getFirstSetting(map, 'premium_loader_minimum_duration')),
+        800
+      ),
+      rotationSpeed: loaderRotationSpeed(
+        Number(getFirstSetting(map, 'premium_loader_rotation_speed')),
+        300
+      ),
+      showProgressDots: settingBool(getFirstSetting(map, 'premium_loader_show_dots'), true),
+      showRotatingStroke: settingBool(getFirstSetting(map, 'premium_loader_show_ring'), true),
+      style: loaderStyle(getFirstSetting(map, 'premium_loader_style'), 'portfolio-circle'),
+      text: getFirstSetting(map, 'premium_loader_text') || 'Loading portfolio...',
+    },
     admin: {
       dashboardStyle: dashboardStyle(
         getFirstSetting(map, 'admin_dashboard_style'),
@@ -361,6 +463,7 @@ export function getGlobalSettingsConfig(map: SettingMap): GlobalSettingsConfig {
     const theme = isRecord(parsed.theme) ? parsed.theme : {};
     const contact = isRecord(parsed.contact) ? parsed.contact : {};
     const social = isRecord(parsed.social) ? parsed.social : {};
+    const loader = isRecord(parsed.loader) ? parsed.loader : {};
     const admin = isRecord(parsed.admin) ? parsed.admin : {};
     const advanced = isRecord(parsed.advanced) ? parsed.advanced : {};
     const legacySeo = isRecord(parsed.seo) ? parsed.seo : {};
@@ -398,6 +501,22 @@ export function getGlobalSettingsConfig(map: SettingMap): GlobalSettingsConfig {
         instagram: text(social.instagram, fallback.social.instagram),
         linkedIn: text(social.linkedIn, fallback.social.linkedIn),
         youtube: text(social.youtube, fallback.social.youtube),
+      },
+      loader: {
+        applyToAdmin: bool(loader.applyToAdmin, fallback.loader.applyToAdmin),
+        applyToPublic: bool(loader.applyToPublic, fallback.loader.applyToPublic),
+        enabled: bool(loader.enabled, fallback.loader.enabled),
+        imageSource: loaderImageSource(loader.imageSource, fallback.loader.imageSource),
+        manualImages: textList(loader.manualImages, fallback.loader.manualImages),
+        minimumDuration: loaderMinimumDuration(
+          loader.minimumDuration,
+          fallback.loader.minimumDuration
+        ),
+        rotationSpeed: loaderRotationSpeed(loader.rotationSpeed, fallback.loader.rotationSpeed),
+        showProgressDots: bool(loader.showProgressDots, fallback.loader.showProgressDots),
+        showRotatingStroke: bool(loader.showRotatingStroke, fallback.loader.showRotatingStroke),
+        style: loaderStyle(loader.style, fallback.loader.style),
+        text: text(loader.text, fallback.loader.text),
       },
       admin: {
         dashboardStyle: dashboardStyle(admin.dashboardStyle, fallback.admin.dashboardStyle),

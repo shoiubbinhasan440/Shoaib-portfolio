@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import ExperienceSection from '@/components/about/ExperienceSection';
 import { createClient } from '@supabase/supabase-js';
 import { useTheme } from '@/components/ThemeProvider';
 import GlobalFooter from '@/components/shared/GlobalFooter';
 import {
   getAboutSystemConfig,
+  getVisibleExperienceItems,
   type AboutPageSectionConfig,
   type AboutSystemConfig,
 } from '@/lib/about-content';
@@ -145,6 +147,7 @@ export default function AboutPage() {
   const sections = [...aboutSystem.pageSections]
     .filter(section => section.enabled)
     .sort((a, b) => a.order - b.order);
+  const aboutExperienceItems = getVisibleExperienceItems(aboutSystem.experience, 'about');
 
   function sectionTextAlign(section: AboutPageSectionConfig) {
     return section.alignment;
@@ -621,6 +624,15 @@ export default function AboutPage() {
       }}
     >
       {sections.map(renderSection)}
+      {aboutSystem.experience.showOnAboutPage ? (
+        <ExperienceSection
+          config={aboutSystem.experience}
+          dark={dark}
+          isMobile={isMobile}
+          items={aboutExperienceItems}
+          mode="about"
+        />
+      ) : null}
       <GlobalFooter config={footerConfig} isMobile={isMobile} />
     </main>
   );

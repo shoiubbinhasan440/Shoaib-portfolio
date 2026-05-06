@@ -422,7 +422,9 @@ export default function AdminTutorialPage() {
     setUploadingId(String(item.id));
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'thumbnail',
+      });
       updateTutorial(item.id, { thumbnail: publicUrl });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Thumbnail upload failed.';

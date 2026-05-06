@@ -271,6 +271,7 @@ export default function SeoEditor({
                 onFileSelected={file => onImageUpload('default', file)}
                 uploading={uploadingField === 'default'}
                 onError={onError}
+                uploadProfile="showcase"
                 hint="Used as the fallback image for link shares on social apps."
                 previewAlt={`${siteName} default social preview`}
                 full
@@ -575,6 +576,7 @@ export default function SeoEditor({
                 onFileSelected={file => onImageUpload(activeTab, file)}
                 uploading={uploadingField === activeTab}
                 onError={onError}
+                uploadProfile="showcase"
                 previewAlt={`${activeTab} social preview`}
                 full
               />

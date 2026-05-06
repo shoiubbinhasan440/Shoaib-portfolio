@@ -1157,7 +1157,8 @@ export default function TutorialPage() {
 
             <div style={{ position: 'relative', paddingBottom: '56.25%' }}>
               <iframe
-                src={`${selectedTutorial.youtube_url}${selectedTutorial.youtube_url.includes('?') ? '&' : '?'}autoplay=1`}
+                title={`${selectedTutorial.title} tutorial video`}
+                src={`${selectedTutorial.youtube_url.replace('https://www.youtube.com/embed/', 'https://www.youtube-nocookie.com/embed/')}${selectedTutorial.youtube_url.includes('?') ? '&' : '?'}autoplay=1`}
                 loading="lazy"
                 referrerPolicy="strict-origin-when-cross-origin"
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}

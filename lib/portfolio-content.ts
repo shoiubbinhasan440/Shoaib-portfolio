@@ -30,6 +30,7 @@ export type HomepagePortfolioResponsivePreset = 'compact' | 'balanced' | 'showca
 export type HomepagePortfolioClickAction = 'preview' | 'portfolio' | 'preview-with-link';
 export type HomepagePortfolioChipStyle = 'soft' | 'glass' | 'editorial';
 export type HomepagePortfolioDisplayMode = 'item-grid' | 'category-preview';
+export type PortfolioLayoutMode = 'grid' | 'masonry';
 
 export type PortfolioItemStory = {
   challenge?: string;
@@ -140,6 +141,7 @@ export type HomepagePortfolioSectionSettings = {
   viewAllButtonText: string;
   viewAllButtonLink: string;
   displayMode: HomepagePortfolioDisplayMode;
+  layoutMode: PortfolioLayoutMode;
   itemLimit: number;
   maxRows: number;
   showVideos: boolean;
@@ -250,7 +252,8 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
   showViewAllButton: true,
   viewAllButtonText: 'View All Portfolio',
   viewAllButtonLink: '/portfolio',
-  displayMode: 'item-grid',
+    displayMode: 'item-grid',
+    layoutMode: 'grid',
   itemLimit: 6,
   maxRows: 0,
   showVideos: true,
@@ -779,6 +782,11 @@ function sanitizeHomepagePortfolioSettings(
       ['item-grid', 'category-preview'],
       fallback.displayMode
     ),
+    layoutMode: pickEnum(
+      value.layoutMode ?? value.layout,
+      ['grid', 'masonry'],
+      fallback.layoutMode
+    ),
     itemLimit: clampNumber(value.itemLimit, fallback.itemLimit, 1, 24),
     maxRows: clampNumber(value.maxRows, fallback.maxRows, 0, 6),
     showVideos: boolValue(value.showVideos, fallback.showVideos),
@@ -848,6 +856,7 @@ export function serializeHomepagePortfolioSettings(
 ) {
   return JSON.stringify({
     ...settings,
+    layout: settings.layoutMode,
     itemConfig: JSON.parse(serializeHomepagePortfolioItemConfig(settings.itemConfig)),
     categoryConfig: JSON.parse(serializeHomepagePortfolioCategoryConfig(settings.categoryConfig)),
   });

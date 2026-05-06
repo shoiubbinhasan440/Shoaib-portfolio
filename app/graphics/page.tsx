@@ -185,7 +185,7 @@ export default function GraphicsPage() {
 
                 {/* Info */}
                 <div style={{ padding: '12px 14px' }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, color: '#e5e5e5' }}>{item.title || 'Untitled'}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, color: '#e5e5e5' }}>{item.title || 'Md Minhajul Hoque Project'}</div>
                   <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 500 }}>{item.category || 'Graphics'}</div>
                 </div>
               </div>

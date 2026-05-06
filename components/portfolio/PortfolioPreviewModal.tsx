@@ -57,14 +57,14 @@ function normalizeEmbedUrl(url: string) {
   if (url.includes('youtube.com/watch?v=')) {
     const videoId = new URL(url).searchParams.get('v');
     if (videoId) {
-      return `https://www.youtube.com/embed/${videoId}`;
+      return `https://www.youtube-nocookie.com/embed/${videoId}`;
     }
   }
 
   if (url.includes('youtu.be/')) {
     const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
     if (match?.[1]) {
-      return `https://www.youtube.com/embed/${match[1]}`;
+      return `https://www.youtube-nocookie.com/embed/${match[1]}`;
     }
   }
 
@@ -507,6 +507,7 @@ function ActivePortfolioPreviewModal({
                   }}
                 >
                   <iframe
+                    title={`${activeItem.title} portfolio video preview`}
                     src={previewVideoUrl}
                     loading="lazy"
                     referrerPolicy="strict-origin-when-cross-origin"

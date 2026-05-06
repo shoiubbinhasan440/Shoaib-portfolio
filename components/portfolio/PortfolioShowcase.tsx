@@ -28,7 +28,6 @@ import {
   getHomepageAllowedSourceTypes,
   getHomepageCategoryConfig,
   getHomepageConfigForItem,
-  getPortfolioItemDefaultTypeLabel,
   getPortfolioCategoriesForTab,
   getPortfolioItemsForTab,
   getPortfolioTabs,
@@ -250,53 +249,6 @@ function getCardSurface(
   }
 }
 
-function getCardOverlay(
-  dark: boolean,
-  settings: HomepagePortfolioSectionSettings,
-  item: PortfolioPreviewItem,
-  pageBuilder?: PortfolioPageBuilderConfig,
-  variant?: PortfolioShowcaseProps['variant']
-) {
-  if (variant === 'page') {
-    switch (pageBuilder?.showcase.cardStyle) {
-      case 'glass':
-        return 'linear-gradient(180deg, rgba(15,23,42,0.04) 0%, rgba(2,6,23,0.46) 100%)';
-      case 'editorial':
-        return 'linear-gradient(180deg, rgba(1,4,12,0.08) 0%, rgba(1,4,12,0.86) 100%)';
-      case 'light':
-        return dark
-          ? 'linear-gradient(180deg, rgba(2,6,23,0.08) 0%, rgba(2,6,23,0.72) 100%)'
-          : 'linear-gradient(180deg, rgba(15,23,42,0.08) 0%, rgba(15,23,42,0.54) 100%)';
-      case 'cinematic':
-      default:
-        return item.sourceType === 'graphic'
-          ? 'linear-gradient(180deg, rgba(2,6,23,0.06) 0%, rgba(2,6,23,0.76) 100%)'
-          : 'linear-gradient(180deg, rgba(2,6,23,0.1) 0%, rgba(2,6,23,0.82) 100%)';
-    }
-  }
-
-  if (!settings.showHoverOverlay) {
-    return 'transparent';
-  }
-
-  switch (settings.cardStyle) {
-    case 'minimal-premium':
-      return 'linear-gradient(180deg, rgba(2,6,23,0.06) 0%, rgba(2,6,23,0.56) 100%)';
-    case 'glass-bordered':
-      return 'linear-gradient(180deg, rgba(15,23,42,0.04) 0%, rgba(2,6,23,0.42) 100%)';
-    case 'dark-editorial':
-      return 'linear-gradient(180deg, rgba(1,4,12,0.1) 0%, rgba(1,4,12,0.82) 100%)';
-    case 'light-polished':
-      return dark
-        ? 'linear-gradient(180deg, rgba(2,6,23,0.08) 0%, rgba(2,6,23,0.68) 100%)'
-        : 'linear-gradient(180deg, rgba(15,23,42,0.08) 0%, rgba(15,23,42,0.52) 100%)';
-    default:
-      return item.sourceType === 'graphic'
-        ? 'linear-gradient(180deg, rgba(2,6,23,0.06) 0%, rgba(2,6,23,0.74) 100%)'
-        : 'linear-gradient(180deg, rgba(2,6,23,0.1) 0%, rgba(2,6,23,0.78) 100%)';
-  }
-}
-
 export default function PortfolioShowcase({
   items,
   categories,
@@ -357,6 +309,11 @@ export default function PortfolioShowcase({
   const isMobile = viewportWidth < 700;
   const categoryPreviewMode =
     variant === 'homepage' && homepageConfig.displayMode === 'category-preview';
+  const layoutMode =
+    variant === 'homepage'
+      ? homepageConfig.layoutMode
+      : pageBuilder?.showcase.layoutMode || 'grid';
+  const useMasonryLayout = layoutMode === 'masonry';
 
   const homepageTabs = useMemo(() => {
     if (variant !== 'homepage') {
@@ -711,6 +668,11 @@ export default function PortfolioShowcase({
       : '0 18px 32px rgba(15,23,42,0.08)',
   });
   const showcaseGap = showcaseStyles?.card.gap || cardGap;
+  const masonryColumns = isMobile
+    ? 2
+    : variant === 'homepage'
+      ? Math.min(4, Math.max(3, columns))
+      : columns;
 
   function handleItemAction(item: PortfolioPreviewItem) {
     const itemMeta = getPortfolioItemMeta(item, itemMetaConfig);
@@ -1306,9 +1268,15 @@ export default function PortfolioShowcase({
                 ) : (
                   <div
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-                      gap: showcaseGap,
+                      display: useMasonryLayout ? 'block' : 'grid',
+                      gridTemplateColumns: useMasonryLayout
+                        ? undefined
+                        : `repeat(${columns}, minmax(0, 1fr))`,
+                      gridAutoRows: !useMasonryLayout && isMobile ? '1fr' : undefined,
+                      gap: useMasonryLayout ? undefined : showcaseGap,
+                      columnCount: useMasonryLayout ? masonryColumns : undefined,
+                      columnGap: useMasonryLayout ? showcaseGap : undefined,
+                      columnFill: useMasonryLayout ? 'balance' : undefined,
                     }}
                   >
                     {categoryPreviewGroups.map(group => {
@@ -1330,6 +1298,9 @@ export default function PortfolioShowcase({
                             display: 'grid',
                             gap: 16,
                             minHeight: homepageConfig.cardDensity === 'compact' ? 300 : 360,
+                            breakInside: useMasonryLayout ? 'avoid' : undefined,
+                            pageBreakInside: useMasonryLayout ? 'avoid' : undefined,
+                            marginBottom: useMasonryLayout ? showcaseGap : undefined,
                             padding: isMobile ? 16 : 18,
                             borderRadius: 24,
                             overflow: 'hidden',
@@ -1372,20 +1343,46 @@ export default function PortfolioShowcase({
                                   position: 'relative',
                                   overflow: 'hidden',
                                   borderRadius: 18,
-                                  background: dark ? '#0f172a' : '#dbeafe',
+                                  background: previewItems[0].sourceType === 'graphic'
+                                    ? dark
+                                      ? '#020617'
+                                      : '#e2e8f0'
+                                    : dark
+                                      ? '#0f172a'
+                                      : '#dbeafe',
                                 }}
                               >
-                                <img
-                                  src={previewItems[0].imageUrl}
-                                  alt={previewItems[0].title}
-                                  style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                  }}
-                                />
+                                {previewItems[0].sourceType === 'graphic' ? (
+                                  <img
+                                    src={previewItems[0].imageUrl}
+                                    alt={previewItems[0].title}
+                                    loading="lazy"
+                                    decoding="async"
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'contain',
+                                      objectPosition: 'center',
+                                      padding: isMobile ? 6 : 10,
+                                    }}
+                                  />
+                                ) : (
+                                  <img
+                                    src={previewItems[0].imageUrl}
+                                    alt={previewItems[0].title}
+                                    loading="lazy"
+                                    decoding="async"
+                                    style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      width: '100%',
+                                      height: '100%',
+                                      objectFit: 'cover',
+                                    }}
+                                  />
+                                )}
                               </div>
                             ) : null}
                             {previewItems.length > 1 ? (
@@ -1404,21 +1401,46 @@ export default function PortfolioShowcase({
                                       minHeight: 0,
                                       borderRadius: 16,
                                       overflow: 'hidden',
-                                      background: dark ? '#0f172a' : '#dbeafe',
+                                      background: item.sourceType === 'graphic'
+                                        ? dark
+                                          ? '#020617'
+                                          : '#e2e8f0'
+                                        : dark
+                                          ? '#0f172a'
+                                          : '#dbeafe',
                                     }}
                                   >
-                                    <img
-                                      src={item.imageUrl}
-                                      alt={item.title}
-                                      style={{
-                                        position: 'absolute',
-                                        inset: 0,
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: item.sourceType === 'graphic' ? 'contain' : 'cover',
-                                        background: dark ? '#020617' : '#f8fafc',
-                                      }}
-                                    />
+                                    {item.sourceType === 'graphic' ? (
+                                      <img
+                                        src={item.imageUrl}
+                                        alt={item.title}
+                                        loading="lazy"
+                                        decoding="async"
+                                        style={{
+                                          position: 'absolute',
+                                          inset: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'contain',
+                                          objectPosition: 'center',
+                                          padding: 6,
+                                        }}
+                                      />
+                                    ) : (
+                                      <img
+                                        src={item.imageUrl}
+                                        alt={item.title}
+                                        loading="lazy"
+                                        decoding="async"
+                                        style={{
+                                          position: 'absolute',
+                                          inset: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                        }}
+                                      />
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -1572,12 +1594,15 @@ export default function PortfolioShowcase({
 
                     <div
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns:
-                          variant === 'page'
-                            ? `repeat(${columns}, minmax(0, 1fr))`
-                            : `repeat(${columns}, minmax(0, 1fr))`,
-                        gap: showcaseGap,
+                        display: useMasonryLayout ? 'block' : 'grid',
+                        gridTemplateColumns: useMasonryLayout
+                          ? undefined
+                          : `repeat(${columns}, minmax(0, 1fr))`,
+                        gridAutoRows: !useMasonryLayout && isMobile ? '1fr' : undefined,
+                        gap: useMasonryLayout ? undefined : showcaseGap,
+                        columnCount: useMasonryLayout ? masonryColumns : undefined,
+                        columnGap: useMasonryLayout ? showcaseGap : undefined,
+                        columnFill: useMasonryLayout ? 'balance' : undefined,
                       }}
                     >
                       {section.items.map((item, index) => {
@@ -1648,6 +1673,34 @@ export default function PortfolioShowcase({
                                 : item.sourceType === 'graphic'
                                   ? '72%'
                                   : '60%';
+                        const mobileMediaHeight = leadCard ? 180 : 170;
+                        const masonryVideoHeight =
+                          variant === 'homepage'
+                            ? isMobile
+                              ? index % 3 === 1
+                                ? 156
+                                : 178
+                              : [210, 250, 190, 230][index % 4]
+                            : isMobile
+                              ? 190
+                              : [260, 320, 230, 290][index % 4];
+                        const graphicFrameBackground = dark ? '#020617' : '#e2e8f0';
+                        const masonryGraphicMaxHeight =
+                          variant === 'homepage'
+                            ? isMobile
+                              ? 210
+                              : 300
+                            : isMobile
+                              ? 260
+                              : 440;
+                        const mediaObjectFit =
+                          item.sourceType === 'graphic'
+                            ? isMobile ||
+                              (variant === 'homepage' &&
+                                homepageConfig.layoutType === 'simple-preview')
+                              ? 'contain'
+                              : 'cover'
+                            : 'cover';
                         const accentColor = resolveSectionThemeColor(
                           showcaseStyles?.colors.accentLight || '',
                           showcaseStyles?.colors.accentDark || '',
@@ -1691,20 +1744,31 @@ export default function PortfolioShowcase({
                             style={{
                               textAlign: 'left',
                               padding: 0,
-                              borderRadius: variant === 'homepage' && homepageConfig.layoutType === 'simple-preview' ? 18 : 24,
+                              borderRadius: isMobile
+                                ? 22
+                                : variant === 'homepage' && homepageConfig.layoutType === 'simple-preview'
+                                  ? 18
+                                  : 24,
                               overflow: 'hidden',
                               cursor: 'pointer',
                               border: `1px solid ${
                                 focusMatch ? 'rgba(56,189,248,0.34)' : soft
                               }`,
                               background: cardSurface,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              width: useMasonryLayout ? '100%' : undefined,
+                              breakInside: useMasonryLayout ? 'avoid' : undefined,
+                              pageBreakInside: useMasonryLayout ? 'avoid' : undefined,
+                              marginBottom: useMasonryLayout ? showcaseGap : undefined,
+                              height: !useMasonryLayout && isMobile ? '100%' : undefined,
                               boxShadow: dark
                                 ? '0 24px 44px rgba(2,6,23,0.24)'
                                 : '0 18px 32px rgba(15,23,42,0.08)',
                               transition:
                                 'transform 0.22s ease, border-color 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease',
                               gridColumn:
-                                leadCard && columns > 1
+                                !useMasonryLayout && leadCard && columns > 1
                                   ? `span ${Math.min(2, columns)}`
                                   : undefined,
                               opacity: dimmed ? 0.56 : 1,
@@ -1716,28 +1780,75 @@ export default function PortfolioShowcase({
                               <div
                                 style={{
                                   position: 'relative',
-                                  paddingBottom: imagePadding,
-                                  background: dark ? '#0f172a' : '#dbeafe',
+                                  height:
+                                    useMasonryLayout && item.sourceType === 'graphic'
+                                      ? undefined
+                                      : useMasonryLayout
+                                        ? masonryVideoHeight
+                                      : isMobile
+                                        ? mobileMediaHeight
+                                        : undefined,
+                                  paddingBottom:
+                                    useMasonryLayout && item.sourceType === 'graphic'
+                                      ? 0
+                                      : useMasonryLayout
+                                        ? 0
+                                      : isMobile
+                                        ? 0
+                                        : imagePadding,
+                                  flexShrink: 0,
+                                  background:
+                                    item.sourceType === 'graphic'
+                                      ? graphicFrameBackground
+                                      : dark
+                                        ? '#0f172a'
+                                        : '#dbeafe',
                                 }}
                               >
-                                {item.imageUrl ? (
+                                {item.imageUrl && item.sourceType === 'graphic' ? (
                                   <img
                                     src={item.imageUrl}
                                     alt={item.title}
+                                    loading="lazy"
+                                    decoding="async"
+                                    style={{
+                                      position: useMasonryLayout ? 'relative' : 'absolute',
+                                      inset: useMasonryLayout ? undefined : 0,
+                                      display: 'block',
+                                      width: '100%',
+                                      height: useMasonryLayout ? 'auto' : '100%',
+                                      maxWidth: '100%',
+                                      maxHeight: useMasonryLayout
+                                        ? masonryGraphicMaxHeight
+                                        : '100%',
+                                      objectFit: 'contain',
+                                      objectPosition: 'center',
+                                      padding: isMobile ? 6 : 10,
+                                      margin: '0 auto',
+                                      transform: isMobile
+                                        ? 'scale(1)'
+                                        : focusMatch
+                                          ? 'scale(1.025)'
+                                          : 'scale(1)',
+                                      transition: 'transform 0.32s ease',
+                                    }}
+                                  />
+                                ) : item.imageUrl ? (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.title}
+                                    loading="lazy"
+                                    decoding="async"
                                     style={{
                                       position: 'absolute',
                                       inset: 0,
                                       width: '100%',
                                       height: '100%',
-                                      objectFit:
-                                        item.sourceType === 'graphic' &&
-                                        variant === 'homepage' &&
-                                        homepageConfig.layoutType === 'simple-preview'
-                                          ? 'contain'
-                                          : 'cover',
+                                      objectFit: mediaObjectFit,
+                                      objectPosition: 'center',
                                       transform:
-                                        focusMatch && item.sourceType === 'graphic'
-                                          ? 'scale(1.07)'
+                                        isMobile
+                                          ? 'scale(1)'
                                           : focusMatch
                                             ? 'scale(1.04)'
                                             : 'scale(1)',
@@ -1747,7 +1858,8 @@ export default function PortfolioShowcase({
                                 ) : null}
                                 {showHoverVideoPreview && hoverPreviewKey === focusKey ? (
                                   <iframe
-                                    src={`${item.youtube_url || ''}${(item.youtube_url || '').includes('?') ? '&' : '?'}autoplay=1&mute=1&controls=0&playsinline=1&rel=0`}
+                                    title={`${item.title} hover video preview`}
+                                    src={`${(item.youtube_url || '').replace('https://www.youtube.com/embed/', 'https://www.youtube-nocookie.com/embed/')}${(item.youtube_url || '').includes('?') ? '&' : '?'}autoplay=1&mute=1&controls=0&playsinline=1&rel=0`}
                                     loading="lazy"
                                     referrerPolicy="strict-origin-when-cross-origin"
                                     style={{
@@ -1761,148 +1873,22 @@ export default function PortfolioShowcase({
                                     allow="autoplay; encrypted-media; picture-in-picture"
                                   />
                                 ) : null}
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    background: getCardOverlay(
-                                      dark,
-                                      homepageConfig,
-                                      item,
-                                      pageBuilder,
-                                      variant
-                                    ),
-                                  }}
-                                />
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    top: 14,
-                                    left: 14,
-                                    display: 'flex',
-                                    gap: 8,
-                                    flexWrap: 'wrap',
-                                  }}
-                                >
-                                  {(variant === 'page' || homepageConfig.showCategory) &&
-                                  itemMeta.showCategoryBadge ? (
-                                    <div
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                        padding: '6px 12px',
-                                        borderRadius: 999,
-                                        background: 'rgba(2,6,23,0.72)',
-                                        border: '1px solid rgba(148,163,184,0.16)',
-                                        color: '#e2e8f0',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                      }}
-                                    >
-                                      {item.categoryName}
-                                    </div>
-                                  ) : null}
-                                  {itemMeta.cardBadge ? (
-                                    <div
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                        padding: '6px 12px',
-                                        borderRadius: 999,
-                                        background: 'rgba(14,165,233,0.12)',
-                                        border: '1px solid rgba(125,211,252,0.2)',
-                                        color: '#e0f2fe',
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                      }}
-                                    >
-                                      {itemMeta.cardBadge}
-                                    </div>
-                                  ) : null}
-                                </div>
-                                {(variant === 'page' || homepageConfig.showTypeBadge) && (
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      top: 14,
-                                      right: 14,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      padding: '6px 10px',
-                                      borderRadius: 999,
-                                      background: 'rgba(2,6,23,0.72)',
-                                      border: '1px solid rgba(148,163,184,0.16)',
-                                      color: '#cbd5e1',
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.08em',
-                                    }}
-                                  >
-                                    {itemMeta.typeLabel || getPortfolioItemDefaultTypeLabel(item.sourceType)}
-                                  </div>
-                                )}
-                                {variant === 'homepage' &&
-                                homepageConfig.showFeaturedBadge &&
-                                itemConfig?.homepageFeatured &&
-                                itemMeta.showHomepageBadge ? (
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      left: 14,
-                                      bottom: 14,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      padding: '6px 10px',
-                                      borderRadius: 999,
-                                      background: 'rgba(37,99,235,0.85)',
-                                      color: '#fff',
-                                      fontSize: 11,
-                                      fontWeight: 800,
-                                      letterSpacing: '0.06em',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    ✨ Featured
-                                  </div>
-                                ) : null}
-                                {smartLeadCard ? (
-                                  <div
-                                    style={{
-                                      position: 'absolute',
-                                      right: 14,
-                                      bottom: 14,
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      padding: '6px 10px',
-                                      borderRadius: 999,
-                                      background: 'rgba(37,99,235,0.82)',
-                                      color: '#fff',
-                                      fontSize: 11,
-                                      fontWeight: 800,
-                                      letterSpacing: '0.08em',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    Showcase Pick
-                                  </div>
-                                ) : null}
                               </div>
                             ) : null}
 
                             <div
                               style={{
                                 padding:
-                                  denseCard
+                                  isMobile
+                                    ? '9px 10px 10px'
+                                    : denseCard
                                     ? '16px 16px 15px'
                                     : spaciousCard
                                       ? '24px 22px 22px'
                                       : '20px 18px 18px',
+                                display: 'flex',
+                                flex: isMobile ? 1 : undefined,
+                                flexDirection: 'column',
                               }}
                             >
                               {(variant === 'page' || homepageConfig.showTitle) && (
@@ -1912,7 +1898,7 @@ export default function PortfolioShowcase({
                                     fontWeight: 800,
                                     color: text,
                                     lineHeight: 1.15,
-                                    marginBottom: 10,
+                                    marginBottom: isMobile ? 8 : 10,
                                     ...getTypographyStyleOverrides(
                                       'title',
                                       showcaseStyles?.typography.title,
@@ -1924,6 +1910,15 @@ export default function PortfolioShowcase({
                                         fallbackLineHeight: 1.15,
                                       }
                                     ),
+                                    ...(isMobile
+                                      ? {
+                                          fontSize: 14,
+                                          lineHeight: 1.12,
+                                          whiteSpace: 'nowrap',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                        }
+                                      : {}),
                                   }}
                                 >
                                   {item.title}
@@ -1934,59 +1929,150 @@ export default function PortfolioShowcase({
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: 8,
-                                  flexWrap: 'wrap',
+                                  gap: isMobile ? 5 : 8,
+                                  flexWrap: isMobile ? 'nowrap' : 'wrap',
+                                  overflow: isMobile ? 'hidden' : undefined,
                                   marginBottom:
-                                    item.description || visibleTags.length > 0 ? 10 : 14,
+                                    item.description || visibleTags.length > 0
+                                      ? isMobile
+                                        ? 7
+                                        : 10
+                                      : isMobile
+                                        ? 8
+                                        : 14,
                                 }}
                               >
                                 <span
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: 8,
-                                    padding: '6px 10px',
+                                    gap: isMobile ? 5 : 8,
+                                    padding: isMobile ? '4px 7px' : '6px 10px',
+                                    flexShrink: 0,
                                     borderRadius: 999,
                                     background: dark
                                       ? 'rgba(15,23,42,0.56)'
                                       : 'rgba(226,232,240,0.8)',
                                     color: text,
-                                    fontSize: 11,
+                                    fontSize: isMobile ? 9.5 : 11,
                                     fontWeight: 700,
                                   }}
                                 >
                                   {item.sourceType === 'video' ? 'Video' : 'Graphic'}
                                 </span>
-                                {itemMeta.formatLabel ? (
+                                {(variant === 'page' || homepageConfig.showCategory) &&
+                                itemMeta.showCategoryBadge ? (
                                   <span
                                     style={{
                                       display: 'inline-flex',
                                       alignItems: 'center',
-                                      gap: 8,
-                                      padding: '6px 10px',
+                                      gap: isMobile ? 5 : 8,
+                                      maxWidth: isMobile ? '56%' : '100%',
+                                      padding: isMobile ? '4px 7px' : '6px 10px',
+                                      overflow: isMobile ? 'hidden' : undefined,
+                                      textOverflow: isMobile ? 'ellipsis' : undefined,
+                                      whiteSpace: isMobile ? 'nowrap' : undefined,
+                                      flexShrink: isMobile ? 1 : 0,
+                                      borderRadius: 999,
+                                      background: dark
+                                        ? 'rgba(15,23,42,0.56)'
+                                        : 'rgba(226,232,240,0.8)',
+                                      color: muted,
+                                      fontSize: isMobile ? 9.5 : 11,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {item.categoryName}
+                                  </span>
+                                ) : null}
+                                {itemMeta.cardBadge ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: isMobile ? 5 : 8,
+                                      padding: isMobile ? '4px 7px' : '6px 10px',
+                                      flexShrink: 0,
                                       borderRadius: 999,
                                       background: 'rgba(14,165,233,0.1)',
                                       color: accentColor,
-                                      fontSize: 11,
+                                      fontSize: isMobile ? 9.5 : 11,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {itemMeta.cardBadge}
+                                  </span>
+                                ) : null}
+                                {variant === 'homepage' &&
+                                homepageConfig.showFeaturedBadge &&
+                                itemConfig?.homepageFeatured &&
+                                itemMeta.showHomepageBadge ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 5,
+                                      padding: isMobile ? '4px 7px' : '6px 10px',
+                                      flexShrink: 0,
+                                      borderRadius: 999,
+                                      background: 'rgba(37,99,235,0.12)',
+                                      color: accentColor,
+                                      fontSize: isMobile ? 9.5 : 11,
+                                      fontWeight: 800,
+                                      textTransform: 'uppercase',
+                                    }}
+                                  >
+                                    Featured
+                                  </span>
+                                ) : null}
+                                {smartLeadCard ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 5,
+                                      padding: isMobile ? '4px 7px' : '6px 10px',
+                                      borderRadius: 999,
+                                      background: 'rgba(37,99,235,0.12)',
+                                      color: accentColor,
+                                      fontSize: isMobile ? 9.5 : 11,
+                                      fontWeight: 800,
+                                      textTransform: 'uppercase',
+                                    }}
+                                  >
+                                    Showcase
+                                  </span>
+                                ) : null}
+                                {!isMobile && itemMeta.formatLabel ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: isMobile ? 5 : 8,
+                                      padding: isMobile ? '4px 7px' : '6px 10px',
+                                      borderRadius: 999,
+                                      background: 'rgba(14,165,233,0.1)',
+                                      color: accentColor,
+                                      fontSize: isMobile ? 9.5 : 11,
                                       fontWeight: 700,
                                     }}
                                   >
                                     {itemMeta.formatLabel}
                                   </span>
                                 ) : null}
-                                {hasStoryView ? (
+                                {!isMobile && hasStoryView ? (
                                   <span
                                     style={{
                                       display: 'inline-flex',
                                       alignItems: 'center',
-                                      gap: 8,
-                                      padding: '6px 10px',
+                                      gap: isMobile ? 5 : 8,
+                                      padding: isMobile ? '4px 7px' : '6px 10px',
                                       borderRadius: 999,
                                       background: dark
                                         ? 'rgba(59,130,246,0.16)'
                                         : 'rgba(219,234,254,0.88)',
                                       color: accentColor,
-                                      fontSize: 11,
+                                      fontSize: isMobile ? 9.5 : 11,
                                       fontWeight: 700,
                                     }}
                                   >
@@ -1995,7 +2081,9 @@ export default function PortfolioShowcase({
                                 ) : null}
                               </div>
 
-                              {(variant === 'page' || homepageConfig.showDescription) && item.description ? (
+                              {!isMobile &&
+                              (variant === 'page' || homepageConfig.showDescription) &&
+                              item.description ? (
                                 <p
                                   style={{
                                     margin: '0 0 14px',
@@ -2018,7 +2106,7 @@ export default function PortfolioShowcase({
                                 </p>
                               ) : null}
 
-                              {visibleTags.length > 0 ? (
+                              {!isMobile && visibleTags.length > 0 ? (
                                 <div
                                   style={{
                                     display: 'flex',
@@ -2056,24 +2144,31 @@ export default function PortfolioShowcase({
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
-                                  gap: 12,
+                                  gap: isMobile ? 6 : 12,
+                                  marginTop: isMobile ? 'auto' : undefined,
+                                  minHeight: isMobile ? 18 : undefined,
                                 }}
                               >
                                 <div
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: 8,
+                                    gap: isMobile ? 4 : 8,
+                                    minWidth: 0,
+                                    flex: isMobile ? 1 : undefined,
+                                    overflow: isMobile ? 'hidden' : undefined,
+                                    whiteSpace: isMobile ? 'nowrap' : undefined,
+                                    textOverflow: isMobile ? 'ellipsis' : undefined,
                                     color: resolveSectionThemeColor(
                                       showcaseStyles?.colors.accentLight || '',
                                       showcaseStyles?.colors.accentDark || '',
                                       dark,
                                       '#38bdf8'
                                     ),
-                                    fontSize: 12,
+                                    fontSize: isMobile ? 10.5 : 12,
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    letterSpacing: '0.08em',
+                                    letterSpacing: isMobile ? 0 : '0.08em',
                                     ...getTypographyStyleOverrides(
                                       'button',
                                       showcaseStyles?.typography.button,
@@ -2084,6 +2179,13 @@ export default function PortfolioShowcase({
                                         fallbackFontWeight: 700,
                                       }
                                     ),
+                                    ...(isMobile
+                                      ? {
+                                          fontSize: 10,
+                                          letterSpacing: 0,
+                                          textTransform: 'none',
+                                        }
+                                      : {}),
                                   }}
                                 >
                                   {itemMeta.showPreviewButton ? previewLabel : 'View details'}
@@ -2093,10 +2195,11 @@ export default function PortfolioShowcase({
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: 8,
+                                    gap: isMobile ? 4 : 8,
                                     color: text,
-                                    fontSize: 13,
+                                    fontSize: isMobile ? 10.5 : 13,
                                     fontWeight: 700,
+                                    whiteSpace: 'nowrap',
                                   }}
                                 >
                                   {variant === 'homepage' && homepageConfig.showCardCta

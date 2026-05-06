@@ -1,4 +1,12 @@
-export type SeoPageId = 'home' | 'portfolio' | 'about' | 'contact' | 'tutorial';
+import { SITE_CONFIG } from '@/lib/site-config';
+
+export type SeoPageId =
+  | 'home'
+  | 'portfolio'
+  | 'graphics'
+  | 'about'
+  | 'contact'
+  | 'tutorial';
 export type TwitterCardType = 'summary' | 'summary_large_image';
 
 export type SeoPageSettings = {
@@ -41,6 +49,7 @@ export type SeoChecklistItem = {
 export const SEO_PAGE_OPTIONS: Array<{ id: SeoPageId; label: string; path: string }> = [
   { id: 'home', label: 'Home', path: '/' },
   { id: 'portfolio', label: 'Portfolio', path: '/portfolio' },
+  { id: 'graphics', label: 'Graphics', path: '/graphics' },
   { id: 'about', label: 'About', path: '/about' },
   { id: 'contact', label: 'Contact', path: '/contact' },
   { id: 'tutorial', label: 'Tutorial', path: '/tutorial' },
@@ -48,23 +57,27 @@ export const SEO_PAGE_OPTIONS: Array<{ id: SeoPageId; label: string; path: strin
 
 const PAGE_DEFAULT_COPY: Record<SeoPageId, { description: string; suffix: string }> = {
   home: {
-    description: 'Portfolio homepage showcasing cinematic editing, motion design, and selected creative work.',
-    suffix: 'Creative Portfolio',
+    description: SITE_CONFIG.description,
+    suffix: SITE_CONFIG.profession,
   },
   portfolio: {
-    description: 'Browse selected portfolio work across video editing, graphics, and branded visual storytelling.',
-    suffix: 'Portfolio Work',
+    description: 'Browse selected graphic design, video editing, and motion graphics portfolio work by Md Minhajul Hoque.',
+    suffix: 'Portfolio',
+  },
+  graphics: {
+    description: 'Explore graphic design artwork, visual design projects, and creative graphics by Md Minhajul Hoque.',
+    suffix: 'Graphics',
   },
   about: {
-    description: 'Learn about the creative direction, services, workflow, and story behind the portfolio.',
+    description: 'Learn about Md. Minhajul Hoque, a Graphics & Video Editor specializing in visual design, motion graphics, and digital marketing.',
     suffix: 'About',
   },
   contact: {
-    description: 'Contact the studio for video editing, graphics, motion design, and project collaboration.',
+    description: 'Contact Md Minhajul Hoque for graphic design, video editing, motion graphics, and digital marketing projects.',
     suffix: 'Contact',
   },
   tutorial: {
-    description: 'Explore tutorials, lessons, and breakdowns on editing, motion, and creative workflows.',
+    description: 'Explore tutorials, lessons, and breakdowns on video editing, motion graphics, design, and creative workflows.',
     suffix: 'Tutorials',
   },
 };
@@ -111,8 +124,9 @@ export function splitKeywords(value: string) {
 
 export function createDefaultSeoPageSettings(
   pageId: SeoPageId,
-  siteName: string
+  _siteName: string
 ): SeoPageSettings {
+  void _siteName;
   const option = optionForPage(pageId);
   const copy = PAGE_DEFAULT_COPY[pageId];
 
@@ -124,7 +138,7 @@ export function createDefaultSeoPageSettings(
     ogImageAlt: '',
     ogTitle: '',
     seoDescription: pageId === 'home' ? copy.description : '',
-    seoTitle: pageId === 'home' ? `${siteName} | ${copy.suffix}` : '',
+    seoTitle: pageId === 'home' ? SITE_CONFIG.title : '',
     twitterCard: 'summary_large_image',
   };
 }
@@ -147,10 +161,10 @@ export function createDefaultSiteSeoSettings(
   );
 
   return {
-    canonicalUrl: normalizeCanonicalUrl(options?.canonicalUrl || ''),
-    defaultOgImage: options?.socialPreviewImage || '',
-    defaultOgImageAlt: '',
-    keywords: '',
+    canonicalUrl: normalizeCanonicalUrl(options?.canonicalUrl || SITE_CONFIG.url),
+    defaultOgImage: options?.socialPreviewImage || SITE_CONFIG.ogImage,
+    defaultOgImageAlt: `${SITE_CONFIG.siteName} social preview`,
+    keywords: SITE_CONFIG.keywords.join(', '),
     metaDescription:
       options?.metaDescription || PAGE_DEFAULT_COPY.home.description,
     robotsFollow: true,
@@ -158,7 +172,7 @@ export function createDefaultSiteSeoSettings(
     robotsNoarchive: false,
     sitemapEnabled: true,
     sitemapIncludeImages: true,
-    siteTitle: options?.metaTitle || `${siteName} | ${PAGE_DEFAULT_COPY.home.suffix}`,
+    siteTitle: options?.metaTitle || SITE_CONFIG.title,
     structuredDataEnabled: true,
     structuredDataType: 'person',
     twitterCard: 'summary_large_image',
@@ -175,16 +189,26 @@ export function getEffectiveSeoPage(
   const option = optionForPage(pageId);
   const page = seo.pages[pageId] || fallback;
   const canonicalPath = normalizeCanonicalPath(page.canonicalPath, option.path);
+  const seoTitle =
+    page.seoTitle.trim() ||
+    (pageId === 'home'
+      ? seo.siteTitle.trim()
+      : `${PAGE_DEFAULT_COPY[pageId].suffix} | ${siteName}`);
+  const seoDescription =
+    page.seoDescription.trim() ||
+    (pageId === 'home'
+      ? seo.metaDescription.trim()
+      : fallback.seoDescription.trim() || seo.metaDescription.trim());
 
   return {
     canonicalPath,
     keywords: page.keywords.trim(),
-    ogDescription: page.ogDescription.trim() || page.seoDescription.trim() || seo.metaDescription.trim(),
+    ogDescription: page.ogDescription.trim() || seoDescription,
     ogImage: page.ogImage.trim() || seo.defaultOgImage.trim(),
     ogImageAlt: page.ogImageAlt.trim() || seo.defaultOgImageAlt.trim(),
-    ogTitle: page.ogTitle.trim() || page.seoTitle.trim() || seo.siteTitle.trim(),
-    seoDescription: page.seoDescription.trim() || (pageId === 'home' ? seo.metaDescription.trim() : fallback.seoDescription.trim() || seo.metaDescription.trim()),
-    seoTitle: page.seoTitle.trim() || (pageId === 'home' ? seo.siteTitle.trim() : `${siteName} | ${PAGE_DEFAULT_COPY[pageId].suffix}`),
+    ogTitle: page.ogTitle.trim() || seoTitle,
+    seoDescription,
+    seoTitle,
     twitterCard: page.twitterCard || seo.twitterCard,
   };
 }

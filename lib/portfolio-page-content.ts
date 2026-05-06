@@ -8,7 +8,11 @@ import {
   sanitizeBuilderSectionStyles,
   type BuilderSectionStyles,
 } from '@/lib/page-builder-styles';
-import type { PortfolioCategory, PortfolioPreviewItem } from '@/lib/portfolio-content';
+import type {
+  PortfolioCategory,
+  PortfolioLayoutMode,
+  PortfolioPreviewItem,
+} from '@/lib/portfolio-content';
 
 export const PORTFOLIO_PAGE_BUILDER_SETTING_KEY = 'portfolio_page_builder_config';
 
@@ -50,6 +54,7 @@ export type PortfolioPageShowcaseConfig = {
   width: PortfolioPageWidth;
   spacing: PortfolioPageSpacing;
   layoutType: PortfolioPageLayoutType;
+  layoutMode: PortfolioLayoutMode;
   cardStyle: PortfolioPageCardStyle;
   density: PortfolioPageDensity;
   gap: PortfolioPageGap;
@@ -218,6 +223,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       width: 'wide',
       spacing: 'balanced',
       layoutType: 'cinematic',
+      layoutMode: 'grid',
       cardStyle: 'cinematic',
       density: 'balanced',
       gap: 'medium',
@@ -326,6 +332,10 @@ function sanitizeShowcase(
     width: width(value.width, fallback.width),
     spacing: spacing(value.spacing, fallback.spacing),
     layoutType: layoutType(value.layoutType, fallback.layoutType),
+    layoutMode:
+      value.layoutMode === 'grid' || value.layoutMode === 'masonry'
+        ? value.layoutMode
+        : fallback.layoutMode,
     cardStyle: cardStyle(value.cardStyle, fallback.cardStyle),
     density: density(value.density, fallback.density),
     gap: gap(value.gap, fallback.gap),

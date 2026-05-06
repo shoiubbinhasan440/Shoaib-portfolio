@@ -220,7 +220,9 @@ export default function ContactAdminPage() {
     setUploadingField('extra-image');
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'showcase',
+      });
       updateExtraSection('image', publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Image upload failed.';
@@ -967,6 +969,7 @@ export default function ContactAdminPage() {
                   onFileSelected={file => void handleImageUpload(file)}
                   uploading={uploadingField === 'extra-image'}
                   onError={message => setMsg(message)}
+                  uploadProfile="showcase"
                   full
                 />
               ),

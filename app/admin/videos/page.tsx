@@ -515,7 +515,9 @@ export default function AdminVideos() {
     try {
       const extension = file.name.split('.').pop() || 'jpg';
       const path = `videos/thumb-${Date.now()}.${extension}`;
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'thumbnail',
+      });
       return publicUrl;
     } catch (error) {
       const nextMessage =

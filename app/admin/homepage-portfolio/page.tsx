@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
 import { adminUploadFile } from '@/lib/admin-storage-client';
+import { IMAGE_FILE_ACCEPT, type ImageUploadProfile } from '@/lib/image-upload-validation';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import { AdminBuilderSection } from '@/components/admin/admin-ui';
@@ -41,6 +42,7 @@ import {
   type HomepageBuilderConfig,
   type HomepageContactItem,
   type HomepageFloatingCardPosition,
+  type HomepageHeroCtaLayout,
   type HomepageHeroHeightPreset,
   type HomepageHeroLayout,
   type HomepageLinkItem,
@@ -89,6 +91,7 @@ import {
   type HomepagePortfolioSectionAlignment,
   type HomepagePortfolioSectionSettings,
   type HomepagePortfolioWidth,
+  type PortfolioLayoutMode,
   type PortfolioCategory,
   type PortfolioPageSettings,
   type PortfolioPreviewItem,
@@ -186,6 +189,12 @@ const floatingCardOptions: Option<HomepageFloatingCardPosition>[] = [
   { value: 'hidden', label: 'Hidden' },
 ];
 
+const heroCtaLayoutOptions: Option<HomepageHeroCtaLayout>[] = [
+  { value: 'stack', label: 'Vertical / Stack' },
+  { value: 'row', label: 'Horizontal / Row' },
+  { value: 'responsive', label: 'Responsive' },
+];
+
 const layoutOptions: Array<{ value: HomepagePortfolioLayoutType; label: string }> = [
   { value: 'uniform-grid', label: 'Uniform Grid' },
   { value: 'featured-first', label: 'Featured First' },
@@ -251,6 +260,11 @@ const chipStyleOptions: Array<{ value: HomepagePortfolioChipStyle; label: string
 const displayModeOptions: Array<{ value: HomepagePortfolioDisplayMode; label: string }> = [
   { value: 'item-grid', label: 'Item Grid' },
   { value: 'category-preview', label: 'Category Preview' },
+];
+
+const portfolioLayoutModeOptions: Array<{ value: PortfolioLayoutMode; label: string }> = [
+  { value: 'grid', label: 'Clean Grid' },
+  { value: 'masonry', label: 'Masonry' },
 ];
 
 const footerLayoutOptions: Option<HomepageBuilderConfig['footer']['layout']>[] = [
@@ -441,6 +455,7 @@ function MediaField({
   onFileSelected,
   uploading,
   hint,
+  uploadProfile = 'default',
 }: {
   label: string;
   value: string;
@@ -448,6 +463,7 @@ function MediaField({
   onFileSelected: (file: File) => void;
   uploading?: boolean;
   hint?: string;
+  uploadProfile?: ImageUploadProfile;
 }) {
   return (
     <div>
@@ -478,7 +494,7 @@ function MediaField({
       <div style={{ height: 10 }} />
       <input
         type="file"
-        accept="image/*"
+        accept={IMAGE_FILE_ACCEPT}
         onChange={event => {
           const file = event.target.files?.[0];
           if (file) {
@@ -489,7 +505,14 @@ function MediaField({
         style={fileStyle}
       />
       <div style={{ ...helperStyle, marginTop: 6 }}>
-        {uploading ? 'Uploading image...' : hint || 'You can paste a URL or upload a new media asset.'}
+        {uploading
+          ? 'Uploading image...'
+          : hint ||
+            (uploadProfile === 'showcase'
+              ? 'JPG, PNG বা WebP upload করুন। Max 1MB.'
+              : uploadProfile === 'hero'
+                ? 'JPG, PNG বা WebP upload করুন। Max 800KB.'
+                : 'JPG, PNG বা WebP upload করুন। Max 800KB.')}
       </div>
     </div>
   );
@@ -980,10 +1003,10 @@ export default function AdminHomepageBuilderPage() {
     }));
   }
 
-  async function uploadMedia(file: File, folder: string) {
+  async function uploadMedia(file: File, folder: string, uploadProfile: ImageUploadProfile) {
     const ext = file.name.split('.').pop();
     const path = `homepage-builder/${folder}-${Date.now()}.${ext}`;
-    const { publicUrl } = await adminUploadFile('media', path, file);
+    const { publicUrl } = await adminUploadFile('media', path, file, { uploadProfile });
     return publicUrl;
   }
 
@@ -991,11 +1014,12 @@ export default function AdminHomepageBuilderPage() {
     field: string,
     folder: string,
     apply: (url: string) => void,
-    file: File
+    file: File,
+    uploadProfile: ImageUploadProfile = 'default'
   ) {
     setUploadingField(field);
     try {
-      const url = await uploadMedia(file, folder);
+      const url = await uploadMedia(file, folder, uploadProfile);
       apply(url);
       setMessage('✅ Media uploaded. Save builder to publish it on the homepage.');
       setTimeout(() => setMessage(''), 3000);
@@ -1490,10 +1514,12 @@ export default function AdminHomepageBuilderPage() {
                           'hero-desktop',
                           'hero-desktop',
                           url => updateHero('desktopImage', url),
-                          file
+                          file,
+                          'hero'
                         )
                       }
                       uploading={uploadingField === 'hero-desktop'}
+                      uploadProfile="hero"
                       hint="Landscape image recommended for desktop hero."
                     />
                     <MediaField
@@ -1505,10 +1531,12 @@ export default function AdminHomepageBuilderPage() {
                           'hero-mobile',
                           'hero-mobile',
                           url => updateHero('mobileImage', url),
-                          file
+                          file,
+                          'hero'
                         )
                       }
                       uploading={uploadingField === 'hero-mobile'}
+                      uploadProfile="hero"
                       hint="Portrait / vertical image recommended for mobile hero."
                     />
                   </div>
@@ -1532,6 +1560,27 @@ export default function AdminHomepageBuilderPage() {
                   </Field>
                   <Field label="Text alignment">
                     <select value={homepageBuilder.hero.alignment} onChange={event => updateHero('alignment', event.target.value as HomepageAlignment)} style={inputStyle}>
+                      {alignmentOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field
+                    label="CTA Button Layout"
+                    hint="Responsive means desktop row and mobile stack."
+                  >
+                    <select value={homepageBuilder.hero.ctaLayout} onChange={event => updateHero('ctaLayout', event.target.value as HomepageHeroCtaLayout)} style={inputStyle}>
+                      {heroCtaLayoutOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="CTA Button Alignment">
+                    <select value={homepageBuilder.hero.ctaAlignment} onChange={event => updateHero('ctaAlignment', event.target.value as HomepageAlignment)} style={inputStyle}>
                       {alignmentOptions.map(option => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -1966,6 +2015,24 @@ export default function AdminHomepageBuilderPage() {
                     style={inputStyle}
                   >
                     {layoutOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label="Homepage portfolio layout"
+                  hint="Grid = balanced cards, best for homepage. Masonry = natural artwork height, best for mixed-size designs."
+                >
+                  <select
+                    value={portfolioConfig.layoutMode}
+                    onChange={event =>
+                      updatePortfolio('layoutMode', event.target.value as PortfolioLayoutMode)
+                    }
+                    style={inputStyle}
+                  >
+                    {portfolioLayoutModeOptions.map(option => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -2636,10 +2703,12 @@ export default function AdminHomepageBuilderPage() {
                     'about-image',
                     'about-image',
                     url => updateHomepageAbout('image', url),
-                    file
+                    file,
+                    'showcase'
                   )
                 }
                 uploading={uploadingField === 'about-image'}
+                uploadProfile="showcase"
                 hint="This visual is reused inside the homepage About preview."
               />
             </div>
@@ -3022,10 +3091,12 @@ export default function AdminHomepageBuilderPage() {
                     'showreel-poster',
                     'showreel-poster',
                     url => updateShowreel('posterImage', url),
-                    file
+                    file,
+                    'showcase'
                   )
                 }
                 uploading={uploadingField === 'showreel-poster'}
+                uploadProfile="showcase"
                 hint="Used when inline embed is off or as a premium preview visual."
               />
             </div>
@@ -3405,10 +3476,12 @@ export default function AdminHomepageBuilderPage() {
                     'cta-background',
                     'cta-background',
                     url => updateCta('backgroundImage', url),
-                    file
+                    file,
+                    'hero'
                   )
                 }
                 uploading={uploadingField === 'cta-background'}
+                uploadProfile="hero"
                 hint="Optional cinematic background for the CTA block."
               />
             </div>

@@ -17,15 +17,21 @@ import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import {
   ABOUT_SYSTEM_SETTING_KEY,
   createDefaultAboutSystemConfig,
+  createDefaultExperienceItem,
   getAboutContent,
   getAboutSystemConfig,
   serializeAboutSystemConfig,
   type AboutAlignment,
   type AboutCardItem,
+  type AboutExperienceConfig,
   type AboutLayoutMode,
   type AboutPageSectionConfig,
   type AboutSystemConfig,
   type AboutStatItem,
+  type ExperienceEmploymentType,
+  type ExperienceItem,
+  type ExperienceLayoutStyle,
+  type ExperienceLocationType,
 } from '@/lib/about-content';
 import {
   HERO_SETTING_KEYS,
@@ -58,6 +64,38 @@ const alignmentOptions: Array<{ value: AboutAlignment; label: string }> = [
   { value: 'right', label: 'Right' },
 ];
 
+const employmentTypeOptions: ExperienceEmploymentType[] = [
+  'Full-time',
+  'Part-time',
+  'Contract',
+  'Freelance',
+  'Volunteer',
+  'Internship',
+];
+
+const locationTypeOptions: ExperienceLocationType[] = ['On-site', 'Hybrid', 'Remote'];
+
+const experienceLayoutOptions: Array<{ value: ExperienceLayoutStyle; label: string }> = [
+  { value: 'timeline', label: 'Timeline' },
+  { value: 'card-grid', label: 'Card Grid' },
+  { value: 'compact-list', label: 'Compact List' },
+];
+
+const monthOptions = [
+  ['01', 'January'],
+  ['02', 'February'],
+  ['03', 'March'],
+  ['04', 'April'],
+  ['05', 'May'],
+  ['06', 'June'],
+  ['07', 'July'],
+  ['08', 'August'],
+  ['09', 'September'],
+  ['10', 'October'],
+  ['11', 'November'],
+  ['12', 'December'],
+];
+
 function createStat(): AboutStatItem {
   return {
     id: `stat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -76,6 +114,24 @@ function createCard(): AboutCardItem {
     description: '',
     image: '',
   };
+}
+
+function createExperience(): ExperienceItem {
+  const next = createDefaultExperienceItem();
+  return {
+    ...next,
+    sortOrder: Date.now(),
+    startMonth: '06',
+    startYear: String(new Date().getFullYear()),
+    isCurrent: true,
+  };
+}
+
+function splitLines(value: string) {
+  return value
+    .split('\n')
+    .map(item => item.trim())
+    .filter(Boolean);
 }
 
 export default function AdminAboutPage() {
@@ -190,17 +246,60 @@ export default function AdminAboutPage() {
     updateSection(sectionId, { cards });
   }
 
+  function updateExperienceConfig<K extends keyof AboutExperienceConfig>(
+    key: K,
+    value: AboutExperienceConfig[K]
+  ) {
+    setAboutSystem(current =>
+      current
+        ? {
+            ...current,
+            experience: {
+              ...current.experience,
+              [key]: value,
+            },
+          }
+        : current
+    );
+  }
+
+  function updateExperienceItem(itemId: string, patch: Partial<ExperienceItem>) {
+    setAboutSystem(current =>
+      current
+        ? {
+            ...current,
+            experience: {
+              ...current.experience,
+              items: current.experience.items.map(item =>
+                item.id === itemId ? { ...item, ...patch } : item
+              ),
+            },
+          }
+        : current
+    );
+  }
+
+  function setExperienceItems(items: ExperienceItem[]) {
+    updateExperienceConfig(
+      'items',
+      [...items].sort((left, right) => left.sortOrder - right.sortOrder)
+    );
+  }
+
   async function uploadImage(
     fieldKey: string,
     file: File,
-    onUploaded: (url: string) => void
+    onUploaded: (url: string) => void,
+    uploadProfile: 'showcase' | 'logo' = 'showcase'
   ) {
     const ext = file.name.split('.').pop() || 'png';
     const path = `about/${fieldKey}-${Date.now()}.${ext}`;
     setUploadingField(fieldKey);
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile,
+      });
       onUploaded(publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'About image upload failed.';
@@ -471,6 +570,7 @@ export default function AdminAboutPage() {
                             }
                             uploading={uploadingField === `homepage-card-${card.id}`}
                             onError={message => setMsg(message)}
+                            uploadProfile="showcase"
                             hint="Optional visual used inside this homepage highlight card."
                             previewHeight={140}
                             full
@@ -496,6 +596,7 @@ export default function AdminAboutPage() {
                   }
                   uploading={uploadingField === 'homepage-image'}
                   onError={message => setMsg(message)}
+                  uploadProfile="showcase"
                   hint="This controls the main image shown in the homepage About preview."
                   full
                 />
@@ -543,6 +644,333 @@ export default function AdminAboutPage() {
         />
 
         <div style={{ display: 'grid', gap: 14 }}>
+          <AdminBuilderSection
+            title="Experience Manager"
+            description="Manage LinkedIn-style work experience for the homepage About preview and the full About page."
+            badge="Experience"
+            status={
+              aboutSystem.experience.items.filter(item => item.isVisible).length > 0
+                ? `${aboutSystem.experience.items.filter(item => item.isVisible).length} visible`
+                : 'No visible items'
+            }
+            statusTone={
+              aboutSystem.experience.items.some(item => item.isVisible) ? 'success' : 'neutral'
+            }
+            headerControls={
+              <button
+                onClick={() =>
+                  updateExperienceConfig('items', [
+                    ...aboutSystem.experience.items,
+                    createExperience(),
+                  ])
+                }
+                type="button"
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                }}
+              >
+                + Add Experience
+              </button>
+            }
+            tabs={[
+              {
+                id: 'settings',
+                label: 'Display',
+                description:
+                  'Control where experience appears, item limits, and the frontend layout style.',
+                content: (
+                  <div style={{ display: 'grid', gap: 16 }}>
+                    <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={aboutSystem.experience.showOnHomepage}
+                          onChange={event =>
+                            updateExperienceConfig('showOnHomepage', event.target.checked)
+                          }
+                        />
+                        Show on Homepage About
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={aboutSystem.experience.showOnAboutPage}
+                          onChange={event =>
+                            updateExperienceConfig('showOnAboutPage', event.target.checked)
+                          }
+                        />
+                        Show on About Page
+                      </label>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Section title</div>
+                        <input
+                          value={aboutSystem.experience.title}
+                          onChange={event => updateExperienceConfig('title', event.target.value)}
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>View full label</div>
+                        <input
+                          value={aboutSystem.experience.viewAllLabel}
+                          onChange={event => updateExperienceConfig('viewAllLabel', event.target.value)}
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Homepage item limit</div>
+                        <input
+                          type="number"
+                          min={1}
+                          max={8}
+                          value={aboutSystem.experience.homepageItemLimit}
+                          onChange={event =>
+                            updateExperienceConfig('homepageItemLimit', Number(event.target.value))
+                          }
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Layout style</div>
+                        <select
+                          value={aboutSystem.experience.layoutStyle}
+                          onChange={event =>
+                            updateExperienceConfig(
+                              'layoutStyle',
+                              event.target.value as ExperienceLayoutStyle
+                            )
+                          }
+                          style={inputStyle}
+                        >
+                          {experienceLayoutOptions.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Section subtitle</div>
+                      <textarea
+                        value={aboutSystem.experience.subtitle}
+                        onChange={event => updateExperienceConfig('subtitle', event.target.value)}
+                        rows={3}
+                        style={textareaStyle}
+                      />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: 'items',
+                label: 'Experiences',
+                description:
+                  'Add roles, organizations, dates, descriptions, achievements, logos, and skills.',
+                content: (
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    {aboutSystem.experience.items.length === 0 ? (
+                      <div style={{ ...panelStyle, color: tokens.muted }}>
+                        No experience added yet. Use “Add Experience” to create the first role.
+                      </div>
+                    ) : null}
+                    {aboutSystem.experience.items
+                      .slice()
+                      .sort((left, right) => left.sortOrder - right.sortOrder)
+                      .map(item => (
+                        <div
+                          key={item.id}
+                          style={{
+                            border: `1px solid ${tokens.line}`,
+                            borderRadius: 20,
+                            background: tokens.fieldSoft,
+                            padding: 16,
+                            display: 'grid',
+                            gap: 14,
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <div>
+                              <strong>{item.roleTitle || 'New role'}</strong>
+                              <div style={{ color: tokens.muted, fontSize: 12, marginTop: 4 }}>
+                                {item.organizationName || 'Organization name'}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={item.isVisible}
+                                  onChange={event =>
+                                    updateExperienceItem(item.id, { isVisible: event.target.checked })
+                                  }
+                                />
+                                Visible
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExperienceItems(
+                                    aboutSystem.experience.items.filter(
+                                      candidate => candidate.id !== item.id
+                                    )
+                                  )
+                                }
+                                style={{
+                                  background: '#3f0d12',
+                                  color: '#fecaca',
+                                  border: '1px solid rgba(248,113,113,0.24)',
+                                  borderRadius: 10,
+                                  cursor: 'pointer',
+                                  padding: '8px 10px',
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Organization</div>
+                              <input value={item.organizationName} onChange={event => updateExperienceItem(item.id, { organizationName: event.target.value })} style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Role title</div>
+                              <input value={item.roleTitle} onChange={event => updateExperienceItem(item.id, { roleTitle: event.target.value })} style={inputStyle} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Employment type</div>
+                              <select value={item.employmentType} onChange={event => updateExperienceItem(item.id, { employmentType: event.target.value as ExperienceEmploymentType })} style={inputStyle}>
+                                {employmentTypeOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Display order</div>
+                              <input type="number" value={item.sortOrder} onChange={event => updateExperienceItem(item.id, { sortOrder: Number(event.target.value) })} style={inputStyle} />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Start month</div>
+                              <select value={item.startMonth} onChange={event => updateExperienceItem(item.id, { startMonth: event.target.value })} style={inputStyle}>
+                                <option value="">Month</option>
+                                {monthOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Start year</div>
+                              <input value={item.startYear} onChange={event => updateExperienceItem(item.id, { startYear: event.target.value })} style={inputStyle} placeholder="2025" />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>End month</div>
+                              <select value={item.endMonth} onChange={event => updateExperienceItem(item.id, { endMonth: event.target.value })} style={inputStyle} disabled={item.isCurrent}>
+                                <option value="">Month</option>
+                                {monthOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>End year</div>
+                              <input value={item.endYear} onChange={event => updateExperienceItem(item.id, { endYear: event.target.value })} style={inputStyle} disabled={item.isCurrent} placeholder="2026" />
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 24 }}>
+                              <input
+                                type="checkbox"
+                                checked={item.isCurrent}
+                                onChange={event =>
+                                  updateExperienceItem(item.id, {
+                                    isCurrent: event.target.checked,
+                                    endMonth: event.target.checked ? '' : item.endMonth,
+                                    endYear: event.target.checked ? '' : item.endYear,
+                                  })
+                                }
+                              />
+                              Current role
+                            </label>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Location</div>
+                              <input value={item.location} onChange={event => updateExperienceItem(item.id, { location: event.target.value })} style={inputStyle} placeholder="Dhaka, Bangladesh" />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Location type</div>
+                              <select value={item.locationType} onChange={event => updateExperienceItem(item.id, { locationType: event.target.value as ExperienceLocationType })} style={inputStyle}>
+                                {locationTypeOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Company website/profile</div>
+                              <input value={item.websiteUrl} onChange={event => updateExperienceItem(item.id, { websiteUrl: event.target.value })} style={inputStyle} placeholder="https://..." />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Short description</div>
+                            <textarea value={item.description} onChange={event => updateExperienceItem(item.id, { description: event.target.value })} rows={3} style={textareaStyle} />
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Responsibilities / achievements</div>
+                              <textarea value={item.achievements.join('\n')} onChange={event => updateExperienceItem(item.id, { achievements: splitLines(event.target.value) })} rows={5} style={textareaStyle} placeholder="One achievement per line" />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Related skills</div>
+                              <textarea value={item.skills.join('\n')} onChange={event => updateExperienceItem(item.id, { skills: splitLines(event.target.value) })} rows={5} style={textareaStyle} placeholder="Graphic Design&#10;Video Editing&#10;Motion Graphics" />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <input type="checkbox" checked={item.showHomepage} onChange={event => updateExperienceItem(item.id, { showHomepage: event.target.checked })} />
+                              Show on Homepage
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <input type="checkbox" checked={item.showAboutPage} onChange={event => updateExperienceItem(item.id, { showAboutPage: event.target.checked })} />
+                              Show on About Page
+                            </label>
+                          </div>
+
+                          <AdminImageField
+                            label="Company logo"
+                            value={item.logoUrl}
+                            onChange={value => updateExperienceItem(item.id, { logoUrl: value })}
+                            onFileSelected={file =>
+                              void uploadImage(
+                                `experience-logo-${item.id}`,
+                                file,
+                                url => updateExperienceItem(item.id, { logoUrl: url }),
+                                'logo'
+                              )
+                            }
+                            uploading={uploadingField === `experience-logo-${item.id}`}
+                            onError={message => setMsg(message)}
+                            uploadProfile="logo"
+                            hint="Square logo/icon. Max 100KB."
+                            previewHeight={120}
+                            full
+                          />
+                        </div>
+                      ))}
+                  </div>
+                ),
+              },
+            ]}
+          />
+
           <div>
             <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#38bdf8', marginBottom: 6 }}>About Page Sections</div>
             <h2 style={{ margin: 0, fontSize: 24 }}>Modular full About page sections</h2>
@@ -624,6 +1052,7 @@ export default function AdminAboutPage() {
                       }
                       uploading={uploadingField === `section-${section.id}`}
                       onError={message => setMsg(message)}
+                      uploadProfile="showcase"
                       hint="Use this when the section layout includes a supporting image."
                       previewHeight={180}
                       full
@@ -718,6 +1147,7 @@ export default function AdminAboutPage() {
                                         }
                                         uploading={uploadingField === `section-card-${section.id}-${card.id}`}
                                         onError={message => setMsg(message)}
+                                        uploadProfile="showcase"
                                         hint="Optional supporting visual for this card."
                                         previewHeight={140}
                                         full

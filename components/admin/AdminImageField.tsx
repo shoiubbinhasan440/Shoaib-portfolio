@@ -1,11 +1,17 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AdminActionButton,
   AdminField,
   useAdminThemeTokens,
 } from '@/components/admin/admin-ui';
+import {
+  IMAGE_FILE_ACCEPT,
+  getImageUploadHint,
+  validateImageFile,
+  type ImageUploadProfile,
+} from '@/lib/image-upload-validation';
 
 type AdminImageFieldProps = {
   label: string;
@@ -18,23 +24,11 @@ type AdminImageFieldProps = {
   onError?: (message: string) => void;
   maxSizeMb?: number;
   accept?: string;
+  uploadProfile?: ImageUploadProfile;
   previewAlt?: string;
   full?: boolean;
   urlPlaceholder?: string;
 };
-
-function isSupportedImageType(type: string) {
-  return [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/gif',
-    'image/svg+xml',
-    'image/avif',
-    'image/x-icon',
-    'image/vnd.microsoft.icon',
-  ].includes(type);
-}
 
 export default function AdminImageField({
   label,
@@ -45,36 +39,77 @@ export default function AdminImageField({
   hint,
   previewHeight = 180,
   onError,
-  maxSizeMb = 5,
-  accept = 'image/*',
+  maxSizeMb,
+  accept = IMAGE_FILE_ACCEPT,
+  uploadProfile = 'default',
   previewAlt,
   full = false,
   urlPlaceholder = 'Paste image URL or upload a file',
 }: AdminImageFieldProps) {
   const tokens = useAdminThemeTokens();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedPreview, setSelectedPreview] = useState('');
+  const [selectedMeta, setSelectedMeta] = useState('');
+  const [localMessage, setLocalMessage] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (selectedPreview) {
+        URL.revokeObjectURL(selectedPreview);
+      }
+    };
+  }, [selectedPreview]);
 
   async function handlePickedFile(file: File) {
-    if (!isSupportedImageType(file.type)) {
-      onError?.('❌ Please upload a JPG, PNG, WebP, GIF, SVG, AVIF, or ICO image.');
+    setLocalMessage('');
+
+    const validation = await validateImageFile(file, {
+      profile: uploadProfile,
+      maxBytes: maxSizeMb ? maxSizeMb * 1024 * 1024 : undefined,
+      requireDimensions: true,
+    });
+
+    if (!validation.valid) {
+      const nextMessage = `❌ ${validation.error}`;
+      setLocalMessage(nextMessage);
+      onError?.(nextMessage);
       return;
     }
 
-    if (file.size > maxSizeMb * 1024 * 1024) {
-      onError?.(`❌ Please keep images under ${maxSizeMb} MB.`);
-      return;
+    const nextPreview = URL.createObjectURL(file);
+    if (selectedPreview) {
+      URL.revokeObjectURL(selectedPreview);
+    }
+    setSelectedPreview(nextPreview);
+    setSelectedMeta(
+      `${validation.sizeLabel}${
+        validation.width && validation.height
+          ? ` · ${validation.width}×${validation.height}px`
+          : ''
+      }`
+    );
+
+    if (validation.warning) {
+      setLocalMessage(`⚠️ ${validation.warning}`);
     }
 
-    await onFileSelected(file);
+    try {
+      await onFileSelected(file);
+      setLocalMessage('✅ ইমেজ আপলোড হয়েছে।');
+    } catch (error) {
+      const nextMessage =
+        error instanceof Error ? `❌ ${error.message}` : '❌ Image upload failed.';
+      setLocalMessage(nextMessage);
+      onError?.(nextMessage);
+    }
   }
+
+  const previewSource = selectedPreview || value;
 
   return (
     <AdminField
       label={label}
-      hint={
-        hint ||
-        `Upload a file or keep a direct URL. Supported: JPG, PNG, WebP, GIF, SVG, AVIF, ICO up to ${maxSizeMb} MB.`
-      }
+      hint={hint || getImageUploadHint(uploadProfile)}
       full={full}
     >
       <div
@@ -86,9 +121,9 @@ export default function AdminImageField({
           boxShadow: tokens.softShadow,
         }}
       >
-        {value ? (
+        {previewSource ? (
           <img
-            src={value}
+            src={previewSource}
             alt={previewAlt || label}
             style={{
               width: '100%',
@@ -118,6 +153,29 @@ export default function AdminImageField({
             No image selected yet
           </div>
         )}
+
+        {selectedMeta ? (
+          <div style={{ color: tokens.subtle, fontSize: 12, marginBottom: 10 }}>
+            Selected: {selectedMeta}
+          </div>
+        ) : null}
+
+        {localMessage ? (
+          <div
+            style={{
+              color: localMessage.startsWith('❌')
+                ? '#fecaca'
+                : localMessage.startsWith('⚠️')
+                  ? '#fde68a'
+                  : '#bbf7d0',
+              fontSize: 12,
+              lineHeight: 1.5,
+              marginBottom: 10,
+            }}
+          >
+            {localMessage}
+          </div>
+        ) : null}
 
         <input
           value={value}

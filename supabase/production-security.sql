@@ -7,6 +7,7 @@ alter table public.videos enable row level security;
 alter table public.graphics enable row level security;
 alter table public.categories enable row level security;
 alter table public.tutorials enable row level security;
+alter table public.experiences enable row level security;
 
 -- Optional CRM/admin data stored in JSON settings is service-role only through API routes.
 -- If these tables exist in your project, enable and lock them too.
@@ -34,6 +35,7 @@ drop policy if exists "Public read active categories" on public.categories;
 drop policy if exists "Public read visible videos" on public.videos;
 drop policy if exists "Public read visible graphics" on public.graphics;
 drop policy if exists "Public read visible tutorials" on public.tutorials;
+drop policy if exists "Public read visible experiences" on public.experiences;
 
 create policy "Public read site settings"
 on public.site_settings
@@ -73,6 +75,12 @@ on public.tutorials
 for select
 to anon, authenticated
 using (visible = true);
+
+create policy "Public read visible experiences"
+on public.experiences
+for select
+to anon, authenticated
+using (is_visible = true);
 
 -- No anon/authenticated INSERT/UPDATE/DELETE policies are created for admin tables.
 -- With RLS enabled, those writes are denied unless done through the service-role API.

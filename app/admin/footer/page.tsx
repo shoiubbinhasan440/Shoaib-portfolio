@@ -182,7 +182,9 @@ export default function FooterAdminPage() {
     setUploadingField('logo');
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'logo',
+      });
       updateFooter('logoUrl', publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Footer logo upload failed.';
@@ -500,6 +502,7 @@ export default function FooterAdminPage() {
               onFileSelected={file => void handleLogoUpload(file)}
               uploading={uploadingField === 'logo'}
               onError={message => setMsg(message)}
+              uploadProfile="logo"
               previewAlt={footerConfig.logoAlt || 'Footer logo'}
               hint="Optional. If added, it appears above the footer brand text."
             />

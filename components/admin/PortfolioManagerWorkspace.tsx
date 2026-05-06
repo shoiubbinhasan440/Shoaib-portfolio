@@ -1263,7 +1263,8 @@ export default function PortfolioManagerWorkspace({
                             }}
                             uploading={uploadingMedia}
                             full
-                            hint="Upload a premium custom cover or keep the auto thumbnail fallback."
+                            uploadProfile="thumbnail"
+                            hint="Upload JPG, PNG or WebP. Recommended 100KB-400KB, hard max 800KB."
                             previewAlt={draft.title || 'Video thumbnail'}
                           />
                         </>
@@ -1286,7 +1287,8 @@ export default function PortfolioManagerWorkspace({
                             }}
                             uploading={uploadingMedia}
                             full
-                            hint="Upload the design directly or keep a URL fallback. The public preview will preserve the full artwork without cropping."
+                            uploadProfile="showcase"
+                            hint="Upload JPG, PNG or WebP. Showcase/gallery artwork max 1MB. The public preview preserves the full artwork."
                             previewAlt={draft.title || 'Graphic artwork'}
                             previewHeight={220}
                           />

@@ -779,7 +779,9 @@ export default function AdminNavigationPage() {
     setUploadingField('logo');
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'logo',
+      });
       updateConfig(current => ({
         ...current,
         design: {
@@ -1571,6 +1573,7 @@ export default function AdminNavigationPage() {
                       }
                       onFileSelected={handleLogoUpload}
                       uploading={uploadingField === 'logo'}
+                      uploadProfile="logo"
                       previewAlt="Navbar logo"
                       urlPlaceholder="Paste logo URL or upload an image"
                     />

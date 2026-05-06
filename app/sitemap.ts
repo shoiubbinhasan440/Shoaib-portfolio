@@ -8,6 +8,7 @@ import {
   toPortfolioPreviewItems,
   type PortfolioSourceType,
 } from '@/lib/portfolio-content';
+import { SITE_CONFIG } from '@/lib/site-config';
 
 async function buildPortfolioCategorySitemapEntries(
   canonicalUrl: string
@@ -68,7 +69,7 @@ async function buildPortfolioCategorySitemapEntries(
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const settings = await getServerGlobalSettings();
   const categoryEntries = await buildPortfolioCategorySitemapEntries(
-    settings.seo.canonicalUrl
+    settings.seo.canonicalUrl || SITE_CONFIG.url
   );
 
   return buildSitemap(settings, categoryEntries);

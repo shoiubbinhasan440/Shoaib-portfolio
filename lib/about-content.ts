@@ -41,6 +41,15 @@ export type AboutWidthPreset = 'normal' | 'wide' | 'full';
 export type AboutSpacingPreset = 'compact' | 'balanced' | 'spacious';
 
 export type AboutPageSectionType = 'hero' | 'stats' | 'skills' | 'story' | 'services' | 'cta';
+export type ExperienceEmploymentType =
+  | 'Full-time'
+  | 'Part-time'
+  | 'Contract'
+  | 'Freelance'
+  | 'Volunteer'
+  | 'Internship';
+export type ExperienceLocationType = 'On-site' | 'Hybrid' | 'Remote';
+export type ExperienceLayoutStyle = 'timeline' | 'card-grid' | 'compact-list';
 
 export type AboutText = {
   value: string;
@@ -99,6 +108,40 @@ export type HomepageAboutConfig = {
   styles: BuilderSectionStyles;
 };
 
+export type ExperienceItem = {
+  id: string;
+  organizationName: string;
+  roleTitle: string;
+  employmentType: ExperienceEmploymentType;
+  startMonth: string;
+  startYear: string;
+  endMonth: string;
+  endYear: string;
+  isCurrent: boolean;
+  location: string;
+  locationType: ExperienceLocationType;
+  description: string;
+  achievements: string[];
+  logoUrl: string;
+  websiteUrl: string;
+  skills: string[];
+  showHomepage: boolean;
+  showAboutPage: boolean;
+  sortOrder: number;
+  isVisible: boolean;
+};
+
+export type AboutExperienceConfig = {
+  showOnHomepage: boolean;
+  showOnAboutPage: boolean;
+  homepageItemLimit: number;
+  layoutStyle: ExperienceLayoutStyle;
+  title: string;
+  subtitle: string;
+  viewAllLabel: string;
+  items: ExperienceItem[];
+};
+
 export type AboutPageSectionConfig = {
   id: string;
   type: AboutPageSectionType;
@@ -121,6 +164,7 @@ export type AboutPageSectionConfig = {
 };
 
 export type AboutSystemConfig = {
+  experience: AboutExperienceConfig;
   homepage: HomepageAboutConfig;
   pageSections: AboutPageSectionConfig[];
 };
@@ -243,6 +287,35 @@ function spacingPreset(value: unknown, fallback: AboutSpacingPreset): AboutSpaci
     : fallback;
 }
 
+function employmentType(value: unknown, fallback: ExperienceEmploymentType): ExperienceEmploymentType {
+  const allowed: ExperienceEmploymentType[] = [
+    'Full-time',
+    'Part-time',
+    'Contract',
+    'Freelance',
+    'Volunteer',
+    'Internship',
+  ];
+  return allowed.includes(value as ExperienceEmploymentType)
+    ? (value as ExperienceEmploymentType)
+    : fallback;
+}
+
+function locationType(value: unknown, fallback: ExperienceLocationType): ExperienceLocationType {
+  return value === 'On-site' || value === 'Hybrid' || value === 'Remote'
+    ? value
+    : fallback;
+}
+
+function experienceLayoutStyle(
+  value: unknown,
+  fallback: ExperienceLayoutStyle
+): ExperienceLayoutStyle {
+  return value === 'timeline' || value === 'card-grid' || value === 'compact-list'
+    ? value
+    : fallback;
+}
+
 function sectionType(value: unknown, fallback: AboutPageSectionType): AboutPageSectionType {
   const allowed: AboutPageSectionType[] = ['hero', 'stats', 'skills', 'story', 'services', 'cta'];
   return allowed.includes(value as AboutPageSectionType)
@@ -282,6 +355,124 @@ function sanitizeCards(value: unknown, fallback: AboutCardItem[]) {
       image: text(item.image, fallback[index]?.image || ''),
     }))
     .filter(item => item.title || item.description);
+}
+
+function stringList(value: unknown, fallback: string[] = []) {
+  if (Array.isArray(value)) {
+    return value
+      .filter(item => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split('\n')
+      .flatMap(line => line.split(','))
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  return fallback;
+}
+
+export function createDefaultExperienceItem(): ExperienceItem {
+  return {
+    id: `experience-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    organizationName: '',
+    roleTitle: '',
+    employmentType: 'Full-time',
+    startMonth: '',
+    startYear: '',
+    endMonth: '',
+    endYear: '',
+    isCurrent: false,
+    location: '',
+    locationType: 'On-site',
+    description: '',
+    achievements: [],
+    logoUrl: '',
+    websiteUrl: '',
+    skills: [],
+    showHomepage: true,
+    showAboutPage: true,
+    sortOrder: 10,
+    isVisible: true,
+  };
+}
+
+function sanitizeExperienceItem(value: unknown, fallback: ExperienceItem): ExperienceItem {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  return {
+    id: text(value.id, fallback.id),
+    organizationName: text(value.organizationName, text(value.organization_name, fallback.organizationName)),
+    roleTitle: text(value.roleTitle, text(value.role_title, fallback.roleTitle)),
+    employmentType: employmentType(value.employmentType ?? value.employment_type, fallback.employmentType),
+    startMonth: text(value.startMonth, fallback.startMonth),
+    startYear: text(value.startYear, fallback.startYear),
+    endMonth: text(value.endMonth, fallback.endMonth),
+    endYear: text(value.endYear, fallback.endYear),
+    isCurrent: bool(value.isCurrent ?? value.is_current, fallback.isCurrent),
+    location: text(value.location, fallback.location),
+    locationType: locationType(value.locationType ?? value.location_type, fallback.locationType),
+    description: text(value.description, fallback.description),
+    achievements: stringList(value.achievements, fallback.achievements),
+    logoUrl: text(value.logoUrl, text(value.logo_url, fallback.logoUrl)),
+    websiteUrl: text(value.websiteUrl, text(value.website_url, fallback.websiteUrl)),
+    skills: stringList(value.skills, fallback.skills),
+    showHomepage: bool(value.showHomepage ?? value.show_homepage, fallback.showHomepage),
+    showAboutPage: bool(value.showAboutPage ?? value.show_about_page, fallback.showAboutPage),
+    sortOrder: num(value.sortOrder ?? value.sort_order, fallback.sortOrder),
+    isVisible: bool(value.isVisible ?? value.is_visible, fallback.isVisible),
+  };
+}
+
+function createDefaultExperienceConfig(): AboutExperienceConfig {
+  return {
+    showOnHomepage: true,
+    showOnAboutPage: true,
+    homepageItemLimit: 3,
+    layoutStyle: 'timeline',
+    title: 'Professional Experience',
+    subtitle: 'Selected roles, organizations, and creative responsibilities.',
+    viewAllLabel: 'View full experience',
+    items: [],
+  };
+}
+
+function sanitizeExperienceConfig(
+  value: unknown,
+  fallback: AboutExperienceConfig
+): AboutExperienceConfig {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const items = Array.isArray(value.items)
+    ? value.items
+        .filter(isRecord)
+        .map((item, index) =>
+          sanitizeExperienceItem(item, {
+            ...createDefaultExperienceItem(),
+            id: text(item.id, `experience-${index + 1}`),
+            sortOrder: index + 1,
+          })
+        )
+    : fallback.items;
+
+  return {
+    showOnHomepage: bool(value.showOnHomepage, fallback.showOnHomepage),
+    showOnAboutPage: bool(value.showOnAboutPage, fallback.showOnAboutPage),
+    homepageItemLimit: Math.max(1, Math.min(8, num(value.homepageItemLimit, fallback.homepageItemLimit))),
+    layoutStyle: experienceLayoutStyle(value.layoutStyle, fallback.layoutStyle),
+    title: text(value.title, fallback.title),
+    subtitle: text(value.subtitle, fallback.subtitle),
+    viewAllLabel: text(value.viewAllLabel, fallback.viewAllLabel),
+    items: items.sort((a, b) => a.sortOrder - b.sortOrder),
+  };
 }
 
 export function createDefaultAboutSystemConfig(
@@ -325,6 +516,7 @@ export function createDefaultAboutSystemConfig(
   }));
 
   return {
+    experience: createDefaultExperienceConfig(),
     homepage: {
       enabled: true,
       order: 30,
@@ -544,6 +736,7 @@ export function getAboutSystemConfig(
       );
 
     return {
+      experience: sanitizeExperienceConfig(parsed.experience, fallback.experience),
       homepage: sanitizeHomepage(parsed.homepage, fallback.homepage),
       pageSections: [...sections, ...extraSections].sort((a, b) => a.order - b.order),
     };
@@ -554,7 +747,94 @@ export function getAboutSystemConfig(
 
 export function serializeAboutSystemConfig(config: AboutSystemConfig) {
   return JSON.stringify({
+    experience: {
+      ...config.experience,
+      items: [...config.experience.items].sort((a, b) => a.sortOrder - b.sortOrder),
+    },
     homepage: config.homepage,
     pageSections: [...config.pageSections].sort((a, b) => a.order - b.order),
   });
+}
+
+const MONTH_LABELS: Record<string, string> = {
+  '01': 'Jan',
+  '02': 'Feb',
+  '03': 'Mar',
+  '04': 'Apr',
+  '05': 'May',
+  '06': 'Jun',
+  '07': 'Jul',
+  '08': 'Aug',
+  '09': 'Sep',
+  '10': 'Oct',
+  '11': 'Nov',
+  '12': 'Dec',
+};
+
+function monthIndex(month: string) {
+  const value = Number(month);
+  return Number.isFinite(value) && value >= 1 && value <= 12 ? value - 1 : 0;
+}
+
+function formatMonthYear(month: string, year: string) {
+  if (!year) {
+    return '';
+  }
+
+  return `${MONTH_LABELS[month] || MONTH_LABELS[month.padStart(2, '0')] || 'Jan'} ${year}`;
+}
+
+function monthsBetween(item: ExperienceItem) {
+  const startYear = Number(item.startYear);
+  const endYear = item.isCurrent ? new Date().getFullYear() : Number(item.endYear);
+  const startMonth = monthIndex(item.startMonth || '01');
+  const endMonth = item.isCurrent ? new Date().getMonth() : monthIndex(item.endMonth || '01');
+
+  if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) {
+    return 0;
+  }
+
+  return Math.max(0, (endYear - startYear) * 12 + (endMonth - startMonth) + 1);
+}
+
+export function getExperienceDurationText(item: ExperienceItem) {
+  const months = monthsBetween(item);
+  if (months <= 0) {
+    return '';
+  }
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  const parts = [];
+
+  if (years > 0) {
+    parts.push(`${years} yr${years > 1 ? 's' : ''}`);
+  }
+
+  if (remainingMonths > 0) {
+    parts.push(`${remainingMonths} mo${remainingMonths > 1 ? 's' : ''}`);
+  }
+
+  return parts.join(' ');
+}
+
+export function getExperienceDateRange(item: ExperienceItem) {
+  const start = formatMonthYear(item.startMonth, item.startYear);
+  const end = item.isCurrent ? 'Present' : formatMonthYear(item.endMonth, item.endYear);
+
+  if (!start && !end) {
+    return '';
+  }
+
+  return `${start || 'Start'} – ${end || 'Present'}`;
+}
+
+export function getVisibleExperienceItems(
+  config: AboutExperienceConfig,
+  target: 'homepage' | 'about'
+) {
+  return config.items
+    .filter(item => item.isVisible)
+    .filter(item => (target === 'homepage' ? item.showHomepage : item.showAboutPage))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }

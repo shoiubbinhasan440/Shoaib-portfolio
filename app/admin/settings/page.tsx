@@ -26,6 +26,10 @@ import {
   serializeGlobalSettingsConfig,
   type GlobalSettingsConfig,
   type GlobalSettingsTab,
+  type PremiumLoaderImageSource,
+  type PremiumLoaderMinimumDuration,
+  type PremiumLoaderRotationSpeed,
+  type PremiumLoaderStyle,
 } from '@/lib/global-settings';
 import { toSettingMap, type SettingMap } from '@/lib/hero-settings';
 import { writeSiteSetting } from '@/lib/site-settings';
@@ -69,6 +73,11 @@ const tabs: Array<{
     id: 'uploads',
     label: 'Uploads / Media',
     description: 'Shared assets and quick access to page-specific media controls',
+  },
+  {
+    id: 'loader',
+    label: 'Loader',
+    description: 'Premium portfolio loading screen behavior and visuals',
   },
   {
     id: 'admin',
@@ -286,7 +295,9 @@ export default function AdminSettingsPage() {
     setUploadingField(field);
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: field === 'logo' || field === 'favicon' ? 'logo' : 'showcase',
+      });
       setConfig(current => {
         if (!current) {
           return current;
@@ -335,6 +346,45 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function handleLoaderImageUpload(file: File, index?: number) {
+    const ext = file.name.split('.').pop() || 'png';
+    const field = typeof index === 'number' ? `loader-manual-${index}` : 'loader-manual-new';
+    const path = `settings/loader-${Date.now()}.${ext}`;
+    setUploadingField(field);
+
+    try {
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'thumbnail',
+      });
+
+      setConfig(current => {
+        if (!current) {
+          return current;
+        }
+
+        const manualImages = [...current.loader.manualImages];
+        if (typeof index === 'number') {
+          manualImages[index] = publicUrl;
+        } else {
+          manualImages.push(publicUrl);
+        }
+
+        return {
+          ...current,
+          loader: {
+            ...current.loader,
+            manualImages: manualImages.filter(Boolean).slice(0, 6),
+          },
+        };
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Loader image upload failed.';
+      setMsg(`❌ ${message}`);
+    } finally {
+      setUploadingField('');
+    }
+  }
+
   function resetTab(tab: GlobalSettingsTab) {
     if (!config) {
       return;
@@ -370,6 +420,8 @@ export default function AdminSettingsPage() {
               defaultOgImageAlt: sectionDefaults.seo.defaultOgImageAlt,
             },
           };
+        case 'loader':
+          return { ...current, loader: sectionDefaults.loader };
         case 'admin':
           return { ...current, admin: sectionDefaults.admin };
         case 'advanced':
@@ -420,6 +472,16 @@ export default function AdminSettingsPage() {
         ['social_instagram', config.social.instagram],
         ['social_linkedin', config.social.linkedIn],
         ['social_behance', config.social.behance],
+        ['premium_loader_enabled', String(config.loader.enabled)],
+        ['premium_loader_apply_public', String(config.loader.applyToPublic)],
+        ['premium_loader_apply_admin', String(config.loader.applyToAdmin)],
+        ['premium_loader_style', config.loader.style],
+        ['premium_loader_text', config.loader.text],
+        ['premium_loader_image_source', config.loader.imageSource],
+        ['premium_loader_minimum_duration', String(config.loader.minimumDuration)],
+        ['premium_loader_rotation_speed', String(config.loader.rotationSpeed)],
+        ['premium_loader_show_dots', String(config.loader.showProgressDots)],
+        ['premium_loader_show_ring', String(config.loader.showRotatingStroke)],
         ['admin_language', config.admin.language],
         ['admin_dashboard_style', config.admin.dashboardStyle],
         ['admin_security_summary', config.admin.securitySummary],
@@ -884,6 +946,7 @@ export default function AdminSettingsPage() {
                   onFileSelected={file => void handleImageUpload('logo', file)}
                   uploading={uploadingField === 'logo'}
                   onError={message => setMsg(message)}
+                  uploadProfile="logo"
                   previewAlt={config.siteIdentity.logoAlt}
                 />
                 <AdminImageField
@@ -902,9 +965,9 @@ export default function AdminSettingsPage() {
                   onFileSelected={file => void handleImageUpload('favicon', file)}
                   uploading={uploadingField === 'favicon'}
                   onError={message => setMsg(message)}
+                  uploadProfile="logo"
                   previewAlt="Site favicon"
                   previewHeight={140}
-                  maxSizeMb={2}
                 />
                 <AdminImageField
                   label="Default social preview"
@@ -922,6 +985,7 @@ export default function AdminSettingsPage() {
                   onFileSelected={file => void handleImageUpload('default', file)}
                   uploading={uploadingField === 'default'}
                   onError={message => setMsg(message)}
+                  uploadProfile="showcase"
                   previewAlt={config.seo.defaultOgImageAlt || 'Default social preview image'}
                 />
               </div>
@@ -966,6 +1030,443 @@ export default function AdminSettingsPage() {
               </div>
             </SettingsSection>
           </div>
+        ) : null}
+
+        {activeTab === 'loader' ? (
+          <SettingsSection
+            title="Premium Portfolio Loader"
+            description="Control the cinematic loading screen shown by route loading boundaries and fallback homepage loading states."
+            status={config.loader.enabled ? 'Enabled' : 'Disabled'}
+            statusTone={config.loader.enabled ? 'success' : 'neutral'}
+          >
+            <div style={{ display: 'grid', gap: 18 }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: 14,
+                }}
+              >
+                <label
+                  style={{
+                    borderRadius: 20,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.fieldSoft,
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={config.loader.enabled}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: { ...current.loader, enabled: event.target.checked },
+                            }
+                          : current
+                      )
+                    }
+                  />
+                  <span>
+                    <strong>Enable premium loader</strong>
+                    <span style={{ display: 'block', color: tokens.muted, fontSize: 12, marginTop: 4 }}>
+                      Shows the portfolio circle loader during route/page loading.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    borderRadius: 20,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.fieldSoft,
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={config.loader.applyToPublic}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: { ...current.loader, applyToPublic: event.target.checked },
+                            }
+                          : current
+                      )
+                    }
+                  />
+                  <span>
+                    <strong>Apply to public site</strong>
+                    <span style={{ display: 'block', color: tokens.muted, fontSize: 12, marginTop: 4 }}>
+                      Enables the loader for Home, Portfolio, About, Contact, Tutorial, and category pages.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    borderRadius: 20,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.fieldSoft,
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={config.loader.applyToAdmin}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: { ...current.loader, applyToAdmin: event.target.checked },
+                            }
+                          : current
+                      )
+                    }
+                  />
+                  <span>
+                    <strong>Apply to admin panel</strong>
+                    <span style={{ display: 'block', color: tokens.muted, fontSize: 12, marginTop: 4 }}>
+                      Enables the same premium loader for admin navigation and admin route loading.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    borderRadius: 20,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.fieldSoft,
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={config.loader.showRotatingStroke}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: {
+                                ...current.loader,
+                                showRotatingStroke: event.target.checked,
+                              },
+                            }
+                          : current
+                      )
+                    }
+                  />
+                  <span>
+                    <strong>Show rotating stroke</strong>
+                    <span style={{ display: 'block', color: tokens.muted, fontSize: 12, marginTop: 4 }}>
+                      Adds the animated gradient ring around the circular preview.
+                    </span>
+                  </span>
+                </label>
+
+                <label
+                  style={{
+                    borderRadius: 20,
+                    border: `1px solid ${tokens.line}`,
+                    background: tokens.fieldSoft,
+                    padding: 16,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={config.loader.showProgressDots}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: { ...current.loader, showProgressDots: event.target.checked },
+                            }
+                          : current
+                      )
+                    }
+                  />
+                  <span>
+                    <strong>Show progress dots</strong>
+                    <span style={{ display: 'block', color: tokens.muted, fontSize: 12, marginTop: 4 }}>
+                      Small dots track which portfolio preview is currently visible.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: 14,
+                }}
+              >
+                <AdminField label="Loader style">
+                  <select
+                    value={config.loader.style}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: {
+                                ...current.loader,
+                                style: event.target.value as PremiumLoaderStyle,
+                              },
+                            }
+                          : current
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="portfolio-circle">Portfolio Circle</option>
+                    <option value="simple-line">Simple Line</option>
+                    <option value="minimal-fade">Minimal Fade</option>
+                  </select>
+                </AdminField>
+
+                <AdminField label="Loader image source">
+                  <select
+                    value={config.loader.imageSource}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: {
+                                ...current.loader,
+                                imageSource: event.target.value as PremiumLoaderImageSource,
+                              },
+                            }
+                          : current
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="graphics-only">Graphics only</option>
+                    <option value="manual">Manual uploaded images</option>
+                    <option value="profile-fallback">Profile fallback</option>
+                  </select>
+                </AdminField>
+
+                <AdminField label="Rotation speed">
+                  <select
+                    value={config.loader.rotationSpeed}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: {
+                                ...current.loader,
+                                rotationSpeed: Number(
+                                  event.target.value
+                                ) as PremiumLoaderRotationSpeed,
+                              },
+                            }
+                          : current
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    <option value={300} disabled>Default · 300ms</option>
+                    <option value={250}>Ultra Fast · 250ms</option>
+                    <option value={400}>Fast · 400ms</option>
+                    <option value={800}>Normal · 800ms</option>
+                    <option value={1200}>Slow · 1200ms</option>
+                  </select>
+                </AdminField>
+
+                <AdminField label="Loader duration minimum">
+                  <select
+                    value={config.loader.minimumDuration}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: {
+                                ...current.loader,
+                                minimumDuration: Number(
+                                  event.target.value
+                                ) as PremiumLoaderMinimumDuration,
+                              },
+                            }
+                          : current
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    <option value={500}>500ms</option>
+                    <option value={800}>800ms</option>
+                    <option value={1200}>1200ms</option>
+                  </select>
+                </AdminField>
+
+                <AdminField label="Loader text" full>
+                  <input
+                    value={config.loader.text}
+                    onChange={event =>
+                      setConfig(current =>
+                        current
+                          ? {
+                              ...current,
+                              loader: { ...current.loader, text: event.target.value },
+                            }
+                          : current
+                      )
+                    }
+                    style={inputStyle}
+                  />
+                </AdminField>
+              </div>
+
+              <div
+                style={{
+                  border: `1px solid ${tokens.line}`,
+                  borderRadius: 20,
+                  background: tokens.fieldSoft,
+                  padding: 16,
+                  display: 'grid',
+                  gap: 14,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16 }}>Manual Loader Images</h3>
+                    <p style={{ margin: '6px 0 0', color: tokens.muted, fontSize: 13, lineHeight: 1.6 }}>
+                      Optional small images for the loader. Keep these compressed thumbnails; portfolio/video originals are not loaded here.
+                    </p>
+                  </div>
+                  <AdminChip tone="neutral">{config.loader.manualImages.length}/6 images</AdminChip>
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: 14,
+                  }}
+                >
+                  {config.loader.manualImages.map((imageUrl, index) => (
+                    <div key={`${imageUrl}-${index}`} style={{ display: 'grid', gap: 10 }}>
+                      <AdminImageField
+                        label={`Loader image ${index + 1}`}
+                        value={imageUrl}
+                        onChange={nextValue =>
+                          setConfig(current => {
+                            if (!current) {
+                              return current;
+                            }
+
+                            const manualImages = [...current.loader.manualImages];
+                            manualImages[index] = nextValue;
+                            return {
+                              ...current,
+                              loader: {
+                                ...current.loader,
+                                manualImages: manualImages.filter(Boolean).slice(0, 6),
+                              },
+                            };
+                          })
+                        }
+                        onFileSelected={file => void handleLoaderImageUpload(file, index)}
+                        uploading={uploadingField === `loader-manual-${index}`}
+                        onError={message => setMsg(message)}
+                        uploadProfile="thumbnail"
+                        previewAlt={`Loader image ${index + 1}`}
+                        previewHeight={140}
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConfig(current =>
+                            current
+                              ? {
+                                  ...current,
+                                  loader: {
+                                    ...current.loader,
+                                    manualImages: current.loader.manualImages.filter(
+                                      (_, imageIndex) => imageIndex !== index
+                                    ),
+                                  },
+                                }
+                              : current
+                          )
+                        }
+                        style={{
+                          border: `1px solid ${tokens.line}`,
+                          background: tokens.fieldSoft,
+                          color: tokens.text,
+                          borderRadius: 12,
+                          padding: '10px 12px',
+                          cursor: 'pointer',
+                          fontWeight: 800,
+                        }}
+                      >
+                        Remove image
+                      </button>
+                    </div>
+                  ))}
+
+                  {config.loader.manualImages.length < 6 ? (
+                    <AdminImageField
+                      label="Add manual loader image"
+                      value=""
+                      onChange={nextValue =>
+                        setConfig(current =>
+                          current && nextValue
+                            ? {
+                                ...current,
+                                loader: {
+                                  ...current.loader,
+                                  manualImages: [
+                                    ...current.loader.manualImages,
+                                    nextValue,
+                                  ].filter(Boolean).slice(0, 6),
+                                },
+                              }
+                            : current
+                        )
+                      }
+                      onFileSelected={file => void handleLoaderImageUpload(file)}
+                      uploading={uploadingField === 'loader-manual-new'}
+                      onError={message => setMsg(message)}
+                      uploadProfile="thumbnail"
+                      previewAlt="New loader image"
+                      previewHeight={140}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </SettingsSection>
         ) : null}
 
         {activeTab === 'admin' ? (

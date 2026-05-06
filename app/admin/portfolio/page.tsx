@@ -24,6 +24,7 @@ import {
   type HomepagePortfolioSectionSettings,
   type PortfolioAllOrder,
   type PortfolioCategory,
+  type PortfolioLayoutMode,
   type PortfolioPreviewItem,
   type PortfolioSourceType,
 } from '@/lib/portfolio-content';
@@ -99,6 +100,11 @@ const layoutTypeOptions: Array<{ value: PortfolioPageLayoutType; label: string }
   { value: 'compact', label: 'Compact archive' },
 ];
 
+const portfolioLayoutModeOptions: Array<{ value: PortfolioLayoutMode; label: string }> = [
+  { value: 'grid', label: 'Clean Grid' },
+  { value: 'masonry', label: 'Masonry' },
+];
+
 const cardStyleOptions: Array<{ value: PortfolioPageCardStyle; label: string }> = [
   { value: 'cinematic', label: 'Cinematic' },
   { value: 'glass', label: 'Glass' },
@@ -156,10 +162,12 @@ function createInitialItems(
 
 function Field({
   label,
+  hint,
   children,
   full = false,
 }: {
   label: string;
+  hint?: string;
   children: React.ReactNode;
   full?: boolean;
 }) {
@@ -167,6 +175,11 @@ function Field({
     <div style={{ gridColumn: full ? '1 / -1' : undefined }}>
       <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 6 }}>{label}</div>
       {children}
+      {hint ? (
+        <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -576,7 +589,9 @@ export default function PortfolioAdminPage() {
     setUploadingField('banner');
 
     try {
-      const { publicUrl } = await adminUploadFile('media', path, file);
+      const { publicUrl } = await adminUploadFile('media', path, file, {
+        uploadProfile: 'hero',
+      });
       updateHero('bannerImage', publicUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Banner upload failed.';
@@ -1193,6 +1208,22 @@ export default function PortfolioAdminPage() {
                       style={inputStyle}
                     >
                       {layoutTypeOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field
+                    label="Portfolio page layout"
+                    hint="Grid = balanced cards, best for homepage. Masonry = natural artwork height, best for mixed-size designs."
+                  >
+                    <select
+                      value={pageBuilder.showcase.layoutMode}
+                      onChange={event => updateShowcase('layoutMode', event.target.value as PortfolioLayoutMode)}
+                      style={inputStyle}
+                    >
+                      {portfolioLayoutModeOptions.map(option => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>

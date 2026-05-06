@@ -482,7 +482,9 @@ export default function AdminGraphics() {
     try {
       const extension = file.name.split('.').pop() || 'jpg';
       const fileName = `graphics-${Date.now()}.${extension}`;
-      const { publicUrl } = await adminUploadFile('graphics', fileName, file);
+      const { publicUrl } = await adminUploadFile('graphics', fileName, file, {
+        uploadProfile: 'showcase',
+      });
       return publicUrl;
     } catch (error) {
       const nextMessage =

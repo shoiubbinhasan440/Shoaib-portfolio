@@ -1,4 +1,5 @@
 import { getFirstSetting, getHeroImages, parseStyledSetting, type SettingMap } from './hero-settings';
+import { SITE_CONFIG } from '@/lib/site-config';
 import {
   createDefaultBuilderSectionStyles,
   sanitizeBuilderSectionStyles,
@@ -16,6 +17,7 @@ export type HomepageHeroHeightPreset = 'screen' | 'large' | 'medium';
 export type HomepageOverlayStrength = 'soft' | 'medium' | 'strong';
 export type HomepageMobileContentPosition = 'bottom' | 'lower' | 'center';
 export type HomepageFloatingCardPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'hidden';
+export type HomepageHeroCtaLayout = 'stack' | 'row' | 'responsive';
 
 export type HomepageRuntimeStats = {
   projectCount?: number;
@@ -68,6 +70,8 @@ export type HomepageHeroSection = {
   showPrimaryButton: boolean;
   showSecondaryButton: boolean;
   showShowreelButton: boolean;
+  ctaLayout: HomepageHeroCtaLayout;
+  ctaAlignment: HomepageAlignment;
   showFloatingCard: boolean;
   badge: string;
   title: string;
@@ -263,6 +267,10 @@ function floatingCardPosition(
     : fallback;
 }
 
+function heroCtaLayout(value: unknown, fallback: HomepageHeroCtaLayout): HomepageHeroCtaLayout {
+  return value === 'stack' || value === 'row' || value === 'responsive' ? value : fallback;
+}
+
 function footerLayout(value: unknown, fallback: HomepageFooterSection['layout']): HomepageFooterSection['layout'] {
   return value === 'grid' || value === 'stacked' ? value : fallback;
 }
@@ -337,11 +345,11 @@ export function createDefaultHomepageBuilderConfig(
   const heroBadge = parseStyledSetting(map?.hero_badge, 'Available for work').value;
   const heroTitle = parseStyledSetting(
     map?.hero_title,
-    'Visual Storyteller & Creative Director'
+    SITE_CONFIG.siteName
   ).value;
   const heroSubtitle = parseStyledSetting(
     map?.hero_subtitle,
-    'ভিডিও এডিটিং ও গ্রাফিক্স ডিজাইনের মাধ্যমে আপনার গল্প বলি।'
+    'Graphics & Video Editor helping ideas reach people visually.'
   ).value;
   const heroPrimary = parseStyledSetting(map?.cta_button, 'Portfolio দেখুন').value;
   const showreelEyebrow = parseStyledSetting(map?.showreel_eyebrow, 'Featured').value;
@@ -384,6 +392,8 @@ export function createDefaultHomepageBuilderConfig(
       showPrimaryButton: true,
       showSecondaryButton: true,
       showShowreelButton: true,
+      ctaLayout: 'row',
+      ctaAlignment: 'left',
       showFloatingCard: true,
       badge: heroBadge,
       title: heroTitle,
@@ -513,6 +523,15 @@ function sanitizeHero(value: unknown, fallback: HomepageHeroSection): HomepageHe
     return fallback;
   }
 
+  const fallbackCtaAlignment: HomepageAlignment =
+    value.ctaAlignment === undefined
+      ? alignment(value.alignment, fallback.alignment) === 'center' || value.layout === 'centered'
+        ? 'center'
+        : alignment(value.alignment, fallback.alignment) === 'right'
+          ? 'right'
+          : fallback.ctaAlignment
+      : fallback.ctaAlignment;
+
   return {
     enabled: bool(value.enabled, fallback.enabled),
     order: num(value.order, fallback.order),
@@ -531,6 +550,8 @@ function sanitizeHero(value: unknown, fallback: HomepageHeroSection): HomepageHe
     showPrimaryButton: bool(value.showPrimaryButton, fallback.showPrimaryButton),
     showSecondaryButton: bool(value.showSecondaryButton, fallback.showSecondaryButton),
     showShowreelButton: bool(value.showShowreelButton, fallback.showShowreelButton),
+    ctaLayout: heroCtaLayout(value.ctaLayout, fallback.ctaLayout),
+    ctaAlignment: alignment(value.ctaAlignment, fallbackCtaAlignment),
     showFloatingCard: bool(value.showFloatingCard, fallback.showFloatingCard),
     badge: text(value.badge, fallback.badge),
     title: text(value.title, fallback.title),
