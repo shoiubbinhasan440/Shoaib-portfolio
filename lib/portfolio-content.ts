@@ -69,6 +69,17 @@ export type PortfolioCategory = {
   type: string;
   active: boolean;
   order_num: number;
+  description?: string | null;
+  cover_image_url?: string | null;
+  icon?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  canonical_url?: string | null;
+  og_image_url?: string | null;
+  show_on_homepage?: boolean | null;
+  show_on_portfolio?: boolean | null;
+  show_filter_chip?: boolean | null;
+  featured?: boolean | null;
 };
 
 export type PortfolioPreviewItem = {
@@ -81,6 +92,11 @@ export type PortfolioPreviewItem = {
   categoryName: string;
   categoryActive: boolean;
   categoryType: string;
+  categoryShowOnHomepage: boolean;
+  categoryShowOnPortfolio: boolean;
+  categoryShowFilterChip: boolean;
+  categoryFeatured: boolean;
+  categoryIcon?: string | null;
   imageUrl: string;
   visible: boolean;
   order_num: number;
@@ -1052,6 +1068,11 @@ function toPortfolioCategoryDetails(
     categoryName: matchedCategory?.name || categoryValue || 'Portfolio',
     categoryActive: matchedCategory?.active ?? true,
     categoryType: matchedCategory?.type || fallbackType,
+    categoryShowOnHomepage: matchedCategory?.show_on_homepage ?? true,
+    categoryShowOnPortfolio: matchedCategory?.show_on_portfolio ?? true,
+    categoryShowFilterChip: matchedCategory?.show_filter_chip ?? true,
+    categoryFeatured: matchedCategory?.featured ?? false,
+    categoryIcon: matchedCategory?.icon || null,
   };
 }
 
@@ -1174,7 +1195,7 @@ export function isHomepageItemAllowed(
     'showVideos' | 'showGraphics' | 'itemConfig' | 'categoryConfig'
   >
 ) {
-  if (!item.visible || !item.categoryActive) {
+  if (!item.visible || !item.categoryActive || !item.categoryShowOnHomepage) {
     return false;
   }
 
@@ -1261,7 +1282,9 @@ export function getPortfolioTabs(
   items: PortfolioPreviewItem[],
   settings: PortfolioPageSettings
 ) {
-  const visibleItems = items.filter(item => item.visible && item.categoryActive);
+  const visibleItems = items.filter(
+    item => item.visible && item.categoryActive && item.categoryShowOnPortfolio
+  );
   const videoCount = visibleItems.filter(item => item.sourceType === 'video').length;
   const graphicCount = visibleItems.filter(item => item.sourceType === 'graphic').length;
   const allCount = visibleItems.filter(item =>
@@ -1312,6 +1335,7 @@ export function getPortfolioItemsForTab(
     item =>
       item.visible &&
       item.categoryActive &&
+      item.categoryShowOnPortfolio &&
       allowedSourceTypes.includes(item.sourceType)
   );
 }
@@ -1325,7 +1349,7 @@ export function getPortfolioCategoriesForTab(
   const allowedSourceTypes = getAllowedPortfolioSourceTypes(activeTab, settings);
 
   return categories
-    .filter(category => category.active)
+    .filter(category => category.active && category.show_on_portfolio !== false && category.show_filter_chip !== false)
     .filter(category => {
       if (category.type === 'both') {
         return true;
@@ -1338,6 +1362,8 @@ export function getPortfolioCategoriesForTab(
         item =>
           item.visible &&
           item.categoryActive &&
+          item.categoryShowOnPortfolio &&
+          item.categoryShowFilterChip &&
           allowedSourceTypes.includes(item.sourceType) &&
           item.categorySlug === category.slug
       )

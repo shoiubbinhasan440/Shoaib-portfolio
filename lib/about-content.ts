@@ -50,6 +50,19 @@ export type ExperienceEmploymentType =
   | 'Internship';
 export type ExperienceLocationType = 'On-site' | 'Hybrid' | 'Remote';
 export type ExperienceLayoutStyle = 'timeline' | 'card-grid' | 'compact-list';
+export type ExperienceBulletIcon = 'dot' | 'check' | 'arrow' | 'star' | 'line';
+export type ExperienceBulletBackground = 'none' | 'soft-pill' | 'subtle-card' | 'glow-accent';
+export type ExperienceBulletSpacing = 'compact' | 'normal' | 'spacious';
+export type ExperienceBulletFontSize = 'sm' | 'md' | 'lg';
+export type ExperienceBulletFontWeight = 'regular' | 'medium' | 'semibold' | 'bold';
+export type ExperienceBulletAlignment = 'left' | 'center' | 'right';
+
+export type ExperienceAchievement = {
+  text: string;
+  highlighted: boolean;
+  icon?: ExperienceBulletIcon;
+  color?: string;
+};
 
 export type AboutText = {
   value: string;
@@ -121,7 +134,7 @@ export type ExperienceItem = {
   location: string;
   locationType: ExperienceLocationType;
   description: string;
-  achievements: string[];
+  achievements: ExperienceAchievement[];
   logoUrl: string;
   websiteUrl: string;
   skills: string[];
@@ -139,6 +152,16 @@ export type AboutExperienceConfig = {
   title: string;
   subtitle: string;
   viewAllLabel: string;
+  bulletStyle: ExperienceBulletIcon;
+  bulletTextColor: string;
+  bulletHighlightColor: string;
+  bulletIconColor: string;
+  bulletBackgroundStyle: ExperienceBulletBackground;
+  bulletSpacing: ExperienceBulletSpacing;
+  bulletFontSize: ExperienceBulletFontSize;
+  bulletFontWeight: ExperienceBulletFontWeight;
+  bulletAlignment: ExperienceBulletAlignment;
+  showBulletIcons: boolean;
   items: ExperienceItem[];
 };
 
@@ -316,6 +339,53 @@ function experienceLayoutStyle(
     : fallback;
 }
 
+function experienceBulletIcon(value: unknown, fallback: ExperienceBulletIcon): ExperienceBulletIcon {
+  return value === 'dot' || value === 'check' || value === 'arrow' || value === 'star' || value === 'line'
+    ? value
+    : fallback;
+}
+
+function experienceBulletBackground(
+  value: unknown,
+  fallback: ExperienceBulletBackground
+): ExperienceBulletBackground {
+  return value === 'none' || value === 'soft-pill' || value === 'subtle-card' || value === 'glow-accent'
+    ? value
+    : fallback;
+}
+
+function experienceBulletSpacing(
+  value: unknown,
+  fallback: ExperienceBulletSpacing
+): ExperienceBulletSpacing {
+  return value === 'compact' || value === 'normal' || value === 'spacious'
+    ? value
+    : fallback;
+}
+
+function experienceBulletFontSize(
+  value: unknown,
+  fallback: ExperienceBulletFontSize
+): ExperienceBulletFontSize {
+  return value === 'sm' || value === 'md' || value === 'lg' ? value : fallback;
+}
+
+function experienceBulletFontWeight(
+  value: unknown,
+  fallback: ExperienceBulletFontWeight
+): ExperienceBulletFontWeight {
+  return value === 'regular' || value === 'medium' || value === 'semibold' || value === 'bold'
+    ? value
+    : fallback;
+}
+
+function experienceBulletAlignment(
+  value: unknown,
+  fallback: ExperienceBulletAlignment
+): ExperienceBulletAlignment {
+  return value === 'left' || value === 'center' || value === 'right' ? value : fallback;
+}
+
 function sectionType(value: unknown, fallback: AboutPageSectionType): AboutPageSectionType {
   const allowed: AboutPageSectionType[] = ['hero', 'stats', 'skills', 'story', 'services', 'cta'];
   return allowed.includes(value as AboutPageSectionType)
@@ -376,6 +446,60 @@ function stringList(value: unknown, fallback: string[] = []) {
   return fallback;
 }
 
+export function normalizeExperienceAchievements(
+  value: unknown,
+  fallback: ExperienceAchievement[] = []
+): ExperienceAchievement[] {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap<ExperienceAchievement>((item, index) => {
+        if (typeof item === 'string') {
+          return item
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(textValue => ({
+              text: textValue,
+              highlighted: false as boolean,
+              icon: fallback[index]?.icon,
+              color: fallback[index]?.color,
+            }));
+        }
+
+        if (!isRecord(item)) {
+          return [];
+        }
+
+        const textValue = text(item.text, '').trim();
+        if (!textValue) {
+          return [];
+        }
+
+        return [
+          {
+            text: textValue,
+            highlighted: bool(item.highlighted, false),
+            icon: item.icon ? experienceBulletIcon(item.icon, fallback[index]?.icon || 'dot') : fallback[index]?.icon,
+            color: text(item.color, fallback[index]?.color || ''),
+          },
+        ];
+      });
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split('\n')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .map(textValue => ({
+        text: textValue,
+        highlighted: false,
+      }));
+  }
+
+  return fallback;
+}
+
 export function createDefaultExperienceItem(): ExperienceItem {
   return {
     id: `experience-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -419,7 +543,7 @@ function sanitizeExperienceItem(value: unknown, fallback: ExperienceItem): Exper
     location: text(value.location, fallback.location),
     locationType: locationType(value.locationType ?? value.location_type, fallback.locationType),
     description: text(value.description, fallback.description),
-    achievements: stringList(value.achievements, fallback.achievements),
+    achievements: normalizeExperienceAchievements(value.achievements, fallback.achievements),
     logoUrl: text(value.logoUrl, text(value.logo_url, fallback.logoUrl)),
     websiteUrl: text(value.websiteUrl, text(value.website_url, fallback.websiteUrl)),
     skills: stringList(value.skills, fallback.skills),
@@ -439,6 +563,16 @@ function createDefaultExperienceConfig(): AboutExperienceConfig {
     title: 'Professional Experience',
     subtitle: 'Selected roles, organizations, and creative responsibilities.',
     viewAllLabel: 'View full experience',
+    bulletStyle: 'check',
+    bulletTextColor: '',
+    bulletHighlightColor: '#38bdf8',
+    bulletIconColor: '#38bdf8',
+    bulletBackgroundStyle: 'none',
+    bulletSpacing: 'normal',
+    bulletFontSize: 'sm',
+    bulletFontWeight: 'medium',
+    bulletAlignment: 'left',
+    showBulletIcons: true,
     items: [],
   };
 }
@@ -471,6 +605,16 @@ function sanitizeExperienceConfig(
     title: text(value.title, fallback.title),
     subtitle: text(value.subtitle, fallback.subtitle),
     viewAllLabel: text(value.viewAllLabel, fallback.viewAllLabel),
+    bulletStyle: experienceBulletIcon(value.bulletStyle, fallback.bulletStyle),
+    bulletTextColor: text(value.bulletTextColor, fallback.bulletTextColor),
+    bulletHighlightColor: text(value.bulletHighlightColor, fallback.bulletHighlightColor),
+    bulletIconColor: text(value.bulletIconColor, fallback.bulletIconColor),
+    bulletBackgroundStyle: experienceBulletBackground(value.bulletBackgroundStyle, fallback.bulletBackgroundStyle),
+    bulletSpacing: experienceBulletSpacing(value.bulletSpacing, fallback.bulletSpacing),
+    bulletFontSize: experienceBulletFontSize(value.bulletFontSize, fallback.bulletFontSize),
+    bulletFontWeight: experienceBulletFontWeight(value.bulletFontWeight, fallback.bulletFontWeight),
+    bulletAlignment: experienceBulletAlignment(value.bulletAlignment, fallback.bulletAlignment),
+    showBulletIcons: bool(value.showBulletIcons, fallback.showBulletIcons),
     items: items.sort((a, b) => a.sortOrder - b.sortOrder),
   };
 }

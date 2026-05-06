@@ -102,6 +102,7 @@ export default function PortfolioCategoryPage() {
             item =>
               item.visible &&
               item.categoryActive &&
+              item.categoryShowOnPortfolio &&
               item.sourceType === sourceType &&
               item.categorySlug === slugParam
           )

@@ -120,6 +120,11 @@ export function buildPortfolioCategoryMetadata(
   settings: GlobalSettingsConfig,
   params: {
     categoryTitle?: string;
+    categoryDescription?: string;
+    seoTitle?: string;
+    seoDescription?: string;
+    canonicalUrl?: string;
+    ogImage?: string;
     slug: string;
     sourceType: PortfolioSourceType;
   }
@@ -128,9 +133,13 @@ export function buildPortfolioCategoryMetadata(
   const typeLabel = params.sourceType === 'video' ? 'Video Editing' : 'Graphics Design';
   const base = buildPageMetadata(settings, 'portfolio');
   const path = `/portfolio/category/${params.sourceType}/${params.slug}`;
-  const canonical = buildCanonicalUrl(SITE_CONFIG.url, path);
-  const title = `${categoryTitle} ${typeLabel} | ${SITE_CONFIG.siteName}`;
-  const description = `Browse ${categoryTitle} ${typeLabel.toLowerCase()} portfolio work, previews, and selected project details.`;
+  const canonical = params.canonicalUrl || buildCanonicalUrl(SITE_CONFIG.url, path);
+  const title = params.seoTitle || `${categoryTitle} ${typeLabel} | ${SITE_CONFIG.siteName}`;
+  const description =
+    params.seoDescription ||
+    params.categoryDescription ||
+    `Browse ${categoryTitle} ${typeLabel.toLowerCase()} portfolio work, previews, and selected project details.`;
+  const imageUrl = params.ogImage ? absoluteAssetUrl(params.ogImage) : undefined;
 
   return {
     ...base,
@@ -142,11 +151,22 @@ export function buildPortfolioCategoryMetadata(
       title,
       description,
       url: canonical || undefined,
+      images: imageUrl
+        ? [
+            {
+              url: imageUrl,
+              width: 1200,
+              height: 630,
+              alt: `${categoryTitle} category social preview`,
+            },
+          ]
+        : base.openGraph?.images,
     },
     twitter: {
       ...base.twitter,
       title,
       description,
+      images: imageUrl ? [imageUrl] : base.twitter?.images,
     },
   };
 }

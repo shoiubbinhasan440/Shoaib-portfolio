@@ -136,7 +136,7 @@ export default function AdminGraphics() {
         .filter(category => category.type === 'graphic' || category.type === 'both')
         .map(category => ({
           label: category.name,
-          value: category.name,
+          value: category.slug,
         }));
 
       const managerItems = dataset.graphics.map(graphic => {

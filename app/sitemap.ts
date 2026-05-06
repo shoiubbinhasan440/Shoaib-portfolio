@@ -32,6 +32,10 @@ async function buildPortfolioCategorySitemapEntries(
       return;
     }
 
+    if (!item.categoryShowOnPortfolio) {
+      return;
+    }
+
     keys.add(`${item.sourceType}:${item.categorySlug}`);
   });
 

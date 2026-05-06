@@ -8,6 +8,7 @@ import AdminShell from '@/components/admin/AdminShell';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
+  AdminActionButton,
   AdminBuilderSection,
   getAdminInputStyle,
   getAdminTextareaStyle,
@@ -17,9 +18,9 @@ import PageStyleEditor from '@/components/admin/PageStyleEditor';
 import {
   ABOUT_SYSTEM_SETTING_KEY,
   createDefaultAboutSystemConfig,
-  createDefaultExperienceItem,
   getAboutContent,
   getAboutSystemConfig,
+  normalizeExperienceAchievements,
   serializeAboutSystemConfig,
   type AboutAlignment,
   type AboutCardItem,
@@ -113,17 +114,6 @@ function createCard(): AboutCardItem {
     subtitle: '',
     description: '',
     image: '',
-  };
-}
-
-function createExperience(): ExperienceItem {
-  const next = createDefaultExperienceItem();
-  return {
-    ...next,
-    sortOrder: Date.now(),
-    startMonth: '06',
-    startYear: String(new Date().getFullYear()),
-    isCurrent: true,
   };
 }
 
@@ -657,26 +647,9 @@ export default function AdminAboutPage() {
               aboutSystem.experience.items.some(item => item.isVisible) ? 'success' : 'neutral'
             }
             headerControls={
-              <button
-                onClick={() =>
-                  updateExperienceConfig('items', [
-                    ...aboutSystem.experience.items,
-                    createExperience(),
-                  ])
-                }
-                type="button"
-                style={{
-                  background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
-                  color: '#fff',
-                  border: 'none',
-                  padding: '10px 14px',
-                  borderRadius: 12,
-                  cursor: 'pointer',
-                  fontWeight: 800,
-                }}
-              >
-                + Add Experience
-              </button>
+              <AdminActionButton href="/admin/experiences" variant="secondary">
+                Open Experience Manager
+              </AdminActionButton>
             }
             tabs={[
               {
@@ -779,6 +752,18 @@ export default function AdminAboutPage() {
                   'Add roles, organizations, dates, descriptions, achievements, logos, and skills.',
                 content: (
                   <div style={{ display: 'grid', gap: 14 }}>
+                    <div style={{ ...panelStyle, display: 'grid', gap: 10 }}>
+                      <strong>Experience items now live in the dedicated manager.</strong>
+                      <p style={{ margin: 0, color: tokens.muted, fontSize: 13, lineHeight: 1.65 }}>
+                        Use the sidebar item or this shortcut to add, edit, delete, reorder, upload logos,
+                        and style responsibility bullets. This About Builder keeps the display controls.
+                      </p>
+                      <div>
+                        <AdminActionButton href="/admin/experiences">
+                          Open Experience Manager
+                        </AdminActionButton>
+                      </div>
+                    </div>
                     {aboutSystem.experience.items.length === 0 ? (
                       <div style={{ ...panelStyle, color: tokens.muted }}>
                         No experience added yet. Use “Add Experience” to create the first role.
@@ -925,7 +910,20 @@ export default function AdminAboutPage() {
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
                             <div>
                               <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Responsibilities / achievements</div>
-                              <textarea value={item.achievements.join('\n')} onChange={event => updateExperienceItem(item.id, { achievements: splitLines(event.target.value) })} rows={5} style={textareaStyle} placeholder="One achievement per line" />
+                              <textarea
+                                value={normalizeExperienceAchievements(item.achievements).map(point => point.text).join('\n')}
+                                onChange={event =>
+                                  updateExperienceItem(item.id, {
+                                    achievements: splitLines(event.target.value).map(text => ({
+                                      text,
+                                      highlighted: false,
+                                    })),
+                                  })
+                                }
+                                rows={5}
+                                style={textareaStyle}
+                                placeholder="One achievement per line"
+                              />
                             </div>
                             <div>
                               <div style={{ fontSize: 12, color: tokens.muted, marginBottom: 6 }}>Related skills</div>

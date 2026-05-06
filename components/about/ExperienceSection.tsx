@@ -3,7 +3,9 @@ import Link from 'next/link';
 import {
   getExperienceDateRange,
   getExperienceDurationText,
+  normalizeExperienceAchievements,
   type AboutExperienceConfig,
+  type ExperienceAchievement,
   type ExperienceItem,
 } from '@/lib/about-content';
 
@@ -22,6 +24,56 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map(part => part.charAt(0).toUpperCase())
     .join('');
+}
+
+function getBulletIcon(point: ExperienceAchievement, config: AboutExperienceConfig) {
+  const icon = point.icon || config.bulletStyle;
+  if (icon === 'check') {
+    return '✓';
+  }
+  if (icon === 'arrow') {
+    return '→';
+  }
+  if (icon === 'star') {
+    return '★';
+  }
+  if (icon === 'line') {
+    return '';
+  }
+  return '•';
+}
+
+function getBulletFontSize(config: AboutExperienceConfig) {
+  if (config.bulletFontSize === 'lg') {
+    return 14;
+  }
+  if (config.bulletFontSize === 'md') {
+    return 13;
+  }
+  return 12;
+}
+
+function getBulletFontWeight(config: AboutExperienceConfig) {
+  if (config.bulletFontWeight === 'bold') {
+    return 800;
+  }
+  if (config.bulletFontWeight === 'semibold') {
+    return 700;
+  }
+  if (config.bulletFontWeight === 'medium') {
+    return 600;
+  }
+  return 400;
+}
+
+function getBulletGap(config: AboutExperienceConfig) {
+  if (config.bulletSpacing === 'spacious') {
+    return 10;
+  }
+  if (config.bulletSpacing === 'compact') {
+    return 5;
+  }
+  return 7;
 }
 
 export default function ExperienceSection({
@@ -267,11 +319,109 @@ export default function ExperienceSection({
                   ) : null}
 
                   {item.achievements.length > 0 && !compact ? (
-                    <ul style={{ margin: '0 0 14px', paddingLeft: 18, color: muted, fontSize: 13, lineHeight: 1.7 }}>
-                      {item.achievements.map(point => (
-                        <li key={point}>{point}</li>
-                      ))}
-                    </ul>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: getBulletGap(config),
+                        margin: '0 0 14px',
+                      }}
+                    >
+                      {normalizeExperienceAchievements(item.achievements).map((point, pointIndex) => {
+                        const highlight = point.highlighted;
+                        const iconColor =
+                          point.color ||
+                          (highlight ? config.bulletHighlightColor : config.bulletIconColor) ||
+                          '#38bdf8';
+                        const pointColor =
+                          point.color ||
+                          (highlight ? config.bulletHighlightColor : config.bulletTextColor) ||
+                          muted;
+                        const background =
+                          config.bulletBackgroundStyle === 'soft-pill'
+                            ? dark
+                              ? 'rgba(14,165,233,0.1)'
+                              : 'rgba(219,234,254,0.76)'
+                            : config.bulletBackgroundStyle === 'subtle-card'
+                              ? dark
+                                ? 'rgba(15,23,42,0.58)'
+                                : 'rgba(255,255,255,0.72)'
+                              : config.bulletBackgroundStyle === 'glow-accent'
+                                ? dark
+                                  ? 'linear-gradient(135deg, rgba(14,165,233,0.18), rgba(37,99,235,0.08))'
+                                  : 'linear-gradient(135deg, rgba(219,234,254,0.9), rgba(255,255,255,0.78))'
+                                : 'transparent';
+
+                        return (
+                          <div
+                            key={`${point.text}-${pointIndex}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              justifyContent:
+                                config.bulletAlignment === 'center'
+                                  ? 'center'
+                                  : config.bulletAlignment === 'right'
+                                    ? 'flex-end'
+                                    : 'flex-start',
+                              gap: config.showBulletIcons ? 9 : 0,
+                              color: pointColor,
+                              fontSize: getBulletFontSize(config),
+                              fontWeight: getBulletFontWeight(config),
+                              lineHeight: 1.65,
+                              textAlign: config.bulletAlignment,
+                              padding:
+                                config.bulletBackgroundStyle === 'none'
+                                  ? 0
+                                  : config.bulletBackgroundStyle === 'soft-pill'
+                                    ? '7px 10px'
+                                    : '9px 11px',
+                              borderRadius:
+                                config.bulletBackgroundStyle === 'soft-pill' ? 999 : 14,
+                              background,
+                              border:
+                                config.bulletBackgroundStyle === 'subtle-card'
+                                  ? `1px solid ${border}`
+                                  : highlight
+                                    ? `1px solid ${dark ? 'rgba(56,189,248,0.24)' : 'rgba(37,99,235,0.16)'}`
+                                    : '1px solid transparent',
+                              boxShadow:
+                                config.bulletBackgroundStyle === 'glow-accent' || highlight
+                                  ? dark
+                                    ? '0 12px 34px rgba(14,165,233,0.08)'
+                                    : '0 12px 30px rgba(37,99,235,0.08)'
+                                  : 'none',
+                            }}
+                          >
+                            {config.showBulletIcons ? (
+                              <span
+                                style={{
+                                  color: iconColor,
+                                  fontWeight: 900,
+                                  minWidth: point.icon === 'line' || config.bulletStyle === 'line' ? 18 : 12,
+                                  paddingTop: 1,
+                                }}
+                              >
+                                {(point.icon || config.bulletStyle) === 'line' ? (
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      width: 18,
+                                      height: 2,
+                                      borderRadius: 999,
+                                      background: iconColor,
+                                      verticalAlign: 'middle',
+                                    }}
+                                  />
+                                ) : (
+                                  getBulletIcon(point, config)
+                                )}
+                              </span>
+                            ) : null}
+                            <span>{point.text}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : null}
 
                   {item.skills.length > 0 ? (

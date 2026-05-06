@@ -16,12 +16,22 @@ function isPortfolioSourceType(value: string): value is PortfolioSourceType {
   return value === 'video' || value === 'graphic';
 }
 
-async function getCategoryTitle(sourceType: PortfolioSourceType, slug: string) {
+type CategorySeoDetails = Pick<
+  PortfolioCategory,
+  | 'name'
+  | 'description'
+  | 'seo_title'
+  | 'seo_description'
+  | 'canonical_url'
+  | 'og_image_url'
+>;
+
+async function getCategorySeoDetails(sourceType: PortfolioSourceType, slug: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return '';
+    return null;
   }
 
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -29,12 +39,19 @@ async function getCategoryTitle(sourceType: PortfolioSourceType, slug: string) {
   });
   const { data } = await supabase
     .from('categories')
-    .select('name, slug, type')
+    .select('name, slug, type, description, seo_title, seo_description, canonical_url, og_image_url, active, show_on_portfolio')
     .eq('slug', slug)
     .in('type', [sourceType, 'both'])
+    .eq('active', true)
     .limit(1);
 
-  return ((data || []) as Array<Pick<PortfolioCategory, 'name'>>)[0]?.name || '';
+  const category = ((data || []) as Array<CategorySeoDetails & { show_on_portfolio?: boolean | null }>)[0];
+
+  if (!category || category.show_on_portfolio === false) {
+    return null;
+  }
+
+  return category;
 }
 
 export async function generateMetadata({
@@ -45,13 +62,18 @@ export async function generateMetadata({
     ? resolvedParams.type
     : 'video';
   const slug = decodeURIComponent(resolvedParams.slug || '');
-  const [settings, categoryTitle] = await Promise.all([
+  const [settings, categoryDetails] = await Promise.all([
     getServerGlobalSettings(),
-    getCategoryTitle(sourceType, slug),
+    getCategorySeoDetails(sourceType, slug),
   ]);
 
   return buildPortfolioCategoryMetadata(settings, {
-    categoryTitle,
+    categoryTitle: categoryDetails?.name,
+    categoryDescription: categoryDetails?.description || undefined,
+    seoTitle: categoryDetails?.seo_title || undefined,
+    seoDescription: categoryDetails?.seo_description || undefined,
+    canonicalUrl: categoryDetails?.canonical_url || undefined,
+    ogImage: categoryDetails?.og_image_url || undefined,
     slug,
     sourceType,
   });

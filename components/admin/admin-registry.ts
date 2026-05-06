@@ -112,6 +112,15 @@ export const ADMIN_MODULES: AdminModuleItem[] = [
     keywords: ['bio', 'story', 'skills', 'services'],
   },
   {
+    group: 'content',
+    href: '/admin/experiences',
+    icon: '✦',
+    label: 'Experience Manager',
+    meta: 'Roles, organizations, logos, dates, skills, and highlighted achievement bullets',
+    badge: 'Content',
+    keywords: ['experience', 'work', 'timeline', 'achievements', 'jobs'],
+  },
+  {
     group: 'builder',
     href: '/admin/contact',
     icon: '✦',

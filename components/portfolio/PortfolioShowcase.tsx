@@ -400,7 +400,7 @@ export default function PortfolioShowcase({
           : getHomepageAllowedSourceTypes(homepageConfig);
 
     return categories
-      .filter(category => category.active)
+      .filter(category => category.active && category.show_on_homepage !== false && category.show_filter_chip !== false)
       .filter(category => {
         if (category.type === 'both') {
           return allowedSourceTypes.length > 0;
@@ -528,17 +528,29 @@ export default function PortfolioShowcase({
     const grouped = new Map<string, HomepageCategoryPreviewGroup>();
 
     items
-      .filter(item => item.visible && item.categoryActive && item.categorySlug)
+      .filter(
+        item =>
+          item.visible &&
+          item.categoryActive &&
+          item.categoryShowOnHomepage &&
+          item.categoryShowFilterChip &&
+          item.categorySlug
+      )
       .filter(item => allowedSourceTypes.includes(item.sourceType))
       .forEach(item => {
         const categorySlug = item.categorySlug || '';
         const category =
           categories.find(
             candidate =>
-              candidate.slug === categorySlug && candidate.type === item.sourceType
+              candidate.slug === categorySlug &&
+              candidate.type === item.sourceType &&
+              candidate.show_on_homepage !== false
           ) ||
           categories.find(
-            candidate => candidate.slug === categorySlug && candidate.type === 'both'
+            candidate =>
+              candidate.slug === categorySlug &&
+              candidate.type === 'both' &&
+              candidate.show_on_homepage !== false
           );
         const categoryConfig = getHomepageCategoryConfig(
           {
