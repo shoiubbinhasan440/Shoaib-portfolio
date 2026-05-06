@@ -8,7 +8,7 @@ import {
   toPortfolioPreviewItems,
   type PortfolioSourceType,
 } from '@/lib/portfolio-content';
-import { SITE_CONFIG } from '@/lib/site-config';
+import { getCanonicalUrl, SITE_CONFIG } from '@/lib/site-config';
 
 async function buildPortfolioCategorySitemapEntries(
   canonicalUrl: string
@@ -62,7 +62,9 @@ async function buildPortfolioCategorySitemapEntries(
       const [sourceType, slug] = key.split(':') as [PortfolioSourceType, string];
 
       return {
-        url: `${canonicalUrl}/portfolio/category/${sourceType}/${slug}`,
+        url: getCanonicalUrl(
+          `/portfolio/category/${sourceType === 'graphic' ? 'graphics' : sourceType}/${slug}`
+        ),
         lastModified: new Date(),
         changeFrequency: 'monthly' as const,
         priority: 0.55,

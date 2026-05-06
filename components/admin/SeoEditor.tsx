@@ -92,6 +92,18 @@ export default function SeoEditor({
       description: `${page.label} page metadata and social share settings`,
     })),
   ];
+  const activePageOption =
+    activeTab === 'global'
+      ? null
+      : SEO_PAGE_OPTIONS.find(page => page.id === activeTab) || null;
+  const generatedGlobalCanonical = buildCanonicalUrl(value.canonicalUrl, '/');
+  const generatedPageCanonical =
+    activeTab === 'global'
+      ? ''
+      : buildCanonicalUrl(
+          value.canonicalUrl,
+          value.pages[activeTab].canonicalPath || activePageOption?.path || '/'
+        );
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -181,6 +193,21 @@ export default function SeoEditor({
                     boxSizing: 'border-box',
                   }}
                 />
+                <div
+                  style={{
+                    marginTop: 10,
+                    border: `1px solid ${tokens.line}`,
+                    borderRadius: 14,
+                    background: tokens.fieldSoft,
+                    padding: 12,
+                    color: tokens.muted,
+                    fontSize: 12,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <strong style={{ color: tokens.text }}>Generated canonical:</strong>{' '}
+                  <span style={{ fontFamily: 'monospace' }}>{generatedGlobalCanonical}</span>
+                </div>
               </AdminField>
               <AdminField label="Global keywords" hint="Optional comma-separated brand and service keywords.">
                 <input
@@ -469,6 +496,59 @@ export default function SeoEditor({
                     boxSizing: 'border-box',
                   }}
                 />
+                <div
+                  style={{
+                    marginTop: 10,
+                    border: `1px solid ${tokens.line}`,
+                    borderRadius: 14,
+                    background: tokens.fieldSoft,
+                    padding: 12,
+                    display: 'grid',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ color: tokens.subtle, fontSize: 11, fontWeight: 900, textTransform: 'uppercase' }}>
+                    Generated canonical
+                  </div>
+                  <input
+                    readOnly
+                    value={generatedPageCanonical}
+                    style={{
+                      width: '100%',
+                      background: tokens.field,
+                      border: `1px solid ${tokens.line}`,
+                      borderRadius: 14,
+                      color: tokens.muted,
+                      padding: '12px 14px',
+                      fontSize: 13,
+                      boxSizing: 'border-box',
+                      fontFamily: 'monospace',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updatePage(
+                        activeTab,
+                        'canonicalPath',
+                        value.pages[activeTab].canonicalPath || activePageOption?.path || '/'
+                      )
+                    }
+                    style={{
+                      justifySelf: 'start',
+                      borderRadius: 12,
+                      border: `1px solid ${tokens.line}`,
+                      background: tokens.field,
+                      color: tokens.text,
+                      padding: '9px 12px',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Use generated canonical path
+                  </button>
+                </div>
               </AdminField>
               <AdminField label="Page keywords" hint="Optional comma-separated keywords for this page only.">
                 <input
@@ -630,7 +710,7 @@ export default function SeoEditor({
                 {getSeoScore(value, activeTab, siteName)}
               </div>
               <div style={{ color: tokens.muted, fontSize: 13 }}>
-                {buildCanonicalUrl(value.canonicalUrl, value.pages[activeTab].canonicalPath) ||
+                {generatedPageCanonical ||
                   'Canonical preview appears here after a site URL is set.'}
               </div>
             </div>

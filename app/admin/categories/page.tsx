@@ -5,8 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import SeoVisibilityPanel from '@/components/admin/SeoVisibilityPanel';
 import {
   AdminActionButton,
   AdminChip,
@@ -67,43 +67,71 @@ type BulkImportItem = {
   reason?: string;
 };
 
-const DEFAULT_GRAPHICS_CATEGORY_NAMES = [
-  'Branding Design',
-  'Logo Design',
-  'Social Media Design',
-  'YouTube Thumbnail Design',
-  'Poster Design',
-  'Flyer Design',
-  'Banner Design',
-  'Brochure / Leaflet Design',
-  'Business Card Design',
-  'Print Design',
-  'Advertising Design',
-  'Packaging Design',
-  'UI/UX Design',
-  'Website Design',
-  'App Interface Design',
-  'Motion Graphics Design',
-  'Typography Design',
-  'Illustration Design',
-  'Photo Manipulation Design',
-  'Retouching / Photo Editing',
-  'Infographic Design',
-  'Event Design',
-  'Stage / LED Backdrop Design',
-  'Certificate Design',
-  'Invitation Card Design',
-  'ID Card Design',
-  'Book Cover Design',
-  'Magazine / Editorial Design',
-  'Presentation / Pitch Deck Design',
-  'Apparel / T-shirt Design',
-  'Product Design Visual',
-  'Menu Design',
-  'Company Profile Design',
-  'Annual Report Design',
-  'Newsletter Design',
-];
+type CategoryWritePayload = Record<string, unknown>;
+
+const DEFAULT_CATEGORY_SEEDS: Record<CategoryType, string[]> = {
+  video: [
+    'Reels',
+    'Short Form Video',
+    'Showreel',
+    'Commercial Video',
+    'Corporate Video',
+    'Event Highlight',
+    'Documentary',
+    'Motion Graphics',
+    'YouTube Video',
+    'Social Media Video',
+    'Promo Video',
+    'Campaign Video',
+  ],
+  graphic: [
+    'Branding Design',
+    'Logo Design',
+    'Social Media Design',
+    'YouTube Thumbnail Design',
+    'Poster Design',
+    'Flyer Design',
+    'Banner Design',
+    'Brochure / Leaflet Design',
+    'Business Card Design',
+    'Print Design',
+    'Advertising Design',
+    'Packaging Design',
+    'UI/UX Design',
+    'Website Design',
+    'App Interface Design',
+    'Motion Graphics Design',
+    'Typography Design',
+    'Illustration Design',
+    'Photo Manipulation Design',
+    'Retouching / Photo Editing',
+    'Infographic Design',
+    'Event Design',
+    'Stage / LED Backdrop Design',
+    'Certificate Design',
+    'Invitation Card Design',
+    'ID Card Design',
+    'Book Cover Design',
+    'Magazine / Editorial Design',
+    'Presentation / Pitch Deck Design',
+    'Apparel / T-shirt Design',
+    'Product Design Visual',
+    'Menu Design',
+    'Company Profile Design',
+    'Annual Report Design',
+    'Newsletter Design',
+  ],
+  both: [
+    'Brand Identity',
+    'Campaign Creative',
+    'Social Media Content',
+    'Event Content',
+    'Product Promotion',
+    'Digital Marketing',
+    'Corporate Communication',
+    'Editorial Content',
+  ],
+};
 
 const EMPTY_FORM: CategoryForm = {
   name: '',
@@ -146,38 +174,41 @@ function toForm(category: PortfolioCategory): CategoryForm {
     slug: category.slug || '',
     type: isCategoryType(category.type) ? category.type : 'video',
     description: category.description || '',
-    cover_image_url: category.cover_image_url || '',
+    cover_image_url: category.thumbnail_image || category.cover_image_url || '',
     icon: category.icon || '',
     seo_title: category.seo_title || '',
     seo_description: category.seo_description || '',
     canonical_url: category.canonical_url || '',
-    og_image_url: category.og_image_url || '',
+    og_image_url: category.og_image || category.og_image_url || '',
     order_num: category.order_num || 0,
     show_on_homepage: category.show_on_homepage ?? true,
-    show_on_portfolio: category.show_on_portfolio ?? true,
+    show_on_portfolio: category.show_on_portfolio_page ?? category.show_on_portfolio ?? true,
     show_filter_chip: category.show_filter_chip ?? true,
-    featured: category.featured ?? false,
-    active: category.active ?? true,
+    featured: category.featured_category ?? category.featured ?? false,
+    active: category.visibility_status ?? category.active ?? true,
   };
 }
 
 function toPayload(form: CategoryForm) {
+  const slug = toSlug(form.slug || form.name);
+
   return {
     name: form.name.trim(),
-    slug: toSlug(form.slug),
+    slug,
     type: form.type,
     description: form.description.trim() || null,
-    cover_image_url: form.cover_image_url.trim() || null,
+    thumbnail_image: form.cover_image_url.trim() || null,
     icon: form.icon.trim() || null,
     seo_title: form.seo_title.trim() || null,
     seo_description: form.seo_description.trim() || null,
     canonical_url: form.canonical_url.trim() || null,
-    og_image_url: form.og_image_url.trim() || null,
+    og_image: form.og_image_url.trim() || null,
     order_num: form.order_num,
     show_on_homepage: form.show_on_homepage,
-    show_on_portfolio: form.show_on_portfolio,
+    show_on_portfolio_page: form.show_on_portfolio,
     show_filter_chip: form.show_filter_chip,
-    featured: form.featured,
+    featured_category: form.featured,
+    visibility_status: form.active,
     active: form.active,
   };
 }
@@ -198,16 +229,21 @@ function getPreviewLinks(category: PortfolioCategory) {
   if (category.type === 'both') {
     return [
       { label: 'Video page', href: `/portfolio/category/video/${category.slug}` },
-      { label: 'Graphics page', href: `/portfolio/category/graphic/${category.slug}` },
+      { label: 'Graphics page', href: `/portfolio/category/graphics/${category.slug}` },
     ];
   }
 
   return [
     {
       label: 'Preview page',
-      href: `/portfolio/category/${category.type === 'graphic' ? 'graphic' : 'video'}/${category.slug}`,
+      href: `/portfolio/category/${category.type === 'graphic' ? 'graphics' : 'video'}/${category.slug}`,
     },
   ];
+}
+
+function getCategoryCanonicalPath(type: CategoryType, slug: string) {
+  const routeType = type === 'graphic' ? 'graphics' : type === 'both' ? 'graphics' : 'video';
+  return `/portfolio/category/${routeType}/${toSlug(slug)}`;
 }
 
 function getUsageForCategory(
@@ -242,6 +278,64 @@ function getUniqueImportNames(rawValue: string) {
     .filter(Boolean);
 }
 
+function isCategoryVisible(category: PortfolioCategory) {
+  return category.visibility_status ?? category.active ?? true;
+}
+
+function isCategoryFeatured(category: PortfolioCategory) {
+  return category.featured_category ?? category.featured ?? false;
+}
+
+function isCategoryShownOnPortfolio(category: PortfolioCategory) {
+  return category.show_on_portfolio_page ?? category.show_on_portfolio ?? true;
+}
+
+function getCategoryThumbnail(category: PortfolioCategory) {
+  return category.thumbnail_image || category.cover_image_url || '';
+}
+
+function getSeedList(type: CategoryType) {
+  return DEFAULT_CATEGORY_SEEDS[type].join('\n');
+}
+
+function getSeedButtonLabel(type: CategoryType) {
+  if (type === 'video') {
+    return 'Load video starter list';
+  }
+
+  if (type === 'both') {
+    return 'Load shared starter list';
+  }
+
+  return 'Load graphics starter list';
+}
+
+function getMissingSchemaColumn(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return (
+    message.match(/'([^']+)' column of 'categories'/)?.[1] ||
+    message.match(/column "([^"]+)" of relation "categories"/)?.[1] ||
+    ''
+  );
+}
+
+function removeColumnFromPayload<T extends CategoryWritePayload | CategoryWritePayload[]>(
+  payload: T,
+  column: string
+): T {
+  if (Array.isArray(payload)) {
+    return payload.map(item => {
+      const nextItem = { ...item };
+      delete nextItem[column];
+      return nextItem;
+    }) as T;
+  }
+
+  const nextPayload = { ...(payload as CategoryWritePayload) };
+  delete nextPayload[column];
+  return nextPayload as T;
+}
+
 export default function AdminCategories() {
   const router = useRouter();
   const tokens = useAdminThemeTokens();
@@ -266,7 +360,7 @@ export default function AdminCategories() {
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkType, setBulkType] = useState<CategoryType>('graphic');
-  const [bulkText, setBulkText] = useState(DEFAULT_GRAPHICS_CATEGORY_NAMES.join('\n'));
+  const [bulkText, setBulkText] = useState(getSeedList('graphic'));
   const [bulkPreviewConfirmed, setBulkPreviewConfirmed] = useState(false);
 
   async function refreshData() {
@@ -323,8 +417,8 @@ export default function AdminCategories() {
       total: categories.length,
       video: categories.filter(category => category.type === 'video' || category.type === 'both').length,
       graphic: categories.filter(category => category.type === 'graphic' || category.type === 'both').length,
-      visible: categories.filter(category => category.active).length,
-      hidden: categories.filter(category => !category.active).length,
+      visible: categories.filter(category => isCategoryVisible(category)).length,
+      hidden: categories.filter(category => !isCategoryVisible(category)).length,
       empty,
     };
   }, [categories, usageById]);
@@ -351,11 +445,11 @@ export default function AdminCategories() {
       .filter(category => typeFilter === 'all' || category.type === typeFilter)
       .filter(category => {
         if (statusFilter === 'active') {
-          return category.active;
+          return isCategoryVisible(category);
         }
 
         if (statusFilter === 'hidden') {
-          return !category.active;
+          return !isCategoryVisible(category);
         }
 
         if (statusFilter === 'empty') {
@@ -363,7 +457,7 @@ export default function AdminCategories() {
         }
 
         if (statusFilter === 'featured') {
-          return Boolean(category.featured);
+          return isCategoryFeatured(category);
         }
 
         return true;
@@ -430,9 +524,9 @@ export default function AdminCategories() {
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   }
 
-  function openDefaultGraphicsImport() {
+  function openBulkImport() {
     setBulkType('graphic');
-    setBulkText(DEFAULT_GRAPHICS_CATEGORY_NAMES.join('\n'));
+    setBulkText(getSeedList('graphic'));
     setBulkPreviewConfirmed(false);
     setBulkOpen(true);
     setMessage('');
@@ -473,6 +567,53 @@ export default function AdminCategories() {
     );
   }
 
+  async function insertCategoriesWithSchemaFallback(payload: CategoryWritePayload[]) {
+    let nextPayload = payload;
+    const skippedColumns: string[] = [];
+
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      try {
+        await adminInsertRows('categories', nextPayload);
+        return skippedColumns;
+      } catch (error) {
+        const missingColumn = getMissingSchemaColumn(error);
+        if (!missingColumn) {
+          throw error;
+        }
+
+        skippedColumns.push(missingColumn);
+        nextPayload = removeColumnFromPayload(nextPayload, missingColumn);
+      }
+    }
+
+    throw new Error('Category import failed after removing unsupported columns.');
+  }
+
+  async function updateCategoryWithSchemaFallback(
+    payload: CategoryWritePayload,
+    filters: Record<string, unknown>
+  ) {
+    let nextPayload = payload;
+    const skippedColumns: string[] = [];
+
+    for (let attempt = 0; attempt < 16; attempt += 1) {
+      try {
+        await adminUpdateRows('categories', nextPayload, filters);
+        return skippedColumns;
+      } catch (error) {
+        const missingColumn = getMissingSchemaColumn(error);
+        if (!missingColumn) {
+          throw error;
+        }
+
+        skippedColumns.push(missingColumn);
+        nextPayload = removeColumnFromPayload(nextPayload, missingColumn);
+      }
+    }
+
+    throw new Error('Category update failed after removing unsupported columns.');
+  }
+
   async function handleSave() {
     const payload = toPayload(form);
 
@@ -493,12 +634,12 @@ export default function AdminCategories() {
 
     try {
       if (editing) {
-        await adminUpdateRows('categories', payload, { id: editing.id });
+        await updateCategoryWithSchemaFallback(payload, { id: editing.id });
         if (editing.slug !== payload.slug || editing.name !== payload.name) {
           await syncCategoryReferences(editing, payload.slug);
         }
       } else {
-        await adminInsertRows('categories', [payload]);
+        await insertCategoriesWithSchemaFallback([payload]);
       }
 
       setMessage(editing ? '✅ Category updated and synced across portfolio items.' : '✅ Category created.');
@@ -544,18 +685,25 @@ export default function AdminCategories() {
         seo_description: `Selected works and portfolio items under ${item.name}.`,
         order_num: maxOrder + index + 1,
         active: true,
+        visibility_status: true,
         show_filter_chip: true,
-        show_on_portfolio: true,
+        show_on_portfolio_page: true,
         show_on_homepage: false,
-        featured: false,
-        cover_image_url: null,
+        featured_category: false,
+        thumbnail_image: null,
         icon: null,
         canonical_url: null,
-        og_image_url: null,
+        og_image: null,
       }));
 
-      await adminInsertRows('categories', payload);
-      setMessage(`✅ Bulk import complete: ${payload.length} created, ${bulkSkipItems.length} skipped.`);
+      const skippedColumns = await insertCategoriesWithSchemaFallback(payload);
+      setMessage(
+        `✅ Bulk import complete: ${payload.length} created, ${bulkSkipItems.length} skipped.${
+          skippedColumns.length > 0
+            ? ` Unsupported DB columns skipped: ${Array.from(new Set(skippedColumns)).join(', ')}.`
+            : ''
+        }`
+      );
       setBulkPreviewConfirmed(false);
       setBulkOpen(false);
       await refreshData();
@@ -585,9 +733,26 @@ export default function AdminCategories() {
   }
 
   async function updateCategory(category: PortfolioCategory, patch: Partial<CategoryForm>) {
-    await adminUpdateRows('categories', patch, { id: category.id });
+    const safePatch = { ...patch };
+    delete safePatch.cover_image_url;
+    delete safePatch.featured;
+    delete safePatch.og_image_url;
+    delete safePatch.show_on_portfolio;
+    const payload = {
+      ...safePatch,
+      ...(typeof patch.active === 'boolean' ? { visibility_status: patch.active } : {}),
+      ...(typeof patch.featured === 'boolean' ? { featured_category: patch.featured } : {}),
+      ...(typeof patch.show_on_portfolio === 'boolean'
+        ? { show_on_portfolio_page: patch.show_on_portfolio }
+        : {}),
+      ...(typeof patch.cover_image_url === 'string'
+        ? { thumbnail_image: patch.cover_image_url }
+        : {}),
+      ...(typeof patch.og_image_url === 'string' ? { og_image: patch.og_image_url } : {}),
+    };
+    await updateCategoryWithSchemaFallback(payload, { id: category.id });
     setCategories(current =>
-      current.map(item => (item.id === category.id ? ({ ...item, ...patch } as PortfolioCategory) : item))
+      current.map(item => (item.id === category.id ? ({ ...item, ...payload } as PortfolioCategory) : item))
     );
   }
 
@@ -600,11 +765,15 @@ export default function AdminCategories() {
     setSaving(true);
     try {
       await Promise.all(
-        selectedIds.map(id => adminUpdateRows('categories', { active }, { id }))
+        selectedIds.map(id =>
+          updateCategoryWithSchemaFallback({ active, visibility_status: active }, { id })
+        )
       );
       setCategories(current =>
         current.map(category =>
-          selectedIds.includes(category.id) ? { ...category, active } : category
+          selectedIds.includes(category.id)
+            ? { ...category, active, visibility_status: active }
+            : category
         )
       );
       setSelectedIds([]);
@@ -771,8 +940,8 @@ export default function AdminCategories() {
           <AdminActionButton href="/admin/graphics" variant="secondary">
             Graphics Manager
           </AdminActionButton>
-          <AdminActionButton onClick={openDefaultGraphicsImport} variant="secondary">
-            Bulk Add Graphics Categories
+          <AdminActionButton onClick={openBulkImport} variant="secondary">
+            Bulk Import Categories
           </AdminActionButton>
           <AdminActionButton onClick={openCreate}>
             New Category
@@ -841,7 +1010,9 @@ export default function AdminCategories() {
                 <select
                   value={bulkType}
                   onChange={event => {
-                    setBulkType(event.target.value as CategoryType);
+                    const nextType = event.target.value as CategoryType;
+                    setBulkType(nextType);
+                    setBulkText(getSeedList(nextType));
                     setBulkPreviewConfirmed(false);
                   }}
                   style={inputStyle}
@@ -851,16 +1022,15 @@ export default function AdminCategories() {
                   <option value="both">Both</option>
                 </select>
               </AdminField>
-              <AdminField label="Seed utility" hint="Reload the default graphics design category pack anytime.">
+              <AdminField label="Seed utility" hint="Load a starter list for the selected category type, then edit it before import.">
                 <AdminActionButton
                   onClick={() => {
-                    setBulkType('graphic');
-                    setBulkText(DEFAULT_GRAPHICS_CATEGORY_NAMES.join('\n'));
+                    setBulkText(getSeedList(bulkType));
                     setBulkPreviewConfirmed(false);
                   }}
                   variant="secondary"
                 >
-                  Seed default graphics list
+                  {getSeedButtonLabel(bulkType)}
                 </AdminActionButton>
               </AdminField>
               <AdminField
@@ -1045,56 +1215,83 @@ export default function AdminCategories() {
               <AdminField label="Icon / emoji" hint="Optional small visual marker for admin and future category UI.">
                 <input value={form.icon} onChange={event => setForm(current => ({ ...current, icon: event.target.value }))} style={inputStyle} placeholder="✦" />
               </AdminField>
-              <AdminField label="Canonical URL" hint="Leave blank to use the generated category URL.">
-                <input value={form.canonical_url} onChange={event => setForm(current => ({ ...current, canonical_url: event.target.value }))} style={inputStyle} placeholder="https://www.mdminhajulhoque.com/portfolio/category/..." />
-              </AdminField>
               <AdminField label="Description" full hint="Used as public category context and SEO fallback.">
                 <textarea value={form.description} onChange={event => setForm(current => ({ ...current, description: event.target.value }))} style={textareaStyle} />
               </AdminField>
-              <AdminField label="SEO title" hint="Overrides generated category page title.">
-                <input value={form.seo_title} onChange={event => setForm(current => ({ ...current, seo_title: event.target.value }))} style={inputStyle} />
-              </AdminField>
-              <AdminField label="SEO description" hint="Overrides generated meta/social description.">
-                <textarea value={form.seo_description} onChange={event => setForm(current => ({ ...current, seo_description: event.target.value }))} style={textareaStyle} />
-              </AdminField>
-              <AdminImageField
-                label="Thumbnail / cover image"
-                value={form.cover_image_url}
-                onChange={value => setForm(current => ({ ...current, cover_image_url: value }))}
-                onFileSelected={file => uploadCategoryImage(file, 'cover')}
-                uploading={uploadingField === 'cover'}
-                uploadProfile="thumbnail"
-                previewHeight={150}
-              />
-              <AdminImageField
-                label="OG image"
-                value={form.og_image_url}
-                onChange={value => setForm(current => ({ ...current, og_image_url: value }))}
-                onFileSelected={file => uploadCategoryImage(file, 'og')}
-                uploading={uploadingField === 'og'}
-                uploadProfile="showcase"
-                previewHeight={150}
-              />
-              <AdminField label="Display controls" full hint="These switches control homepage filters, portfolio filters, chip visibility, featured state, and public category availability.">
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                  {[
-                    ['active', 'Visible / active'],
-                    ['show_on_homepage', 'Show on homepage'],
-                    ['show_on_portfolio', 'Show on portfolio page'],
-                    ['show_filter_chip', 'Show filter chip'],
-                    ['featured', 'Featured category'],
-                  ].map(([key, label]) => (
-                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${tokens.line}`, borderRadius: 16, padding: 12, background: tokens.fieldSoft, color: tokens.text, fontSize: 13, fontWeight: 800 }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <SeoVisibilityPanel
+                  value={{
+                    seoTitle: form.seo_title,
+                    seoDescription: form.seo_description,
+                    canonicalUrl: form.canonical_url,
+                    canonicalPath: getCategoryCanonicalPath(form.type, form.slug || form.name),
+                    ogImage: form.og_image_url,
+                    coverImage: form.cover_image_url,
+                    socialImage: form.og_image_url,
+                    visible: form.active,
+                    showOnHomepage: form.show_on_homepage,
+                    showOnPortfolio: form.show_on_portfolio,
+                    featured: form.featured,
+                    sortOrder: form.order_num,
+                    slug: form.slug,
+                    robots: form.active ? 'index-follow' : 'noindex-nofollow',
+                    structuredDataType: 'CollectionPage',
+                    status: form.active ? 'published' : 'hidden',
+                    altText: form.name ? `${form.name} category cover` : '',
+                  }}
+                  titleFallback={`${form.name || 'Category'} | Md Minhajul Hoque`}
+                  descriptionFallback={
+                    form.description ||
+                    `Selected works and portfolio items under ${form.name || 'this category'}.`
+                  }
+                  onChange={patch =>
+                    setForm(current => ({
+                      ...current,
+                      ...(patch.seoTitle !== undefined ? { seo_title: patch.seoTitle } : {}),
+                      ...(patch.seoDescription !== undefined
+                        ? { seo_description: patch.seoDescription }
+                        : {}),
+                      ...(patch.canonicalUrl !== undefined ? { canonical_url: patch.canonicalUrl } : {}),
+                      ...(patch.ogImage !== undefined ? { og_image_url: patch.ogImage } : {}),
+                      ...(patch.coverImage !== undefined
+                        ? { cover_image_url: patch.coverImage }
+                        : {}),
+                      ...(patch.socialImage !== undefined ? { og_image_url: patch.socialImage } : {}),
+                      ...(patch.visible !== undefined ? { active: patch.visible } : {}),
+                      ...(patch.showOnHomepage !== undefined
+                        ? { show_on_homepage: patch.showOnHomepage }
+                        : {}),
+                      ...(patch.showOnPortfolio !== undefined
+                        ? { show_on_portfolio: patch.showOnPortfolio }
+                        : {}),
+                      ...(patch.featured !== undefined ? { featured: patch.featured } : {}),
+                      ...(patch.sortOrder !== undefined ? { order_num: patch.sortOrder } : {}),
+                      ...(patch.slug !== undefined ? { slug: toSlug(patch.slug) } : {}),
+                      ...(patch.status !== undefined
+                        ? { active: patch.status === 'published' }
+                        : {}),
+                    }))
+                  }
+                  onCoverUpload={file => uploadCategoryImage(file, 'cover')}
+                  onOgUpload={file => uploadCategoryImage(file, 'og')}
+                  uploadingCover={uploadingField === 'cover'}
+                  uploadingOg={uploadingField === 'og'}
+                  showPortfolioToggle
+                  helperText="Category SEO controls category pages, filter visibility, homepage visibility, cover images, social previews, and sitemap eligibility."
+                />
+                <div style={{ marginTop: 12 }}>
+                  <AdminField label="Filter chip visibility" hint="Hide this category from filter chips while keeping existing content connected.">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${tokens.line}`, borderRadius: 16, padding: 12, background: tokens.fieldSoft, color: tokens.text, fontSize: 13, fontWeight: 800 }}>
                       <input
                         type="checkbox"
-                        checked={Boolean(form[key as keyof CategoryForm])}
-                        onChange={event => setForm(current => ({ ...current, [key]: event.target.checked }))}
+                        checked={form.show_filter_chip}
+                        onChange={event => setForm(current => ({ ...current, show_filter_chip: event.target.checked }))}
                       />
-                      {label}
+                      Show filter chip
                     </label>
-                  ))}
+                  </AdminField>
                 </div>
-              </AdminField>
+              </div>
             </div>
           </AdminPanel>
         ) : null}
@@ -1182,13 +1379,22 @@ export default function AdminCategories() {
               <p style={{ margin: '0 auto 18px', maxWidth: 520, lineHeight: 1.7 }}>
                 Create a category or clear filters to bring the portfolio taxonomy back into view.
               </p>
-              <AdminActionButton onClick={openCreate}>Create first category</AdminActionButton>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <AdminActionButton onClick={openBulkImport} variant="secondary">
+                  Bulk import categories
+                </AdminActionButton>
+                <AdminActionButton onClick={openCreate}>Create first category</AdminActionButton>
+              </div>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 12 }}>
               {filteredCategories.map(category => {
                 const usage = usageById.get(category.id) || { total: 0, videos: 0, graphics: 0 };
                 const selected = selectedIds.includes(category.id);
+                const visible = isCategoryVisible(category);
+                const featured = isCategoryFeatured(category);
+                const thumbnail = getCategoryThumbnail(category);
+                const shownOnPortfolio = isCategoryShownOnPortfolio(category);
 
                 return (
                   <article
@@ -1226,8 +1432,8 @@ export default function AdminCategories() {
                     />
                     <div style={{ display: 'flex', gap: 12, minWidth: 0 }}>
                       <div style={{ position: 'relative', width: 64, height: 64, borderRadius: 18, overflow: 'hidden', background: tokens.field, border: `1px solid ${tokens.line}`, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
-                        {category.cover_image_url ? (
-                          <Image src={category.cover_image_url} alt="" fill sizes="64px" style={{ objectFit: 'cover' }} />
+                        {thumbnail ? (
+                          <Image src={thumbnail} alt="" fill sizes="64px" style={{ objectFit: 'cover' }} />
                         ) : (
                           <span style={{ fontSize: 22 }}>{category.icon || '▦'}</span>
                         )}
@@ -1237,10 +1443,10 @@ export default function AdminCategories() {
                           <h3 style={{ margin: 0, color: tokens.text, fontSize: 17, fontWeight: 900 }}>
                             {category.icon ? `${category.icon} ` : ''}{category.name}
                           </h3>
-                          <AdminChip tone={category.active ? 'success' : 'neutral'}>
-                            {category.active ? 'Active' : 'Hidden'}
+                          <AdminChip tone={visible ? 'success' : 'neutral'}>
+                            {visible ? 'Active' : 'Hidden'}
                           </AdminChip>
-                          {category.featured ? <AdminChip>Featured</AdminChip> : null}
+                          {featured ? <AdminChip>Featured</AdminChip> : null}
                         </div>
                         <div style={{ color: tokens.subtle, fontSize: 12, marginTop: 6, fontFamily: 'monospace' }}>
                           /{category.slug}
@@ -1258,7 +1464,7 @@ export default function AdminCategories() {
                     </div>
                     <div style={{ display: 'grid', gap: 8, color: tokens.muted, fontSize: 12 }}>
                       <div>Homepage: <strong style={{ color: category.show_on_homepage === false ? tokens.subtle : tokens.successText }}>{category.show_on_homepage === false ? 'Hidden' : 'Visible'}</strong></div>
-                      <div>Portfolio page: <strong style={{ color: category.show_on_portfolio === false ? tokens.subtle : tokens.successText }}>{category.show_on_portfolio === false ? 'Hidden' : 'Visible'}</strong></div>
+                      <div>Portfolio page: <strong style={{ color: shownOnPortfolio ? tokens.successText : tokens.subtle }}>{shownOnPortfolio ? 'Visible' : 'Hidden'}</strong></div>
                       <div>Filter chip: <strong style={{ color: category.show_filter_chip === false ? tokens.subtle : tokens.successText }}>{category.show_filter_chip === false ? 'Hidden' : 'Visible'}</strong></div>
                       <div>Sort order: <strong style={{ color: tokens.text }}>{category.order_num}</strong></div>
                     </div>
@@ -1269,11 +1475,11 @@ export default function AdminCategories() {
                       <AdminActionButton onClick={() => void moveCategory(category, 'down')} variant="ghost">
                         Down
                       </AdminActionButton>
-                      <AdminActionButton onClick={() => void updateCategory(category, { active: !category.active })} variant="secondary">
-                        {category.active ? 'Hide' : 'Show'}
+                      <AdminActionButton onClick={() => void updateCategory(category, { active: !visible })} variant="secondary">
+                        {visible ? 'Hide' : 'Show'}
                       </AdminActionButton>
-                      <AdminActionButton onClick={() => void updateCategory(category, { featured: !Boolean(category.featured) })} variant="secondary">
-                        {category.featured ? 'Unfeature' : 'Feature'}
+                      <AdminActionButton onClick={() => void updateCategory(category, { featured: !featured })} variant="secondary">
+                        {featured ? 'Unfeature' : 'Feature'}
                       </AdminActionButton>
                       <AdminActionButton onClick={() => openEdit(category)} variant="secondary">
                         Edit

@@ -400,7 +400,12 @@ export default function PortfolioShowcase({
           : getHomepageAllowedSourceTypes(homepageConfig);
 
     return categories
-      .filter(category => category.active && category.show_on_homepage !== false && category.show_filter_chip !== false)
+      .filter(
+        category =>
+          (category.visibility_status ?? category.active ?? true) &&
+          category.show_on_homepage !== false &&
+          category.show_filter_chip !== false
+      )
       .filter(category => {
         if (category.type === 'both') {
           return allowedSourceTypes.length > 0;
@@ -1304,7 +1309,7 @@ export default function PortfolioShowcase({
                       return (
                         <Link
                           key={group.key}
-                          href={`/portfolio/category/${group.sourceType}/${encodeURIComponent(group.slug)}`}
+                          href={`/portfolio/category/${group.sourceType === 'graphic' ? 'graphics' : group.sourceType}/${encodeURIComponent(group.slug)}`}
                           style={{
                             position: 'relative',
                             display: 'grid',

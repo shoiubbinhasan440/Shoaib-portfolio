@@ -12,8 +12,16 @@ type CategoryLayoutProps = {
   }>;
 };
 
-function isPortfolioSourceType(value: string): value is PortfolioSourceType {
-  return value === 'video' || value === 'graphic';
+function normalizeSourceType(value: string): PortfolioSourceType | null {
+  if (value === 'video') {
+    return 'video';
+  }
+
+  if (value === 'graphic' || value === 'graphics') {
+    return 'graphic';
+  }
+
+  return null;
 }
 
 type CategorySeoDetails = Pick<
@@ -24,6 +32,7 @@ type CategorySeoDetails = Pick<
   | 'seo_description'
   | 'canonical_url'
   | 'og_image_url'
+  | 'og_image'
 >;
 
 async function getCategorySeoDetails(sourceType: PortfolioSourceType, slug: string) {
@@ -39,15 +48,23 @@ async function getCategorySeoDetails(sourceType: PortfolioSourceType, slug: stri
   });
   const { data } = await supabase
     .from('categories')
-    .select('name, slug, type, description, seo_title, seo_description, canonical_url, og_image_url, active, show_on_portfolio')
+    .select('*')
     .eq('slug', slug)
     .in('type', [sourceType, 'both'])
-    .eq('active', true)
     .limit(1);
 
-  const category = ((data || []) as Array<CategorySeoDetails & { show_on_portfolio?: boolean | null }>)[0];
+  const category = ((data || []) as Array<CategorySeoDetails & {
+    active?: boolean | null;
+    show_on_portfolio?: boolean | null;
+    show_on_portfolio_page?: boolean | null;
+    visibility_status?: boolean | null;
+  }>)[0];
 
-  if (!category || category.show_on_portfolio === false) {
+  if (
+    !category ||
+    (category.visibility_status ?? category.active ?? true) === false ||
+    (category.show_on_portfolio_page ?? category.show_on_portfolio ?? true) === false
+  ) {
     return null;
   }
 
@@ -58,9 +75,7 @@ export async function generateMetadata({
   params,
 }: CategoryLayoutProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const sourceType = isPortfolioSourceType(resolvedParams.type)
-    ? resolvedParams.type
-    : 'video';
+  const sourceType = normalizeSourceType(resolvedParams.type) || 'video';
   const slug = decodeURIComponent(resolvedParams.slug || '');
   const [settings, categoryDetails] = await Promise.all([
     getServerGlobalSettings(),
@@ -73,7 +88,7 @@ export async function generateMetadata({
     seoTitle: categoryDetails?.seo_title || undefined,
     seoDescription: categoryDetails?.seo_description || undefined,
     canonicalUrl: categoryDetails?.canonical_url || undefined,
-    ogImage: categoryDetails?.og_image_url || undefined,
+    ogImage: categoryDetails?.og_image || categoryDetails?.og_image_url || undefined,
     slug,
     sourceType,
   });

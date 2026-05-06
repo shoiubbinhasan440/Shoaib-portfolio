@@ -37,8 +37,16 @@ function normalizeParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] || '' : value || '';
 }
 
-function isPortfolioSourceType(value: string): value is PortfolioSourceType {
-  return value === 'video' || value === 'graphic';
+function normalizeSourceType(value: string): PortfolioSourceType | null {
+  if (value === 'video') {
+    return 'video';
+  }
+
+  if (value === 'graphic' || value === 'graphics') {
+    return 'graphic';
+  }
+
+  return null;
 }
 
 export default function PortfolioCategoryPage() {
@@ -47,7 +55,7 @@ export default function PortfolioCategoryPage() {
   const dark = theme === 'dark';
   const typeParam = normalizeParam(params.type);
   const slugParam = decodeURIComponent(normalizeParam(params.slug));
-  const sourceType = isPortfolioSourceType(typeParam) ? typeParam : null;
+  const sourceType = normalizeSourceType(typeParam);
 
   const [items, setItems] = useState<PortfolioPreviewItem[]>([]);
   const [categories, setCategories] = useState<PortfolioCategory[]>([]);

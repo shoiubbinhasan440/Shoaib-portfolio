@@ -1,4 +1,4 @@
-import { SITE_CONFIG } from '@/lib/site-config';
+import { getCanonicalUrl, SITE_CONFIG } from '@/lib/site-config';
 
 export type SeoPageId =
   | 'home'
@@ -89,14 +89,14 @@ function optionForPage(pageId: SeoPageId) {
 export function normalizeCanonicalUrl(value: string) {
   const trimmed = value.trim();
   if (!trimmed) {
-    return '';
+    return SITE_CONFIG.url;
   }
 
   try {
     const parsed = new URL(trimmed);
     return parsed.origin;
   } catch {
-    return '';
+    return SITE_CONFIG.url;
   }
 }
 
@@ -242,7 +242,7 @@ export function getSeoChecklist(
   siteName: string
 ): SeoChecklistItem[] {
   const effective = getEffectiveSeoPage(seo, pageId, siteName);
-  const absoluteBase = normalizeCanonicalUrl(seo.canonicalUrl);
+  const absoluteBase = normalizeCanonicalUrl(seo.canonicalUrl || SITE_CONFIG.url);
   const hasOg = Boolean(effective.ogImage);
   const option = optionForPage(pageId);
   const titleSource = effective.seoTitle || seo.siteTitle;
@@ -275,7 +275,7 @@ export function getSeoChecklist(
     {
       label: 'Canonical URL',
       note: absoluteBase
-        ? `${absoluteBase}${effective.canonicalPath === '/' ? '' : effective.canonicalPath}`
+        ? getCanonicalUrl(effective.canonicalPath)
         : 'Set the main site URL first so canonicals can be generated.',
       status: absoluteBase ? 'pass' : 'warning',
       weight: 14,
@@ -334,10 +334,18 @@ export function getSeoScore(
 }
 
 export function buildCanonicalUrl(baseUrl: string, path: string) {
-  const normalizedBase = normalizeCanonicalUrl(baseUrl);
-  if (!normalizedBase) {
-    return '';
+  const normalizedBase = normalizeCanonicalUrl(baseUrl || SITE_CONFIG.url);
+  const normalizedPath = normalizeCanonicalPath(path || '/', '/');
+
+  if (baseUrl) {
+    try {
+      const parsedBase = new URL(normalizedBase);
+      const pathPart = normalizedPath === '/' ? '' : normalizedPath;
+      return `${parsedBase.origin}${pathPart}`;
+    } catch {
+      return getCanonicalUrl(normalizedPath);
+    }
   }
 
-  return path === '/' ? normalizedBase : `${normalizedBase}${path}`;
+  return getCanonicalUrl(normalizedPath);
 }

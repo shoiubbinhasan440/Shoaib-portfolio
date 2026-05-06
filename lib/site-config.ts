@@ -1,8 +1,43 @@
+export const DEFAULT_SITE_URL = 'https://www.mdminhajulhoque.com';
+
+export function getSiteUrl() {
+  const rawUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
+
+  try {
+    return new URL(rawUrl.trim()).origin;
+  } catch {
+    return DEFAULT_SITE_URL;
+  }
+}
+
+export function getCanonicalUrl(path = '/') {
+  const siteUrl = getSiteUrl();
+  const trimmedPath = String(path || '/').trim();
+
+  if (/^https?:\/\//i.test(trimmedPath)) {
+    try {
+      const parsed = new URL(trimmedPath);
+      const normalizedPath = parsed.pathname.replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+      const search = parsed.search || '';
+      return `${parsed.origin}${normalizedPath || '/'}${search}`;
+    } catch {
+      return siteUrl;
+    }
+  }
+
+  const normalizedPath = `/${trimmedPath}`
+    .replace(/\/{2,}/g, '/')
+    .replace(/\/+$/, '');
+  const finalPath = normalizedPath === '' ? '/' : normalizedPath;
+
+  return finalPath === '/' ? siteUrl : `${siteUrl}${finalPath}`;
+}
+
 export const SITE_CONFIG = {
   siteName: 'Md Minhajul Hoque',
   ownerName: 'Md. Minhajul Hoque',
   profession: 'Graphics & Video Editor',
-  url: 'https://www.mdminhajulhoque.com',
+  url: getSiteUrl(),
   title: 'Md Minhajul Hoque | Graphics & Video Editor',
   description:
     'Official portfolio of Md Minhajul Hoque, Graphics & Video Editor specializing in graphic design, video editing, motion graphics, and digital marketing.',
@@ -30,8 +65,7 @@ export const SITE_CONFIG = {
 } as const;
 
 export function absoluteSiteUrl(path = '/') {
-  const normalizedPath = path === '/' ? '' : path.startsWith('/') ? path : `/${path}`;
-  return `${SITE_CONFIG.url}${normalizedPath}`;
+  return getCanonicalUrl(path);
 }
 
 export function absoluteAssetUrl(path: string) {
@@ -39,6 +73,5 @@ export function absoluteAssetUrl(path: string) {
     return path;
   }
 
-  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${SITE_CONFIG.url}${normalizedPath}`;
+  return getCanonicalUrl(path);
 }

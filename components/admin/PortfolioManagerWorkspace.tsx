@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import SeoVisibilityPanel, {
+  type SeoRobotsMode,
+  type SeoStructuredDataType,
+  type SeoVisibilityStatus,
+} from '@/components/admin/SeoVisibilityPanel';
 import PortfolioPreviewModal from '@/components/portfolio/PortfolioPreviewModal';
 import {
   AdminActionButton,
@@ -46,6 +51,17 @@ export type PortfolioManagerItem = {
   typeLabel: string;
   formatLabel: string;
   aspectRatio: string;
+  seoTitle: string;
+  seoDescription: string;
+  canonicalUrl: string;
+  ogImage: string;
+  coverImage: string;
+  socialImage: string;
+  slug: string;
+  robots: SeoRobotsMode;
+  structuredDataType: SeoStructuredDataType;
+  status: SeoVisibilityStatus;
+  altText: string;
   cardBadge: string;
   cardCtaLabel: string;
   previewTitle: string;
@@ -162,6 +178,17 @@ function createMetaConfig(
         typeLabel: item.typeLabel,
         formatLabel: item.formatLabel,
         aspectRatio: item.aspectRatio,
+        seoTitle: item.seoTitle,
+        seoDescription: item.seoDescription,
+        canonicalUrl: item.canonicalUrl,
+        ogImage: item.ogImage,
+        coverImage: item.coverImage,
+        socialImage: item.socialImage,
+        slug: item.slug,
+        robots: item.robots,
+        structuredDataType: item.structuredDataType,
+        status: item.status,
+        altText: item.altText,
         externalPreviewUrl: item.externalPreviewUrl,
         cardBadge: item.cardBadge,
         cardCtaLabel: item.cardCtaLabel,
@@ -222,6 +249,17 @@ function createEmptyItem(
     typeLabel: getDefaultTypeLabel(managerType),
     formatLabel: '',
     aspectRatio: '',
+    seoTitle: '',
+    seoDescription: '',
+    canonicalUrl: '',
+    ogImage: '',
+    coverImage: '',
+    socialImage: '',
+    slug: '',
+    robots: 'index-follow',
+    structuredDataType: 'CreativeWork',
+    status: 'published',
+    altText: '',
     cardBadge: '',
     cardCtaLabel: '',
     previewTitle: '',
@@ -1655,6 +1693,86 @@ export default function PortfolioManagerWorkspace({
                         />
                       </div>
                     </div>
+                  ),
+                },
+                {
+                  id: 'seo',
+                  label: 'SEO & Visibility',
+                  description:
+                    'Search metadata, canonical preview, social images, robots, status, and display flags are controlled together.',
+                  content: (
+                    <SeoVisibilityPanel
+                      value={{
+                        seoTitle: draft.seoTitle,
+                        seoDescription: draft.seoDescription,
+                        canonicalUrl: draft.canonicalUrl,
+                        canonicalPath: `/portfolio/${managerType === 'graphic' ? 'graphics' : 'video'}/${draft.slug || draft.id || draft.title}`,
+                        ogImage: draft.ogImage,
+                        coverImage: draft.coverImage || draft.imageUrl,
+                        socialImage: draft.socialImage,
+                        visible: draft.visible,
+                        showOnHomepage: draft.homepageVisible,
+                        showOnPortfolio: draft.previewEnabled,
+                        featured: draft.homepageFeatured,
+                        sortOrder: draft.order_num,
+                        slug: draft.slug,
+                        robots: draft.robots,
+                        structuredDataType: draft.structuredDataType,
+                        status: draft.status,
+                        altText: draft.altText,
+                      }}
+                      titleFallback={draft.previewTitle || draft.title || `${itemLabel} portfolio item`}
+                      descriptionFallback={
+                        draft.previewDescription ||
+                        draft.description ||
+                        `Selected ${itemLabel.toLowerCase()} portfolio work by Md Minhajul Hoque.`
+                      }
+                      onChange={patch =>
+                        setDraft(current => ({
+                          ...current,
+                          ...(patch.seoTitle !== undefined ? { seoTitle: patch.seoTitle } : {}),
+                          ...(patch.seoDescription !== undefined
+                            ? { seoDescription: patch.seoDescription }
+                            : {}),
+                          ...(patch.canonicalUrl !== undefined
+                            ? { canonicalUrl: patch.canonicalUrl }
+                            : {}),
+                          ...(patch.ogImage !== undefined ? { ogImage: patch.ogImage } : {}),
+                          ...(patch.coverImage !== undefined
+                            ? { coverImage: patch.coverImage, imageUrl: patch.coverImage || current.imageUrl }
+                            : {}),
+                          ...(patch.socialImage !== undefined
+                            ? { socialImage: patch.socialImage }
+                            : {}),
+                          ...(patch.visible !== undefined ? { visible: patch.visible } : {}),
+                          ...(patch.showOnHomepage !== undefined
+                            ? { homepageVisible: patch.showOnHomepage }
+                            : {}),
+                          ...(patch.showOnPortfolio !== undefined
+                            ? { previewEnabled: patch.showOnPortfolio }
+                            : {}),
+                          ...(patch.featured !== undefined
+                            ? { homepageFeatured: patch.featured }
+                            : {}),
+                          ...(patch.sortOrder !== undefined ? { order_num: patch.sortOrder } : {}),
+                          ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
+                          ...(patch.robots !== undefined ? { robots: patch.robots } : {}),
+                          ...(patch.structuredDataType !== undefined
+                            ? { structuredDataType: patch.structuredDataType }
+                            : {}),
+                          ...(patch.status !== undefined
+                            ? { status: patch.status, visible: patch.status === 'published' }
+                            : {}),
+                          ...(patch.altText !== undefined ? { altText: patch.altText } : {}),
+                        }))
+                      }
+                      onCoverUpload={async file => onUploadMedia(file, draft)}
+                      onOgUpload={async file => onUploadMedia(file, draft)}
+                      uploadingCover={uploadingMedia}
+                      uploadingOg={uploadingMedia}
+                      coverUploadProfile={managerType === 'video' ? 'thumbnail' : 'showcase'}
+                      ogUploadProfile="showcase"
+                    />
                   ),
                 },
                 {

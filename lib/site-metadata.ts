@@ -8,7 +8,7 @@ import {
   type SeoPageId,
 } from '@/lib/site-seo';
 import type { PortfolioSourceType } from '@/lib/portfolio-content';
-import { absoluteAssetUrl, absoluteSiteUrl, SITE_CONFIG } from '@/lib/site-config';
+import { absoluteAssetUrl, absoluteSiteUrl, getCanonicalUrl, SITE_CONFIG } from '@/lib/site-config';
 
 function asUrl(value: string) {
   try {
@@ -22,7 +22,7 @@ export function buildPageMetadata(
   settings: GlobalSettingsConfig,
   pageId: SeoPageId
 ): Metadata {
-  const canonicalBase = SITE_CONFIG.url;
+  const canonicalBase = settings.seo.canonicalUrl || SITE_CONFIG.url;
   const metadataBase = asUrl(canonicalBase);
   const effective = getEffectiveSeoPage(
     settings.seo,
@@ -132,8 +132,9 @@ export function buildPortfolioCategoryMetadata(
   const categoryTitle = params.categoryTitle || readableSlug(params.slug) || 'Portfolio Category';
   const typeLabel = params.sourceType === 'video' ? 'Video Editing' : 'Graphics Design';
   const base = buildPageMetadata(settings, 'portfolio');
-  const path = `/portfolio/category/${params.sourceType}/${params.slug}`;
-  const canonical = params.canonicalUrl || buildCanonicalUrl(SITE_CONFIG.url, path);
+  const routeType = params.sourceType === 'graphic' ? 'graphics' : params.sourceType;
+  const path = `/portfolio/category/${routeType}/${params.slug}`;
+  const canonical = params.canonicalUrl ? getCanonicalUrl(params.canonicalUrl) : getCanonicalUrl(path);
   const title = params.seoTitle || `${categoryTitle} ${typeLabel} | ${SITE_CONFIG.siteName}`;
   const description =
     params.seoDescription ||

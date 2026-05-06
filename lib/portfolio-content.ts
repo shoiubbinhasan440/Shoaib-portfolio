@@ -71,15 +71,20 @@ export type PortfolioCategory = {
   order_num: number;
   description?: string | null;
   cover_image_url?: string | null;
+  thumbnail_image?: string | null;
   icon?: string | null;
   seo_title?: string | null;
   seo_description?: string | null;
   canonical_url?: string | null;
   og_image_url?: string | null;
+  og_image?: string | null;
   show_on_homepage?: boolean | null;
   show_on_portfolio?: boolean | null;
+  show_on_portfolio_page?: boolean | null;
   show_filter_chip?: boolean | null;
   featured?: boolean | null;
+  featured_category?: boolean | null;
+  visibility_status?: boolean | null;
 };
 
 export type PortfolioPreviewItem = {
@@ -116,6 +121,17 @@ export type PortfolioItemMetaConfig = {
   typeLabel?: string;
   formatLabel?: string;
   aspectRatio?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
+  ogImage?: string;
+  coverImage?: string;
+  socialImage?: string;
+  slug?: string;
+  robots?: 'index-follow' | 'noindex-nofollow';
+  structuredDataType?: 'WebPage' | 'CollectionPage' | 'ProfilePage' | 'CreativeWork' | 'Article';
+  status?: 'draft' | 'published' | 'hidden';
+  altText?: string;
   externalPreviewUrl?: string;
   cardBadge?: string;
   cardCtaLabel?: string;
@@ -485,6 +501,29 @@ function sanitizePortfolioItemMetaValue(
     typeLabel: textValue(value.typeLabel, fallback.typeLabel || ''),
     formatLabel: textValue(value.formatLabel, fallback.formatLabel || ''),
     aspectRatio: textValue(value.aspectRatio, fallback.aspectRatio || ''),
+    seoTitle: textValue(value.seoTitle, fallback.seoTitle || ''),
+    seoDescription: textValue(value.seoDescription, fallback.seoDescription || ''),
+    canonicalUrl: textValue(value.canonicalUrl, fallback.canonicalUrl || ''),
+    ogImage: textValue(value.ogImage, fallback.ogImage || ''),
+    coverImage: textValue(value.coverImage, fallback.coverImage || ''),
+    socialImage: textValue(value.socialImage, fallback.socialImage || ''),
+    slug: textValue(value.slug, fallback.slug || ''),
+    robots: pickEnum(
+      value.robots,
+      ['index-follow', 'noindex-nofollow'] as const,
+      fallback.robots || 'index-follow'
+    ),
+    structuredDataType: pickEnum(
+      value.structuredDataType,
+      ['WebPage', 'CollectionPage', 'ProfilePage', 'CreativeWork', 'Article'] as const,
+      fallback.structuredDataType || 'CreativeWork'
+    ),
+    status: pickEnum(
+      value.status,
+      ['draft', 'published', 'hidden'] as const,
+      fallback.status || 'published'
+    ),
+    altText: textValue(value.altText, fallback.altText || ''),
     externalPreviewUrl: textValue(value.externalPreviewUrl, fallback.externalPreviewUrl || ''),
     cardBadge: textValue(value.cardBadge, fallback.cardBadge || ''),
     cardCtaLabel: textValue(value.cardCtaLabel, fallback.cardCtaLabel || ''),
@@ -1061,17 +1100,22 @@ function toPortfolioCategoryDetails(
 ) {
   const matchedCategory = findPortfolioCategory(categories, categoryValue);
   const fallbackType = sourceType === 'video' ? 'video' : 'graphic';
+  const categoryActive = matchedCategory?.visibility_status ?? matchedCategory?.active ?? true;
+  const categoryShowOnPortfolio =
+    matchedCategory?.show_on_portfolio_page ?? matchedCategory?.show_on_portfolio ?? true;
+  const categoryFeatured =
+    matchedCategory?.featured_category ?? matchedCategory?.featured ?? false;
 
   return {
     category: categoryValue || null,
     categorySlug: matchedCategory?.slug || (categoryValue ? slugifyValue(categoryValue) : null),
     categoryName: matchedCategory?.name || categoryValue || 'Portfolio',
-    categoryActive: matchedCategory?.active ?? true,
+    categoryActive,
     categoryType: matchedCategory?.type || fallbackType,
     categoryShowOnHomepage: matchedCategory?.show_on_homepage ?? true,
-    categoryShowOnPortfolio: matchedCategory?.show_on_portfolio ?? true,
+    categoryShowOnPortfolio,
     categoryShowFilterChip: matchedCategory?.show_filter_chip ?? true,
-    categoryFeatured: matchedCategory?.featured ?? false,
+    categoryFeatured,
     categoryIcon: matchedCategory?.icon || null,
   };
 }
@@ -1105,6 +1149,17 @@ export function getPortfolioItemMeta(
     typeLabel: rawConfig.typeLabel || getPortfolioItemDefaultTypeLabel(item.sourceType),
     formatLabel: rawConfig.formatLabel || '',
     aspectRatio: rawConfig.aspectRatio || '',
+    seoTitle: rawConfig.seoTitle || '',
+    seoDescription: rawConfig.seoDescription || '',
+    canonicalUrl: rawConfig.canonicalUrl || '',
+    ogImage: rawConfig.ogImage || '',
+    coverImage: rawConfig.coverImage || '',
+    socialImage: rawConfig.socialImage || '',
+    slug: rawConfig.slug || '',
+    robots: rawConfig.robots || 'index-follow',
+    structuredDataType: rawConfig.structuredDataType || 'CreativeWork',
+    status: rawConfig.status || 'published',
+    altText: rawConfig.altText || '',
     externalPreviewUrl: rawConfig.externalPreviewUrl || '',
     cardBadge: rawConfig.cardBadge || '',
     cardCtaLabel: rawConfig.cardCtaLabel || '',
@@ -1349,7 +1404,12 @@ export function getPortfolioCategoriesForTab(
   const allowedSourceTypes = getAllowedPortfolioSourceTypes(activeTab, settings);
 
   return categories
-    .filter(category => category.active && category.show_on_portfolio !== false && category.show_filter_chip !== false)
+    .filter(
+      category =>
+        (category.visibility_status ?? category.active ?? true) &&
+        (category.show_on_portfolio_page ?? category.show_on_portfolio ?? true) &&
+        category.show_filter_chip !== false
+    )
     .filter(category => {
       if (category.type === 'both') {
         return true;
