@@ -24,6 +24,7 @@ import {
   PORTFOLIO_ITEM_META_SETTING_KEY,
   serializeHomepagePortfolioItemConfig,
   serializePortfolioItemMetaConfig,
+  slugifyPortfolioValue,
   toPortfolioPreviewItems,
   type HomepagePortfolioConfigMap,
   type PortfolioItemMetaConfigMap,
@@ -201,7 +202,7 @@ export default function AdminGraphics() {
           ogImage: itemMeta.ogImage,
           coverImage: itemMeta.coverImage,
           socialImage: itemMeta.socialImage,
-          slug: itemMeta.slug,
+          slug: graphic.slug || itemMeta.slug,
           robots: itemMeta.robots,
           structuredDataType: itemMeta.structuredDataType,
           status: itemMeta.status,
@@ -361,8 +362,10 @@ export default function AdminGraphics() {
       );
     }
 
+    const normalizedSlug = slugifyPortfolioValue(draft.slug || draft.title);
     const payload = {
       title: draft.title.trim(),
+      slug: normalizedSlug,
       category: draft.category.trim(),
       description: draft.description.trim() || null,
       image_url: draft.imageUrl.trim(),
@@ -381,6 +384,7 @@ export default function AdminGraphics() {
     await persistConfigs(savedId, {
       ...draft,
       id: savedId,
+      slug: normalizedSlug,
       homepageOrder: normalizedHomepageOrder,
     });
     await refreshData();
@@ -480,8 +484,10 @@ export default function AdminGraphics() {
   async function handleDuplicateItem(item: PortfolioManagerItem) {
     setSaving(true);
     try {
+      const duplicateSlug = slugifyPortfolioValue(`${item.title} Copy ${Date.now()}`);
       const insertPayload = {
         title: `${item.title} Copy`,
+        slug: duplicateSlug,
         category: item.category,
         description: item.description || null,
         image_url: item.imageUrl,
@@ -495,6 +501,7 @@ export default function AdminGraphics() {
         ...item,
         id: duplicatedId,
         title: `${item.title} Copy`,
+        slug: duplicateSlug,
         order_num: insertPayload.order_num,
         homepageOrder: item.homepageVisible ? nextHomepageOrder() : item.homepageOrder,
       } satisfies PortfolioManagerItem;

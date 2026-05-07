@@ -24,6 +24,7 @@ import {
   PORTFOLIO_ITEM_META_SETTING_KEY,
   serializeHomepagePortfolioItemConfig,
   serializePortfolioItemMetaConfig,
+  slugifyPortfolioValue,
   toPortfolioPreviewItems,
   type HomepagePortfolioConfigMap,
   type PortfolioGraphic,
@@ -217,7 +218,7 @@ export default function AdminVideos() {
           ogImage: itemMeta.ogImage,
           coverImage: itemMeta.coverImage,
           socialImage: itemMeta.socialImage,
-          slug: itemMeta.slug,
+          slug: video.slug || itemMeta.slug,
           robots: itemMeta.robots,
           structuredDataType: itemMeta.structuredDataType,
           status: itemMeta.status,
@@ -385,10 +386,12 @@ export default function AdminVideos() {
       );
     }
 
+    const normalizedSlug = slugifyPortfolioValue(draft.slug || draft.title);
     const embedUrl = toEmbedUrl(draft.youtubeUrl);
     const thumbnailUrl = draft.imageUrl || toAutoThumbnail(draft.youtubeUrl);
     const payload = {
       title: draft.title.trim(),
+      slug: normalizedSlug,
       category: draft.category.trim(),
       description: draft.description.trim() || null,
       youtube_url: embedUrl,
@@ -409,6 +412,7 @@ export default function AdminVideos() {
     await persistConfigs(savedId, {
       ...draft,
       id: savedId,
+      slug: normalizedSlug,
       imageUrl: thumbnailUrl,
       youtubeUrl: embedUrl,
       homepageOrder: normalizedHomepageOrder,
@@ -511,8 +515,10 @@ export default function AdminVideos() {
   async function handleDuplicateItem(item: PortfolioManagerItem) {
     setSaving(true);
     try {
+      const duplicateSlug = slugifyPortfolioValue(`${item.title} Copy ${Date.now()}`);
       const insertPayload = {
         title: `${item.title} Copy`,
+        slug: duplicateSlug,
         category: item.category,
         description: item.description || null,
         youtube_url: item.youtubeUrl,
@@ -528,6 +534,7 @@ export default function AdminVideos() {
         ...item,
         id: duplicatedId,
         title: `${item.title} Copy`,
+        slug: duplicateSlug,
         order_num: insertPayload.order_num,
         homepageOrder: item.homepageVisible ? nextHomepageOrder() : item.homepageOrder,
       } satisfies PortfolioManagerItem;

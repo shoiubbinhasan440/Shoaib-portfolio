@@ -9,11 +9,12 @@
 html {
   width: 100%;
   max-width: 100%;
-  overflow-x: clip;
 }
 
 html,
 body {
+  max-width: 100%;
+  overflow-x: hidden;
   font-family: Arial, Helvetica, sans-serif;
   background: #020617;
 }
@@ -22,8 +23,91 @@ body {
   width: 100%;
   max-width: 100%;
   min-height: 100vh;
-  overflow-x: hidden;
   color: #f8fafc;
+}
+
+img,
+video,
+picture {
+  max-width: 100%;
+}
+
+.portfolio-chip-scroller {
+  scrollbar-width: none;
+}
+
+.portfolio-chip-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .portfolio-showcase-section,
+  .portfolio-showcase-section > *,
+  .portfolio-showcase-content,
+  .portfolio-showcase-content > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .portfolio-showcase-section .portfolio-chip-scroller {
+    contain: inline-size;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+  }
+
+  .portfolio-showcase-section .portfolio-showcase-grid:not(.portfolio-showcase-masonry) {
+    display: grid !important;
+    gap: 12px !important;
+    column-count: auto !important;
+    column-gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .portfolio-showcase-section .portfolio-showcase-masonry {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .portfolio-showcase-section .portfolio-showcase-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .portfolio-showcase-section .portfolio-showcase-media {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .portfolio-showcase-section .portfolio-showcase-media img,
+  .portfolio-showcase-section .portfolio-showcase-media video,
+  .portfolio-showcase-section .portfolio-showcase-media picture {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    object-position: center center !important;
+  }
 }
 
 html[data-theme='light'],

@@ -160,7 +160,15 @@ export default function SeoVisibilityPanel({
         <AdminField label="Custom slug" hint="Lowercase slug used for clean URLs and previews.">
           <input
             value={value.slug}
-            onChange={event => onChange({ slug: event.target.value })}
+            onChange={event =>
+              onChange({
+                slug: event.target.value
+                  .trim()
+                  .toLowerCase()
+                  .replace(/\s+/g, '-')
+                  .replace(/[^\w-]/g, ''),
+              })
+            }
             placeholder="clean-url-slug"
             style={inputStyle}
           />

@@ -11,6 +11,9 @@ import {
 import type {
   PortfolioCategory,
   PortfolioCardInfoDensity,
+  HomepagePortfolioChipStyle,
+  HomepagePortfolioFilterAlignment,
+  HomepagePortfolioResponsivePreset,
   PortfolioLayoutMode,
   PortfolioPreviewItem,
 } from '@/lib/portfolio-content';
@@ -51,6 +54,10 @@ export type PortfolioPageShowcaseConfig = {
   order: number;
   showTabs: boolean;
   showCategoryFilters: boolean;
+  showAllChip: boolean;
+  showGroupingLabels: boolean;
+  filterAlignment: HomepagePortfolioFilterAlignment;
+  filterChipStyle: HomepagePortfolioChipStyle;
   alignment: PortfolioPageAlignment;
   width: PortfolioPageWidth;
   spacing: PortfolioPageSpacing;
@@ -59,9 +66,23 @@ export type PortfolioPageShowcaseConfig = {
   cardStyle: PortfolioPageCardStyle;
   density: PortfolioPageDensity;
   gap: PortfolioPageGap;
+  responsivePreset: HomepagePortfolioResponsivePreset;
   desktopColumns: number;
   tabletColumns: number;
   mobileColumns: number;
+  mobileCompactMode: boolean;
+  enablePreviewModal: boolean;
+  previewButtonLabel: string;
+  showThumbnail: boolean;
+  showTitle: boolean;
+  showCategory: boolean;
+  showDescription: boolean;
+  showTypeBadge: boolean;
+  showCardCta: boolean;
+  cardCtaText: string;
+  showPreviewIcon: boolean;
+  showHoverOverlay: boolean;
+  showFeaturedBadge: boolean;
   cardInfoDensity: PortfolioCardInfoDensity;
   styles: BuilderSectionStyles;
 };
@@ -221,6 +242,10 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       order: 20,
       showTabs: true,
       showCategoryFilters: true,
+      showAllChip: true,
+      showGroupingLabels: false,
+      filterAlignment: 'center',
+      filterChipStyle: 'glass',
       alignment: 'center',
       width: 'wide',
       spacing: 'balanced',
@@ -229,9 +254,23 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       cardStyle: 'cinematic',
       density: 'balanced',
       gap: 'medium',
+      responsivePreset: 'balanced',
       desktopColumns: 3,
       tabletColumns: 2,
-      mobileColumns: 1,
+      mobileColumns: 2,
+      mobileCompactMode: true,
+      enablePreviewModal: true,
+      previewButtonLabel: 'Preview',
+      showThumbnail: true,
+      showTitle: true,
+      showCategory: true,
+      showDescription: false,
+      showTypeBadge: true,
+      showCardCta: true,
+      cardCtaText: 'Open Preview',
+      showPreviewIcon: true,
+      showHoverOverlay: true,
+      showFeaturedBadge: true,
       cardInfoDensity: 'title-only',
       styles: createDefaultBuilderSectionStyles(),
     },
@@ -331,6 +370,18 @@ function sanitizeShowcase(
     order: Math.min(100, Math.max(1, number(value.order, fallback.order))),
     showTabs: bool(value.showTabs, fallback.showTabs),
     showCategoryFilters: bool(value.showCategoryFilters, fallback.showCategoryFilters),
+    showAllChip: bool(value.showAllChip, fallback.showAllChip),
+    showGroupingLabels: bool(value.showGroupingLabels, fallback.showGroupingLabels),
+    filterAlignment:
+      value.filterAlignment === 'left' || value.filterAlignment === 'center'
+        ? value.filterAlignment
+        : fallback.filterAlignment,
+    filterChipStyle:
+      value.filterChipStyle === 'soft' ||
+      value.filterChipStyle === 'glass' ||
+      value.filterChipStyle === 'editorial'
+        ? value.filterChipStyle
+        : fallback.filterChipStyle,
     alignment: alignment(value.alignment, fallback.alignment),
     width: width(value.width, fallback.width),
     spacing: spacing(value.spacing, fallback.spacing),
@@ -342,9 +393,28 @@ function sanitizeShowcase(
     cardStyle: cardStyle(value.cardStyle, fallback.cardStyle),
     density: density(value.density, fallback.density),
     gap: gap(value.gap, fallback.gap),
+    responsivePreset:
+      value.responsivePreset === 'compact' ||
+      value.responsivePreset === 'balanced' ||
+      value.responsivePreset === 'showcase'
+        ? value.responsivePreset
+        : fallback.responsivePreset,
     desktopColumns: Math.min(4, Math.max(1, number(value.desktopColumns, fallback.desktopColumns))),
     tabletColumns: Math.min(3, Math.max(1, number(value.tabletColumns, fallback.tabletColumns))),
     mobileColumns: Math.min(2, Math.max(1, number(value.mobileColumns, fallback.mobileColumns))),
+    mobileCompactMode: bool(value.mobileCompactMode, fallback.mobileCompactMode),
+    enablePreviewModal: bool(value.enablePreviewModal, fallback.enablePreviewModal),
+    previewButtonLabel: text(value.previewButtonLabel, fallback.previewButtonLabel),
+    showThumbnail: bool(value.showThumbnail, fallback.showThumbnail),
+    showTitle: bool(value.showTitle, fallback.showTitle),
+    showCategory: bool(value.showCategory, fallback.showCategory),
+    showDescription: bool(value.showDescription, fallback.showDescription),
+    showTypeBadge: bool(value.showTypeBadge, fallback.showTypeBadge),
+    showCardCta: bool(value.showCardCta, fallback.showCardCta),
+    cardCtaText: text(value.cardCtaText, fallback.cardCtaText),
+    showPreviewIcon: bool(value.showPreviewIcon, fallback.showPreviewIcon),
+    showHoverOverlay: bool(value.showHoverOverlay, fallback.showHoverOverlay),
+    showFeaturedBadge: bool(value.showFeaturedBadge, fallback.showFeaturedBadge),
     cardInfoDensity:
       value.cardInfoDensity === 'title-meta' || value.cardInfoDensity === 'full'
         ? value.cardInfoDensity

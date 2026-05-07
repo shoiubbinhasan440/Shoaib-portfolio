@@ -21,13 +21,16 @@ import {
   getAdminTextareaStyle,
   useAdminThemeTokens,
 } from '@/components/admin/admin-ui';
-import type {
-  PortfolioItemMetaConfigMap,
-  PortfolioProjectGalleryItem,
-  PortfolioProjectType,
-  PortfolioPreviewItem,
-  PortfolioSourceType,
+import {
+  getPortfolioItemDetailPath,
+  slugifyPortfolioValue,
+  type PortfolioItemMetaConfigMap,
+  type PortfolioProjectGalleryItem,
+  type PortfolioProjectType,
+  type PortfolioPreviewItem,
+  type PortfolioSourceType,
 } from '@/lib/portfolio-content';
+import { getCanonicalUrl } from '@/lib/site-config';
 
 export type PortfolioManagerCategoryOption = {
   label: string;
@@ -236,6 +239,7 @@ function createPreviewItem(
     sourceType: managerType,
     id: item.id,
     title: item.title,
+    slug: slugifyPortfolioValue(item.slug || item.title),
     description: item.description || '',
     category: item.category || null,
     categorySlug: item.category || null,
@@ -273,6 +277,19 @@ function createPreviewItem(
       ...item.projectGallery,
     ],
   } satisfies PortfolioPreviewItem;
+}
+
+function getManagerItemPublicPath(item: PortfolioManagerItem, managerType: PortfolioSourceType) {
+  return getPortfolioItemDetailPath({
+    sourceType: managerType,
+    id: item.id || 'draft',
+    title: item.title,
+    slug: item.slug,
+  });
+}
+
+function getManagerItemPublicUrl(item: PortfolioManagerItem, managerType: PortfolioSourceType) {
+  return getCanonicalUrl(getManagerItemPublicPath(item, managerType));
 }
 
 function createMetaConfig(
@@ -548,6 +565,7 @@ export default function PortfolioManagerWorkspace({
   const [aiNotice, setAiNotice] = useState('');
   const [aiVisualRead, setAiVisualRead] = useState<PortfolioAiContent['visualRead'] | null>(null);
   const [aiFillPulse, setAiFillPulse] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState('');
 
   useEffect(() => {
     const syncViewport = () => setViewportWidth(window.innerWidth);
@@ -679,6 +697,8 @@ export default function PortfolioManagerWorkspace({
       .filter(Boolean)
       .join(' • ');
   const previewDescription = draft.previewDescription || draft.description;
+  const draftPublicUrl = getManagerItemPublicUrl(draft, managerType);
+  const publicUrlLabel = managerType === 'graphic' ? 'Graphics URL' : 'Video URL';
 
   function openCreate() {
     setEditorMode('create');
@@ -690,6 +710,17 @@ export default function PortfolioManagerWorkspace({
     setEditorMode('update');
     setEditingId(item.id);
     setDraft({ ...item, tags: [...item.tags] });
+  }
+
+  async function copyPublicLink(item: PortfolioManagerItem) {
+    const url = getManagerItemPublicUrl(item, managerType);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLinkId(item.id || 'draft');
+      window.setTimeout(() => setCopiedLinkId(''), 1800);
+    } catch {
+      setAiNotice(`Copy failed. Public link: ${url}`);
+    }
   }
 
   async function saveDraft() {
@@ -1223,6 +1254,9 @@ export default function PortfolioManagerWorkspace({
                             {item.formatLabel}
                           </span>
                         ) : null}
+                        <span style={{ color: tokens.accentText, fontSize: 13 }}>
+                          {getManagerItemPublicPath(item, managerType)}
+                        </span>
                       </div>
 
                       {item.description ? (
@@ -1352,6 +1386,9 @@ export default function PortfolioManagerWorkspace({
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <AdminActionButton onClick={() => setPreviewItemId(item.id)} variant="ghost">
                           Preview
+                        </AdminActionButton>
+                        <AdminActionButton onClick={() => void copyPublicLink(item)} variant="ghost">
+                          {copiedLinkId === item.id ? 'Copied' : 'Copy public link'}
                         </AdminActionButton>
                         <AdminActionButton onClick={() => openEdit(item)} variant="secondary">
                           Edit
@@ -1611,7 +1648,13 @@ export default function PortfolioManagerWorkspace({
                         <input
                           value={draft.title}
                           onChange={event =>
-                            setDraft(current => ({ ...current, title: event.target.value }))
+                            setDraft(current => ({
+                              ...current,
+                              title: event.target.value,
+                              slug: current.slug
+                                ? current.slug
+                                : slugifyPortfolioValue(event.target.value),
+                            }))
                           }
                           placeholder={`Enter ${itemLabel.toLowerCase()} title`}
                           style={inputStyle}
@@ -2402,78 +2445,102 @@ export default function PortfolioManagerWorkspace({
                   description:
                     'Search metadata, canonical preview, social images, robots, status, and display flags are controlled together.',
                   content: (
-                    <SeoVisibilityPanel
-                      value={{
-                        seoTitle: draft.seoTitle,
-                        seoDescription: draft.seoDescription,
-                        canonicalUrl: draft.canonicalUrl,
-                        canonicalPath: `/portfolio/${managerType === 'graphic' ? 'graphics' : 'video'}/${draft.slug || draft.id || draft.title}`,
-                        ogImage: draft.ogImage,
-                        coverImage: draft.coverImage || draft.imageUrl,
-                        socialImage: draft.socialImage,
-                        visible: draft.visible,
-                        showOnHomepage: draft.homepageVisible,
-                        showOnPortfolio: draft.previewEnabled,
-                        featured: draft.homepageFeatured,
-                        sortOrder: draft.order_num,
-                        slug: draft.slug,
-                        robots: draft.robots,
-                        structuredDataType: draft.structuredDataType,
-                        status: draft.status,
-                        altText: draft.altText,
-                      }}
-                      titleFallback={draft.previewTitle || draft.title || `${itemLabel} portfolio item`}
-                      descriptionFallback={
-                        draft.previewDescription ||
-                        draft.description ||
-                        `Selected ${itemLabel.toLowerCase()} portfolio work by Md Minhajul Hoque.`
-                      }
-                      onChange={patch =>
-                        setDraft(current => ({
-                          ...current,
-                          ...(patch.seoTitle !== undefined ? { seoTitle: patch.seoTitle } : {}),
-                          ...(patch.seoDescription !== undefined
-                            ? { seoDescription: patch.seoDescription }
-                            : {}),
-                          ...(patch.canonicalUrl !== undefined
-                            ? { canonicalUrl: patch.canonicalUrl }
-                            : {}),
-                          ...(patch.ogImage !== undefined ? { ogImage: patch.ogImage } : {}),
-                          ...(patch.coverImage !== undefined
-                            ? { coverImage: patch.coverImage, imageUrl: patch.coverImage || current.imageUrl }
-                            : {}),
-                          ...(patch.socialImage !== undefined
-                            ? { socialImage: patch.socialImage }
-                            : {}),
-                          ...(patch.visible !== undefined ? { visible: patch.visible } : {}),
-                          ...(patch.showOnHomepage !== undefined
-                            ? { homepageVisible: patch.showOnHomepage }
-                            : {}),
-                          ...(patch.showOnPortfolio !== undefined
-                            ? { previewEnabled: patch.showOnPortfolio }
-                            : {}),
-                          ...(patch.featured !== undefined
-                            ? { homepageFeatured: patch.featured }
-                            : {}),
-                          ...(patch.sortOrder !== undefined ? { order_num: patch.sortOrder } : {}),
-                          ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
-                          ...(patch.robots !== undefined ? { robots: patch.robots } : {}),
-                          ...(patch.structuredDataType !== undefined
-                            ? { structuredDataType: patch.structuredDataType }
-                            : {}),
-                          ...(patch.status !== undefined
-                            ? { status: patch.status, visible: patch.status === 'published' }
-                            : {}),
-                          ...(patch.altText !== undefined ? { altText: patch.altText } : {}),
-                        }))
-                      }
-                      onCoverUpload={async file => onUploadMedia(file, draft)}
-                      onOgUpload={async file => onUploadMedia(file, draft)}
-                      uploadingCover={uploadingMedia}
-                      uploadingOg={uploadingMedia}
-                      coverUploadProfile={managerType === 'video' ? 'thumbnail' : 'showcase'}
-                      ogUploadProfile="showcase"
-                    />
+                    <div style={{ display: 'grid', gap: 16 }}>
+                      <div
+                        style={{
+                          border: `1px solid ${tokens.line}`,
+                          borderRadius: 18,
+                          background: tokens.fieldSoft,
+                          padding: 14,
+                          display: 'grid',
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ color: tokens.subtle, fontSize: 11, fontWeight: 900, textTransform: 'uppercase' }}>
+                          {publicUrlLabel}
+                        </div>
+                        <input
+                          readOnly
+                          value={draftPublicUrl}
+                          style={{ ...inputStyle, color: tokens.muted, fontFamily: 'monospace' }}
+                        />
+                        <AdminActionButton onClick={() => void copyPublicLink(draft)} variant="ghost">
+                          {copiedLinkId === (draft.id || 'draft') ? 'Copied' : 'Copy public link'}
+                        </AdminActionButton>
+                      </div>
+                      <SeoVisibilityPanel
+                        value={{
+                          seoTitle: draft.seoTitle,
+                          seoDescription: draft.seoDescription,
+                          canonicalUrl: draft.canonicalUrl,
+                          canonicalPath: getManagerItemPublicPath(draft, managerType),
+                          ogImage: draft.ogImage,
+                          coverImage: draft.coverImage || draft.imageUrl,
+                          socialImage: draft.socialImage,
+                          visible: draft.visible,
+                          showOnHomepage: draft.homepageVisible,
+                          showOnPortfolio: draft.previewEnabled,
+                          featured: draft.homepageFeatured,
+                          sortOrder: draft.order_num,
+                          slug: draft.slug,
+                          robots: draft.robots,
+                          structuredDataType: draft.structuredDataType,
+                          status: draft.status,
+                          altText: draft.altText,
+                        }}
+                        titleFallback={draft.previewTitle || draft.title || `${itemLabel} portfolio item`}
+                        descriptionFallback={
+                          draft.previewDescription ||
+                          draft.description ||
+                          `Selected ${itemLabel.toLowerCase()} portfolio work by Md Minhajul Hoque.`
+                        }
+                        onChange={patch =>
+                          setDraft(current => ({
+                            ...current,
+                            ...(patch.seoTitle !== undefined ? { seoTitle: patch.seoTitle } : {}),
+                            ...(patch.seoDescription !== undefined
+                              ? { seoDescription: patch.seoDescription }
+                              : {}),
+                            ...(patch.canonicalUrl !== undefined
+                              ? { canonicalUrl: patch.canonicalUrl }
+                              : {}),
+                            ...(patch.ogImage !== undefined ? { ogImage: patch.ogImage } : {}),
+                            ...(patch.coverImage !== undefined
+                              ? { coverImage: patch.coverImage, imageUrl: patch.coverImage || current.imageUrl }
+                              : {}),
+                            ...(patch.socialImage !== undefined
+                              ? { socialImage: patch.socialImage }
+                              : {}),
+                            ...(patch.visible !== undefined ? { visible: patch.visible } : {}),
+                            ...(patch.showOnHomepage !== undefined
+                              ? { homepageVisible: patch.showOnHomepage }
+                              : {}),
+                            ...(patch.showOnPortfolio !== undefined
+                              ? { previewEnabled: patch.showOnPortfolio }
+                              : {}),
+                            ...(patch.featured !== undefined
+                              ? { homepageFeatured: patch.featured }
+                              : {}),
+                            ...(patch.sortOrder !== undefined ? { order_num: patch.sortOrder } : {}),
+                            ...(patch.slug !== undefined ? { slug: patch.slug } : {}),
+                            ...(patch.robots !== undefined ? { robots: patch.robots } : {}),
+                            ...(patch.structuredDataType !== undefined
+                              ? { structuredDataType: patch.structuredDataType }
+                              : {}),
+                            ...(patch.status !== undefined
+                              ? { status: patch.status, visible: patch.status === 'published' }
+                              : {}),
+                            ...(patch.altText !== undefined ? { altText: patch.altText } : {}),
+                          }))
+                        }
+                        onCoverUpload={async file => onUploadMedia(file, draft)}
+                        onOgUpload={async file => onUploadMedia(file, draft)}
+                        uploadingCover={uploadingMedia}
+                        uploadingOg={uploadingMedia}
+                        coverUploadProfile={managerType === 'video' ? 'thumbnail' : 'showcase'}
+                        ogUploadProfile="showcase"
+                      />
+                    </div>
                   ),
                 },
                 {

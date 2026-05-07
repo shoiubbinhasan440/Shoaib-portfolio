@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  getPortfolioItemDetailPath,
   getPortfolioItemMeta,
   type PortfolioItemMetaConfigMap,
   type PortfolioProjectGalleryItem,
@@ -116,6 +117,7 @@ function ActivePortfolioPreviewModal({
   const [naturalSize, setNaturalSize] = useState({ height: 0, width: 0 });
   const [viewportWidth, setViewportWidth] = useState(1280);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
 
   const activeItem = item;
   const activeMeta = useMemo(
@@ -197,6 +199,9 @@ function ActivePortfolioPreviewModal({
   const ambientBackground = activeMediaImageUrl
     ? `radial-gradient(circle at 20% 18%, rgba(56,189,248,0.18), transparent 28%), radial-gradient(circle at 78% 20%, rgba(37,99,235,0.22), transparent 26%), linear-gradient(135deg, rgba(2,6,23,0.88), rgba(15,23,42,0.96)), url(${activeMediaImageUrl}) center/cover no-repeat`
     : 'linear-gradient(135deg, rgba(2,6,23,0.94), rgba(15,23,42,0.96))';
+  const detailPath = getPortfolioItemDetailPath(activeItem, activeMeta);
+  const shareUrl =
+    typeof window === 'undefined' ? detailPath : `${window.location.origin}${detailPath}`;
 
   useEffect(() => {
     const syncViewport = () => setViewportWidth(window.innerWidth);
@@ -270,6 +275,16 @@ function ActivePortfolioPreviewModal({
       await previewSurfaceRef.current?.requestFullscreen?.();
     } catch {
       // Ignore browser fullscreen failures.
+    }
+  }
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedShareLink(true);
+      window.setTimeout(() => setCopiedShareLink(false), 1800);
+    } catch {
+      setCopiedShareLink(false);
     }
   }
 
@@ -1044,6 +1059,48 @@ function ActivePortfolioPreviewModal({
                   </div>
                 </div>
               ) : null}
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <a
+                  href={detailPath}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '12px 18px',
+                    borderRadius: 14,
+                    background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    fontSize: 14,
+                    fontWeight: 800,
+                  }}
+                >
+                  Open full page
+                  <span>↗</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copyShareLink()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '12px 18px',
+                    borderRadius: 14,
+                    border: `1px solid ${soft}`,
+                    background: dark ? 'rgba(15,23,42,0.58)' : 'rgba(255,255,255,0.86)',
+                    color: text,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copiedShareLink ? 'Copied link' : 'Copy share link'}
+                </button>
+              </div>
 
               {(activeMeta.previewCtaLabel && activeMeta.previewCtaLink) ||
               activeMeta.externalPreviewUrl ||

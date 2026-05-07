@@ -7,7 +7,12 @@ import {
   SEO_PAGE_OPTIONS,
   type SeoPageId,
 } from '@/lib/site-seo';
-import type { PortfolioSourceType } from '@/lib/portfolio-content';
+import {
+  getPortfolioItemDetailPath,
+  type PortfolioItemMetaConfig,
+  type PortfolioPreviewItem,
+  type PortfolioSourceType,
+} from '@/lib/portfolio-content';
 import { absoluteAssetUrl, absoluteSiteUrl, getCanonicalUrl, SITE_CONFIG } from '@/lib/site-config';
 
 function asUrl(value: string) {
@@ -159,6 +164,77 @@ export function buildPortfolioCategoryMetadata(
               width: 1200,
               height: 630,
               alt: `${categoryTitle} category social preview`,
+            },
+          ]
+        : base.openGraph?.images,
+    },
+    twitter: {
+      ...base.twitter,
+      title,
+      description,
+      images: imageUrl ? [imageUrl] : base.twitter?.images,
+    },
+  };
+}
+
+export function buildPortfolioItemMetadata(
+  settings: GlobalSettingsConfig,
+  params: {
+    item: PortfolioPreviewItem;
+    meta: PortfolioItemMetaConfig;
+  }
+): Metadata {
+  const base = buildPageMetadata(settings, 'portfolio');
+  const title =
+    params.meta.seoTitle ||
+    params.meta.previewTitle ||
+    `${params.item.title} | ${SITE_CONFIG.siteName}`;
+  const description =
+    params.meta.seoDescription ||
+    params.meta.previewDescription ||
+    params.item.description ||
+    `View ${params.item.title}, a selected ${params.item.sourceType === 'video' ? 'video editing' : 'graphics design'} portfolio work by ${SITE_CONFIG.siteName}.`;
+  const canonical = params.meta.canonicalUrl
+    ? getCanonicalUrl(params.meta.canonicalUrl)
+    : getCanonicalUrl(getPortfolioItemDetailPath(params.item, params.meta));
+  const image =
+    params.meta.ogImage ||
+    params.meta.socialImage ||
+    params.meta.coverImage ||
+    params.item.imageUrl;
+  const imageUrl = image ? absoluteAssetUrl(image) : undefined;
+  const shouldIndex =
+    params.item.visible &&
+    params.meta.status !== 'draft' &&
+    params.meta.status !== 'hidden' &&
+    params.meta.robots !== 'noindex-nofollow';
+
+  return {
+    ...base,
+    title: { absolute: title },
+    description,
+    alternates: canonical ? { canonical } : base.alternates,
+    robots: {
+      index: shouldIndex,
+      follow: shouldIndex,
+      googleBot: {
+        index: shouldIndex,
+        follow: shouldIndex,
+      },
+    },
+    openGraph: {
+      ...base.openGraph,
+      title,
+      description,
+      url: canonical || undefined,
+      type: 'article',
+      images: imageUrl
+        ? [
+            {
+              url: imageUrl,
+              width: 1200,
+              height: 630,
+              alt: params.meta.altText || `${params.item.title} social preview`,
             },
           ]
         : base.openGraph?.images,

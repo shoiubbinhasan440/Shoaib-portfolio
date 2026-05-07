@@ -154,9 +154,10 @@ export default function PortfolioCategoryPage() {
         minHeight: '100vh',
         width: '100%',
         maxWidth: '100%',
+        minWidth: 0,
         boxSizing: 'border-box',
         overflowX: 'hidden',
-        paddingBottom: 'calc(72px + env(safe-area-inset-bottom))',
+        paddingBottom: 'calc(110px + env(safe-area-inset-bottom))',
         background: dark ? '#080808' : '#f8fbff',
         fontFamily: "'Inter', system-ui, sans-serif",
       }}

@@ -23,6 +23,7 @@ import {
   getPortfolioPageItemConfig,
 } from '@/lib/portfolio-page-content';
 import {
+  getPortfolioItemDetailPath,
   getPortfolioItemMeta,
   DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS,
   getHomepageAllowedSourceTypes,
@@ -262,15 +263,25 @@ function getPageColumnsForViewport(width: number, config: PortfolioPageBuilderCo
     return 3;
   }
 
+  const mobileColumns =
+    config.showcase.responsivePreset === 'compact'
+      ? 1
+      : Math.min(2, Math.max(1, config.showcase.mobileColumns));
+  const tabletColumns =
+    config.showcase.responsivePreset === 'showcase'
+      ? Math.max(2, config.showcase.tabletColumns)
+      : Math.max(1, config.showcase.tabletColumns);
+  const desktopColumns = Math.max(1, config.showcase.desktopColumns);
+
   if (width < 700) {
-    return Math.min(2, Math.max(1, config.showcase.mobileColumns));
+    return mobileColumns;
   }
 
   if (width < 1080) {
-    return config.showcase.tabletColumns;
+    return tabletColumns;
   }
 
-  return config.showcase.desktopColumns;
+  return desktopColumns;
 }
 
 function getSectionMaxWidth(
@@ -542,7 +553,9 @@ export default function PortfolioShowcase({
 
   const requestedCategory = activeCategoryByTab[activeTab] || 'all';
   const fallbackCategory =
-    variant === 'homepage' && !homepageConfig.showAllChip && categoriesForTab.length > 0
+    ((variant === 'homepage' && !homepageConfig.showAllChip) ||
+      (variant === 'page' && pageBuilder?.showcase.showAllChip === false)) &&
+    categoriesForTab.length > 0
       ? categoriesForTab[0].slug
       : 'all';
   const activeCategory =
@@ -728,6 +741,68 @@ export default function PortfolioShowcase({
       : null;
   const focusedItem = displayItems.find(item => getItemKey(item) === focusItemKey) || null;
 
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    const reportOverflow = () => {
+      const scrollWidth = document.documentElement.scrollWidth;
+      const innerWidth = window.innerWidth;
+
+      console.log('[portfolio-overflow]', { scrollWidth, innerWidth });
+
+      if (scrollWidth <= innerWidth) {
+        return;
+      }
+
+      let widestElement: HTMLElement | null = null;
+      let widestOverflow = 0;
+
+      document.querySelectorAll<HTMLElement>('body *').forEach(element => {
+        const rect = element.getBoundingClientRect();
+
+        if (rect.width <= 0 || rect.height <= 0) {
+          return;
+        }
+
+        const overflowAmount = Math.max(
+          rect.right - innerWidth,
+          -rect.left,
+          rect.width - innerWidth,
+          0
+        );
+
+        if (overflowAmount > widestOverflow) {
+          widestOverflow = overflowAmount;
+          widestElement = element;
+        }
+      });
+
+      if (widestElement) {
+        const elementForLog = widestElement as HTMLElement;
+        console.log('[portfolio-overflow] widest overflowing element', widestElement, {
+          overflowAmount: widestOverflow,
+          rect: elementForLog.getBoundingClientRect(),
+        });
+      }
+    };
+
+    const timeoutId = window.setTimeout(reportOverflow, 0);
+    window.addEventListener('resize', reportOverflow);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('resize', reportOverflow);
+    };
+  }, [
+    activeCategory,
+    activeTab,
+    categoryPreviewGroups.length,
+    displayItems.length,
+    smartShowcaseMode,
+  ]);
+
   const panel = dark
     ? 'linear-gradient(180deg, rgba(8,15,32,0.96) 0%, rgba(2,6,23,0.98) 100%)'
     : 'linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(241,245,249,0.98) 100%)';
@@ -788,21 +863,70 @@ export default function PortfolioShowcase({
       ? '0 24px 44px rgba(2,6,23,0.24)'
       : '0 18px 32px rgba(15,23,42,0.08)',
   });
-  const showcaseGap = isMobile ? Math.min(showcaseStyles?.card.gap || cardGap, 16) : showcaseStyles?.card.gap || cardGap;
+  const pageShowcaseConfig = pageBuilder?.showcase;
+  const showcaseGap = isMobile ? 12 : showcaseStyles?.card.gap || cardGap;
   const cardInfoDensity = getCardInfoDensity(variant, homepageConfig, pageBuilder);
   const showCardMeta = cardInfoDensity !== 'title-only';
   const showFullCardDetails = cardInfoDensity === 'full';
-  const safeColumnCount = isMobile ? Math.min(2, Math.max(1, columns)) : Math.max(1, columns);
+  const safeColumnCount = isMobile
+    ? viewportWidth < 390
+      ? 1
+      : Math.min(2, Math.max(1, columns))
+    : Math.max(1, columns);
   const safeGridTemplate = `repeat(${safeColumnCount}, minmax(0, 1fr))`;
-  const masonryColumns =
-    useMasonryLayout && viewportWidth >= 390 && viewportWidth < 700
-      ? 2
-      : safeColumnCount;
+  const useDesktopMasonry = useMasonryLayout;
+  const masonryColumns = useDesktopMasonry ? safeColumnCount : undefined;
+  const showcaseFilterAlignment =
+    variant === 'page'
+      ? pageShowcaseConfig?.filterAlignment || 'center'
+      : homepageConfig.filterAlignment;
+  const showcaseFilterChipStyle =
+    variant === 'page'
+      ? pageShowcaseConfig?.filterChipStyle || 'glass'
+      : homepageConfig.filterChipStyle;
+  const showAllCategoryChip =
+    variant === 'page' ? pageShowcaseConfig?.showAllChip ?? true : homepageConfig.showAllChip;
+  const showGroupingLabels =
+    variant === 'page'
+      ? pageShowcaseConfig?.showGroupingLabels ?? false
+      : homepageConfig.showGroupingLabels;
+  const showCardThumbnail =
+    variant === 'page' ? pageShowcaseConfig?.showThumbnail ?? true : homepageConfig.showThumbnail;
+  const showCardTitle =
+    variant === 'page' ? pageShowcaseConfig?.showTitle ?? true : homepageConfig.showTitle;
+  const showCardCategory =
+    variant === 'page' ? pageShowcaseConfig?.showCategory ?? true : homepageConfig.showCategory;
+  const showCardDescription =
+    variant === 'page'
+      ? pageShowcaseConfig?.showDescription ?? false
+      : homepageConfig.showDescription;
+  const showCardTypeBadge =
+    variant === 'page' ? pageShowcaseConfig?.showTypeBadge ?? true : homepageConfig.showTypeBadge;
+  const showCardCta =
+    variant === 'page' ? pageShowcaseConfig?.showCardCta ?? true : homepageConfig.showCardCta;
+  const cardCtaText =
+    variant === 'page'
+      ? pageShowcaseConfig?.cardCtaText || 'Open Preview'
+      : homepageConfig.cardCtaText;
+  const showPreviewIcon =
+    variant === 'page'
+      ? pageShowcaseConfig?.showPreviewIcon ?? true
+      : homepageConfig.showPreviewIcon;
+  const showFeaturedBadge =
+    variant === 'page'
+      ? pageShowcaseConfig?.showFeaturedBadge ?? true
+      : homepageConfig.showFeaturedBadge;
+  const showHoverOverlay =
+    variant === 'page'
+      ? pageShowcaseConfig?.showHoverOverlay ?? true
+      : homepageConfig.showHoverOverlay;
   const mobileChipScrollerStyle = isMobile
     ? ({
+        contain: 'inline-size' as const,
         boxSizing: 'border-box' as const,
         width: '100%',
         maxWidth: '100%',
+        maxInlineSize: '100%',
         minWidth: 0,
         overflowX: 'auto' as const,
         overflowY: 'hidden' as const,
@@ -811,6 +935,7 @@ export default function PortfolioShowcase({
         scrollbarWidth: 'none' as const,
         flexWrap: 'nowrap' as const,
         justifyContent: 'flex-start',
+        whiteSpace: 'nowrap' as const,
         paddingBottom: 4,
       })
     : {};
@@ -828,6 +953,11 @@ export default function PortfolioShowcase({
 
   function handleItemAction(item: PortfolioPreviewItem) {
     if (variant === 'page') {
+      if (pageShowcaseConfig?.enablePreviewModal === false) {
+        router.push(getPortfolioItemDetailPath(item, getPortfolioItemMeta(item, itemMetaConfig)));
+        return;
+      }
+
       setSelectedItem(item);
       return;
     }
@@ -846,10 +976,11 @@ export default function PortfolioShowcase({
   return (
     <>
       <section
+        className="portfolio-showcase-section"
         style={{
           boxSizing: 'border-box',
           maxWidth: isMobile
-            ? '100vw'
+            ? '100%'
             : getSectionWidthOverride(
                 heroStyles?.layout.width || 'default',
                 getSectionMaxWidth(variant, homepageConfig, pageBuilder)
@@ -857,7 +988,7 @@ export default function PortfolioShowcase({
           margin: '0 auto',
           padding: isMobile
             ? variant === 'page'
-              ? '36px 12px 76px'
+              ? '36px 12px 110px'
               : '30px 12px 20px'
             : getSectionPaddingOverride(
                 heroStyles?.layout.padding || 'default',
@@ -871,8 +1002,9 @@ export default function PortfolioShowcase({
                   : '44px 24px 20px'
               ),
           width: '100%',
+          maxInlineSize: '100%',
           minWidth: 0,
-          overflowX: 'clip',
+          overflowX: 'hidden',
         }}
       >
         <div
@@ -941,8 +1073,18 @@ export default function PortfolioShowcase({
               display: 'grid',
               gap: variant === 'page' ? 24 : 0,
             }}
+            className="portfolio-showcase-content"
           >
-            <div style={{ order: variant === 'page' ? pageBuilder?.hero.order || 10 : 10 }}>
+            <div
+              style={{
+                order: variant === 'page' ? pageBuilder?.hero.order || 10 : 10,
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                overflowX: 'hidden',
+              }}
+            >
               {(variant === 'page' ? pageBuilder?.hero.enabled ?? true : homepageConfig.showHeader) ? (
                 <div
                   style={{
@@ -1175,15 +1317,27 @@ export default function PortfolioShowcase({
               ) : null}
             </div>
 
-            <div style={{ order: variant === 'page' ? pageBuilder?.showcase.order || 20 : 20 }}>
+            <div
+              style={{
+                order: variant === 'page' ? pageBuilder?.showcase.order || 20 : 20,
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                overflowX: 'hidden',
+              }}
+            >
               {tabsVisible ? (
                 <div
+                  className="portfolio-chip-scroller"
                   style={{
                     display: 'flex',
                     flexWrap: 'wrap',
                     justifyContent:
                       variant === 'page'
-                        ? 'center'
+                        ? showcaseFilterAlignment === 'center'
+                          ? 'center'
+                          : 'flex-start'
                         : headerAlignment === 'center'
                           ? 'center'
                           : 'flex-start',
@@ -1246,13 +1400,12 @@ export default function PortfolioShowcase({
 
               {filtersVisible ? (
                 <div
+                  className="portfolio-chip-scroller"
                   style={{
                     display: 'flex',
                     flexWrap: 'wrap',
                     justifyContent:
-                      variant === 'page'
-                        ? 'center'
-                        : homepageConfig.filterAlignment === 'center'
+                      showcaseFilterAlignment === 'center'
                           ? 'center'
                           : 'flex-start',
                     gap: 10,
@@ -1260,7 +1413,7 @@ export default function PortfolioShowcase({
                     ...mobileChipScrollerStyle,
                   }}
                 >
-                {variant === 'page' || homepageConfig.showAllChip ? (
+                {showAllCategoryChip ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -1268,11 +1421,11 @@ export default function PortfolioShowcase({
                     }
                     style={{
                       background:
-                        activeCategory === 'all'
-                          ? dark
-                            ? 'rgba(56,189,248,0.16)'
-                            : 'rgba(14,165,233,0.14)'
-                          : homepageConfig.filterChipStyle === 'editorial'
+                          activeCategory === 'all'
+                            ? dark
+                              ? 'rgba(56,189,248,0.16)'
+                              : 'rgba(14,165,233,0.14)'
+                          : showcaseFilterChipStyle === 'editorial'
                             ? dark
                               ? 'rgba(15,23,42,0.4)'
                               : 'rgba(255,255,255,0.7)'
@@ -1319,7 +1472,7 @@ export default function PortfolioShowcase({
                             ? dark
                               ? 'rgba(56,189,248,0.16)'
                               : 'rgba(14,165,233,0.14)'
-                            : homepageConfig.filterChipStyle === 'editorial'
+                            : showcaseFilterChipStyle === 'editorial'
                               ? dark
                                 ? 'rgba(15,23,42,0.4)'
                                 : 'rgba(255,255,255,0.7)'
@@ -1410,6 +1563,7 @@ export default function PortfolioShowcase({
 
               {loading ? (
                 <div
+                  className={`portfolio-showcase-grid ${useDesktopMasonry ? 'portfolio-showcase-masonry' : ''}`}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: safeGridTemplate,
@@ -1461,16 +1615,17 @@ export default function PortfolioShowcase({
                   </div>
                 ) : (
                   <div
+                    className={`portfolio-showcase-grid ${useDesktopMasonry ? 'portfolio-showcase-masonry' : ''}`}
                     style={{
-                      display: useMasonryLayout ? 'block' : 'grid',
-                      gridTemplateColumns: useMasonryLayout
+                      display: useDesktopMasonry ? 'block' : 'grid',
+                      gridTemplateColumns: useDesktopMasonry
                         ? undefined
                         : safeGridTemplate,
-                      gridAutoRows: !useMasonryLayout && isMobile ? '1fr' : undefined,
-                      gap: useMasonryLayout ? undefined : showcaseGap,
-                      columnCount: useMasonryLayout ? masonryColumns : undefined,
-                      columnGap: useMasonryLayout ? showcaseGap : undefined,
-                      columnFill: useMasonryLayout ? 'balance' : undefined,
+                      gridAutoRows: !useDesktopMasonry && isMobile ? '1fr' : undefined,
+                      gap: useDesktopMasonry ? undefined : showcaseGap,
+                      columnCount: useDesktopMasonry ? masonryColumns : undefined,
+                      columnGap: useDesktopMasonry ? showcaseGap : undefined,
+                      columnFill: useDesktopMasonry ? 'balance' : undefined,
                       boxSizing: 'border-box',
                       width: '100%',
                       maxWidth: '100%',
@@ -1489,6 +1644,7 @@ export default function PortfolioShowcase({
                       );
                       return (
                         <Link
+                          className="portfolio-showcase-card"
                           key={group.key}
                           href={`/portfolio/category/${group.sourceType === 'graphic' ? 'graphics' : group.sourceType}/${encodeURIComponent(group.slug)}`}
                           style={{
@@ -1500,9 +1656,9 @@ export default function PortfolioShowcase({
                             maxWidth: '100%',
                             minWidth: 0,
                             minHeight: homepageConfig.cardDensity === 'compact' ? 300 : 360,
-                            breakInside: useMasonryLayout ? 'avoid' : undefined,
-                            pageBreakInside: useMasonryLayout ? 'avoid' : undefined,
-                            marginBottom: useMasonryLayout ? showcaseGap : undefined,
+                            breakInside: useDesktopMasonry ? 'avoid' : undefined,
+                            pageBreakInside: useDesktopMasonry ? 'avoid' : undefined,
+                            marginBottom: useDesktopMasonry ? showcaseGap : undefined,
                             padding: isMobile ? 16 : 18,
                             borderRadius: 24,
                             overflow: 'hidden',
@@ -1546,9 +1702,13 @@ export default function PortfolioShowcase({
                           >
                             {previewItems[0] ? (
                               <div
+                                className="portfolio-showcase-media"
                                 style={{
                                   position: 'relative',
                                   overflow: 'hidden',
+                                  width: '100%',
+                                  maxWidth: '100%',
+                                  minWidth: 0,
                                   borderRadius: 18,
                                   background: previewItems[0].sourceType === 'graphic'
                                     ? dark
@@ -1568,8 +1728,10 @@ export default function PortfolioShowcase({
                                     style={{
                                       position: 'absolute',
                                       inset: 0,
+                                      display: 'block',
                                       width: '100%',
                                       height: '100%',
+                                      maxWidth: '100%',
                                       objectFit: 'contain',
                                       objectPosition: 'center',
                                       padding: isMobile ? 6 : 10,
@@ -1584,8 +1746,10 @@ export default function PortfolioShowcase({
                                     style={{
                                       position: 'absolute',
                                       inset: 0,
+                                      display: 'block',
                                       width: '100%',
                                       height: '100%',
+                                      maxWidth: '100%',
                                       objectFit: 'cover',
                                     }}
                                   />
@@ -1601,6 +1765,7 @@ export default function PortfolioShowcase({
                                       ? 'repeat(2, minmax(0, 1fr))'
                                       : 'minmax(0, 1fr)',
                                   gap: 8,
+                                  width: '100%',
                                   minWidth: 0,
                                   maxWidth: '100%',
                                 }}
@@ -1611,6 +1776,9 @@ export default function PortfolioShowcase({
                                     style={{
                                       position: 'relative',
                                       minHeight: 0,
+                                      width: '100%',
+                                      maxWidth: '100%',
+                                      minWidth: 0,
                                       borderRadius: 16,
                                       overflow: 'hidden',
                                       background: item.sourceType === 'graphic'
@@ -1631,8 +1799,10 @@ export default function PortfolioShowcase({
                                         style={{
                                           position: 'absolute',
                                           inset: 0,
+                                          display: 'block',
                                           width: '100%',
                                           height: '100%',
+                                          maxWidth: '100%',
                                           objectFit: 'contain',
                                           objectPosition: 'center',
                                           padding: 6,
@@ -1647,8 +1817,10 @@ export default function PortfolioShowcase({
                                         style={{
                                           position: 'absolute',
                                           inset: 0,
+                                          display: 'block',
                                           width: '100%',
                                           height: '100%',
+                                          maxWidth: '100%',
                                           objectFit: 'cover',
                                         }}
                                       />
@@ -1712,6 +1884,7 @@ export default function PortfolioShowcase({
                                 color: text,
                                 lineHeight: 1.1,
                                 overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
                               }}
                             >
                               {group.title}
@@ -1770,10 +1943,30 @@ export default function PortfolioShowcase({
                 </div>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gap: 24 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: isMobile ? 16 : 24,
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
+                    overflowX: 'hidden',
+                  }}
+                >
                 {groupedSections.map(section => (
-                  <div key={section.label} style={{ display: 'grid', gap: 16 }}>
-                    {shouldGroupAll && (variant === 'page' || homepageConfig.showGroupingLabels) ? (
+                  <div
+                    key={section.label}
+                    style={{
+                      display: 'grid',
+                      gap: isMobile ? 12 : 16,
+                      width: '100%',
+                      maxWidth: '100%',
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {shouldGroupAll && showGroupingLabels ? (
                       <div
                         style={{
                           display: 'flex',
@@ -1806,16 +1999,17 @@ export default function PortfolioShowcase({
                     ) : null}
 
                     <div
+                      className={`portfolio-showcase-grid ${useDesktopMasonry ? 'portfolio-showcase-masonry' : ''}`}
                       style={{
-                        display: useMasonryLayout ? 'block' : 'grid',
-                        gridTemplateColumns: useMasonryLayout
+                        display: useDesktopMasonry ? 'block' : 'grid',
+                        gridTemplateColumns: useDesktopMasonry
                           ? undefined
                           : safeGridTemplate,
-                        gridAutoRows: !useMasonryLayout && isMobile ? '1fr' : undefined,
-                        gap: useMasonryLayout ? undefined : showcaseGap,
-                        columnCount: useMasonryLayout ? masonryColumns : undefined,
-                        columnGap: useMasonryLayout ? showcaseGap : undefined,
-                        columnFill: useMasonryLayout ? 'balance' : undefined,
+                        gridAutoRows: !useDesktopMasonry && isMobile ? '1fr' : undefined,
+                        gap: useDesktopMasonry ? undefined : showcaseGap,
+                        columnCount: useDesktopMasonry ? masonryColumns : undefined,
+                        columnGap: useDesktopMasonry ? showcaseGap : undefined,
+                        columnFill: useDesktopMasonry ? 'balance' : undefined,
                         boxSizing: 'border-box',
                         width: '100%',
                         maxWidth: '100%',
@@ -1837,7 +2031,8 @@ export default function PortfolioShowcase({
                           variant === 'homepage'
                             ? homepageConfig.cardDensity === 'compact' ||
                               (homepageConfig.mobileCompactMode && isMobile)
-                            : pageBuilder?.showcase.density === 'compact';
+                            : pageBuilder?.showcase.density === 'compact' ||
+                              Boolean(pageShowcaseConfig?.mobileCompactMode && isMobile);
                         const spaciousCard =
                           variant === 'homepage'
                             ? homepageConfig.cardDensity === 'spacious'
@@ -1855,13 +2050,14 @@ export default function PortfolioShowcase({
                           (itemMeta.smartShowcase || itemMeta.featuredPriority > 0);
                         const focusKey = getItemKey(item);
                         const focusMatch = focusItemKey === focusKey;
-                        const dimmed = Boolean(focusedItem) && !focusMatch;
+                        const dimmed = showHoverOverlay && Boolean(focusedItem) && !focusMatch;
                         const hasStoryView = Object.values(itemMeta.story || {}).some(value =>
                           Boolean(value?.trim())
                         );
                         const itemPreviewEnabled =
                           variant === 'page'
-                            ? (pageItemConfig?.previewEnabled ?? true)
+                            ? (pageShowcaseConfig?.enablePreviewModal ?? true) &&
+                              (pageItemConfig?.previewEnabled ?? true)
                             : (itemConfig?.previewEnabled ?? true);
                         const previewLabel =
                           itemMeta.cardCtaLabel ||
@@ -1874,6 +2070,10 @@ export default function PortfolioShowcase({
                               : item.sourceType === 'video'
                                 ? 'Open video'
                                 : 'Open artwork');
+                        const displayPreviewLabel =
+                          variant === 'page'
+                            ? pageShowcaseConfig?.previewButtonLabel || previewLabel
+                            : previewLabel;
                         const leadCard = featuredCard || smartLeadCard;
                         const imagePadding =
                           variant === 'homepage' && homepageConfig.layoutType === 'compact-preview'
@@ -1891,7 +2091,8 @@ export default function PortfolioShowcase({
                                 : item.sourceType === 'graphic'
                                   ? '72%'
                                   : '60%';
-                        const mobileMediaHeight = leadCard ? 180 : 170;
+                        const mobileMediaHeight =
+                          viewportWidth <= 640 ? (leadCard ? 240 : 220) : leadCard ? 180 : 170;
                         const masonryVideoHeight =
                           variant === 'homepage'
                             ? isMobile
@@ -1922,6 +2123,7 @@ export default function PortfolioShowcase({
                           ? itemMeta.tags.slice(0, 3)
                           : [];
                         const showHoverVideoPreview =
+                          showHoverOverlay &&
                           !isMobile &&
                           focusMatch &&
                           item.sourceType === 'video' &&
@@ -1929,6 +2131,7 @@ export default function PortfolioShowcase({
 
                         return (
                           <button
+                            className="portfolio-showcase-card"
                             key={focusKey}
                             type="button"
                             aria-label={`Open preview for ${item.title}`}
@@ -1973,10 +2176,10 @@ export default function PortfolioShowcase({
                               width: '100%',
                               maxWidth: '100%',
                               minWidth: 0,
-                              breakInside: useMasonryLayout ? 'avoid' : undefined,
-                              pageBreakInside: useMasonryLayout ? 'avoid' : undefined,
-                              marginBottom: useMasonryLayout ? showcaseGap : undefined,
-                              height: !useMasonryLayout && isMobile ? '100%' : undefined,
+                              breakInside: useDesktopMasonry ? 'avoid' : undefined,
+                              pageBreakInside: useDesktopMasonry ? 'avoid' : undefined,
+                              marginBottom: useDesktopMasonry ? showcaseGap : undefined,
+                              height: isMobile ? '100%' : undefined,
                               boxShadow: dark
                                 ? '0 24px 44px rgba(2,6,23,0.24)'
                                 : '0 18px 32px rgba(15,23,42,0.08)',
@@ -1987,31 +2190,39 @@ export default function PortfolioShowcase({
                                   ? `span ${Math.min(2, safeColumnCount)}`
                                   : undefined,
                               opacity: dimmed ? 0.56 : 1,
-                              transform: focusMatch ? 'translateY(-6px)' : 'translateY(0)',
+                              transform:
+                                showHoverOverlay && focusMatch
+                                  ? 'translateY(-6px)'
+                                  : 'translateY(0)',
                               ...cardStyleOverrides,
                             }}
                           >
-                            {variant === 'page' || homepageConfig.showThumbnail ? (
+                            {showCardThumbnail ? (
                               <div
+                                className="portfolio-showcase-media"
                                 style={{
                                   position: 'relative',
                                   height:
-                                    useMasonryLayout && item.sourceType === 'graphic'
+                                    useDesktopMasonry && item.sourceType === 'graphic'
                                       ? undefined
-                                      : useMasonryLayout
+                                      : useDesktopMasonry
                                         ? masonryVideoHeight
                                       : isMobile
                                         ? mobileMediaHeight
                                         : undefined,
                                   paddingBottom:
-                                    useMasonryLayout && item.sourceType === 'graphic'
+                                    useDesktopMasonry && item.sourceType === 'graphic'
                                       ? 0
-                                      : useMasonryLayout
+                                      : useDesktopMasonry
                                         ? 0
                                       : isMobile
                                         ? 0
                                         : imagePadding,
                                   flexShrink: 0,
+                                  width: '100%',
+                                  maxWidth: '100%',
+                                  minWidth: 0,
+                                  overflow: 'hidden',
                                   background:
                                     item.sourceType === 'graphic'
                                       ? graphicFrameBackground
@@ -2027,13 +2238,13 @@ export default function PortfolioShowcase({
                                     loading="lazy"
                                     decoding="async"
                                     style={{
-                                      position: useMasonryLayout ? 'relative' : 'absolute',
-                                      inset: useMasonryLayout ? undefined : 0,
+                                      position: useDesktopMasonry ? 'relative' : 'absolute',
+                                      inset: useDesktopMasonry ? undefined : 0,
                                       display: 'block',
                                       width: '100%',
-                                      height: useMasonryLayout ? 'auto' : '100%',
+                                      height: useDesktopMasonry ? 'auto' : '100%',
                                       maxWidth: '100%',
-                                      maxHeight: useMasonryLayout
+                                      maxHeight: useDesktopMasonry
                                         ? masonryGraphicMaxHeight
                                         : '100%',
                                       objectFit: 'contain',
@@ -2042,7 +2253,7 @@ export default function PortfolioShowcase({
                                       margin: '0 auto',
                                       transform: isMobile
                                         ? 'scale(1)'
-                                        : focusMatch
+                                        : showHoverOverlay && focusMatch
                                           ? 'scale(1.025)'
                                           : 'scale(1)',
                                       transition: 'transform 0.32s ease',
@@ -2057,14 +2268,16 @@ export default function PortfolioShowcase({
                                     style={{
                                       position: 'absolute',
                                       inset: 0,
+                                      display: 'block',
                                       width: '100%',
                                       height: '100%',
+                                      maxWidth: '100%',
                                       objectFit: mediaObjectFit,
                                       objectPosition: 'center',
                                       transform:
                                         isMobile
                                           ? 'scale(1)'
-                                          : focusMatch
+                                          : showHoverOverlay && focusMatch
                                             ? 'scale(1.04)'
                                             : 'scale(1)',
                                       transition: 'transform 0.32s ease',
@@ -2108,7 +2321,7 @@ export default function PortfolioShowcase({
                                 maxWidth: '100%',
                               }}
                             >
-                              {(variant === 'page' || homepageConfig.showTitle) && (
+                              {showCardTitle && (
                                 <div
                                   style={{
                                     ...getTypographyStyleOverrides(
@@ -2129,13 +2342,17 @@ export default function PortfolioShowcase({
                                     marginBottom: showCardMeta ? (isMobile ? 8 : 10) : 0,
                                     ...(isMobile
                                       ? {
-                                          whiteSpace: 'nowrap',
+                                          display: '-webkit-box',
+                                          WebkitBoxOrient: 'vertical',
+                                          WebkitLineClamp: 2,
                                           overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
                                           maxWidth: '100%',
+                                          overflowWrap: 'anywhere',
+                                          wordBreak: 'break-word',
                                         }
                                       : {
                                           overflowWrap: 'anywhere',
+                                          wordBreak: 'break-word',
                                         }),
                                   }}
                                 >
@@ -2160,6 +2377,7 @@ export default function PortfolioShowcase({
                                         : 14,
                                 }}
                               >
+                                {showCardTypeBadge ? (
                                 <span
                                   style={{
                                     display: 'inline-flex',
@@ -2178,7 +2396,8 @@ export default function PortfolioShowcase({
                                 >
                                   {item.sourceType === 'video' ? 'Video' : 'Graphic'}
                                 </span>
-                                {(variant === 'page' || homepageConfig.showCategory) &&
+                                ) : null}
+                                {showCardCategory &&
                                 itemMeta.showCategoryBadge ? (
                                   <span
                                     style={{
@@ -2222,7 +2441,7 @@ export default function PortfolioShowcase({
                                   </span>
                                 ) : null}
                                 {variant === 'homepage' &&
-                                homepageConfig.showFeaturedBadge &&
+                                showFeaturedBadge &&
                                 itemConfig?.homepageFeatured &&
                                 itemMeta.showHomepageBadge ? (
                                   <span
@@ -2301,7 +2520,7 @@ export default function PortfolioShowcase({
 
                               {!isMobile &&
                               showFullCardDetails &&
-                              (variant === 'page' || homepageConfig.showDescription) &&
+                              showCardDescription &&
                               item.description ? (
                                 <p
                                   style={{
@@ -2407,7 +2626,7 @@ export default function PortfolioShowcase({
                                       : {}),
                                   }}
                                 >
-                                  {itemMeta.showPreviewButton ? previewLabel : 'View details'}
+                                  {itemMeta.showPreviewButton ? displayPreviewLabel : 'View details'}
                                 </div>
 
                                 <div
@@ -2421,12 +2640,12 @@ export default function PortfolioShowcase({
                                     whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  {variant === 'homepage' && homepageConfig.showCardCta
-                                    ? homepageConfig.cardCtaText
+                                  {showCardCta
+                                    ? cardCtaText
                                     : focusMatch
                                       ? 'Selected'
                                       : 'Preview'}
-                                  {itemMeta.showPreviewButton || homepageConfig.showPreviewIcon ? (
+                                  {itemMeta.showPreviewButton || showPreviewIcon ? (
                                     <span>↗</span>
                                   ) : null}
                                 </div>
@@ -2490,7 +2709,16 @@ export default function PortfolioShowcase({
               ) : null}
             </div>
 
-            <div style={{ order: variant === 'page' ? pageBuilder?.cta.order || 30 : 30 }}>
+            <div
+              style={{
+                order: variant === 'page' ? pageBuilder?.cta.order || 30 : 30,
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                overflowX: 'hidden',
+              }}
+            >
               {variant === 'page' && pageBuilder?.cta.enabled ? (
                 <div
                   style={{

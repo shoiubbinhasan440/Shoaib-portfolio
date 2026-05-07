@@ -21,6 +21,9 @@ import {
   serializeHomepagePortfolioItemConfig,
   serializeHomepagePortfolioSettings,
   toPortfolioPreviewItems,
+  type HomepagePortfolioChipStyle,
+  type HomepagePortfolioFilterAlignment,
+  type HomepagePortfolioResponsivePreset,
   type HomepagePortfolioSectionSettings,
   type PortfolioAllOrder,
   type PortfolioCardInfoDensity,
@@ -129,6 +132,23 @@ const gapOptions: Array<{ value: PortfolioPageGap; label: string }> = [
   { value: 'small', label: 'Small gap' },
   { value: 'medium', label: 'Medium gap' },
   { value: 'large', label: 'Large gap' },
+];
+
+const responsiveOptions: Array<{ value: HomepagePortfolioResponsivePreset; label: string }> = [
+  { value: 'compact', label: 'Responsive Compact' },
+  { value: 'balanced', label: 'Responsive Balanced' },
+  { value: 'showcase', label: 'Responsive Showcase' },
+];
+
+const filterAlignmentOptions: Array<{ value: HomepagePortfolioFilterAlignment; label: string }> = [
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Center' },
+];
+
+const chipStyleOptions: Array<{ value: HomepagePortfolioChipStyle; label: string }> = [
+  { value: 'soft', label: 'Soft' },
+  { value: 'glass', label: 'Glass' },
+  { value: 'editorial', label: 'Editorial' },
 ];
 
 function itemKey(item: Pick<AdminPortfolioItem, 'sourceType' | 'id'>) {
@@ -1056,6 +1076,24 @@ export default function PortfolioAdminPage() {
                     />
                     <span>Show category filters</span>
                   </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.showcase.showAllChip}
+                      onChange={event => updateShowcase('showAllChip', event.target.checked)}
+                    />
+                    <span>Show “All” chip</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.showcase.showGroupingLabels}
+                      onChange={event =>
+                        updateShowcase('showGroupingLabels', event.target.checked)
+                      }
+                    />
+                    <span>Show type grouping labels</span>
+                  </label>
                 </div>
               ),
             },
@@ -1124,6 +1162,42 @@ export default function PortfolioAdminPage() {
                       >
                         <option value="video-first">Videos first</option>
                         <option value="graphic-first">Graphics first</option>
+                      </select>
+                    </Field>
+                    <Field label="Chip alignment">
+                      <select
+                        value={pageBuilder.showcase.filterAlignment}
+                        onChange={event =>
+                          updateShowcase(
+                            'filterAlignment',
+                            event.target.value as HomepagePortfolioFilterAlignment
+                          )
+                        }
+                        style={inputStyle}
+                      >
+                        {filterAlignmentOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Chip style">
+                      <select
+                        value={pageBuilder.showcase.filterChipStyle}
+                        onChange={event =>
+                          updateShowcase(
+                            'filterChipStyle',
+                            event.target.value as HomepagePortfolioChipStyle
+                          )
+                        }
+                        style={inputStyle}
+                      >
+                        {chipStyleOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </Field>
                   </div>
@@ -1297,6 +1371,24 @@ export default function PortfolioAdminPage() {
                       ))}
                     </select>
                   </Field>
+                  <Field label="Responsive preset">
+                    <select
+                      value={pageBuilder.showcase.responsivePreset}
+                      onChange={event =>
+                        updateShowcase(
+                          'responsivePreset',
+                          event.target.value as HomepagePortfolioResponsivePreset
+                        )
+                      }
+                      style={inputStyle}
+                    >
+                      {responsiveOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
                   <Field label="Alignment">
                     <select
                       value={pageBuilder.showcase.alignment}
@@ -1366,6 +1458,69 @@ export default function PortfolioAdminPage() {
                       style={inputStyle}
                     />
                   </Field>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.showcase.mobileCompactMode}
+                      onChange={event =>
+                        updateShowcase('mobileCompactMode', event.target.checked)
+                      }
+                    />
+                    <span>Compact mobile mode</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={pageBuilder.showcase.enablePreviewModal}
+                      onChange={event =>
+                        updateShowcase('enablePreviewModal', event.target.checked)
+                      }
+                    />
+                    <span>Enable preview modal</span>
+                  </label>
+                  <Field label="Preview label">
+                    <input
+                      value={pageBuilder.showcase.previewButtonLabel}
+                      onChange={event => updateShowcase('previewButtonLabel', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  <Field label="Card CTA text">
+                    <input
+                      value={pageBuilder.showcase.cardCtaText}
+                      onChange={event => updateShowcase('cardCtaText', event.target.value)}
+                      style={inputStyle}
+                    />
+                  </Field>
+                  {[
+                    ['showThumbnail', 'Show thumbnail'],
+                    ['showTitle', 'Show title'],
+                    ['showCategory', 'Show category'],
+                    ['showDescription', 'Show description'],
+                    ['showTypeBadge', 'Show type badge'],
+                    ['showFeaturedBadge', 'Show featured badge'],
+                    ['showCardCta', 'Show card CTA'],
+                    ['showPreviewIcon', 'Show preview icon'],
+                    ['showHoverOverlay', 'Show hover overlay'],
+                  ].map(([key, label]) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={
+                          pageBuilder.showcase[
+                            key as keyof PortfolioPageBuilderConfig['showcase']
+                          ] as boolean
+                        }
+                        onChange={event =>
+                          updateShowcase(
+                            key as keyof PortfolioPageBuilderConfig['showcase'],
+                            event.target.checked as never
+                          )
+                        }
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
                 </div>
               ),
             },

@@ -5,12 +5,17 @@ import { buildSitemap } from '@/lib/site-metadata';
 import {
   fetchPortfolioDataset,
   getHomepageAllowedSourceTypes,
+  getPortfolioItemDetailPath,
+  getPortfolioItemMeta,
+  parsePortfolioItemMetaConfig,
+  PORTFOLIO_ITEM_META_SETTING_KEY,
   toPortfolioPreviewItems,
   type PortfolioSourceType,
 } from '@/lib/portfolio-content';
-import { getCanonicalUrl, SITE_CONFIG } from '@/lib/site-config';
+import { absoluteAssetUrl, getCanonicalUrl, SITE_CONFIG } from '@/lib/site-config';
+import { toSettingMap } from '@/lib/hero-settings';
 
-async function buildPortfolioCategorySitemapEntries(
+async function buildPortfolioSitemapEntries(
   canonicalUrl: string
 ): Promise<MetadataRoute.Sitemap> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,7 +28,12 @@ async function buildPortfolioCategorySitemapEntries(
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { videos, graphics, categories } = await fetchPortfolioDataset(supabase);
+  const [{ data: settingsRows }, { videos, graphics, categories }] = await Promise.all([
+    supabase.from('site_settings').select('key, value'),
+    fetchPortfolioDataset(supabase),
+  ]);
+  const map = toSettingMap(settingsRows || []);
+  const metaConfig = parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]);
   const items = toPortfolioPreviewItems(videos, graphics, categories);
   const keys = new Set<string>();
 
@@ -45,7 +55,7 @@ async function buildPortfolioCategorySitemapEntries(
     mixedOrder: 'video-first',
   });
 
-  return [...keys]
+  const categoryEntries = [...keys]
     .sort((left, right) => {
       const [leftType, leftSlug] = left.split(':') as [PortfolioSourceType, string];
       const [rightType, rightSlug] = right.split(':') as [PortfolioSourceType, string];
@@ -70,13 +80,40 @@ async function buildPortfolioCategorySitemapEntries(
         priority: 0.55,
       };
     });
+
+  const itemEntries = items
+    .filter(item => {
+      const meta = getPortfolioItemMeta(item, metaConfig);
+      return (
+        item.visible &&
+        item.categoryActive &&
+        item.categoryShowOnPortfolio &&
+        meta.status !== 'draft' &&
+        meta.status !== 'hidden' &&
+        meta.robots !== 'noindex-nofollow'
+      );
+    })
+    .map(item => {
+      const meta = getPortfolioItemMeta(item, metaConfig);
+      const image = meta.ogImage || meta.socialImage || meta.coverImage || item.imageUrl;
+
+      return {
+        url: getCanonicalUrl(getPortfolioItemDetailPath(item, meta)),
+        lastModified: new Date(),
+        changeFrequency: 'monthly' as const,
+        priority: item.sourceType === 'graphic' ? 0.68 : 0.66,
+        images: image ? [absoluteAssetUrl(image)] : undefined,
+      };
+    });
+
+  return [...categoryEntries, ...itemEntries];
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const settings = await getServerGlobalSettings();
-  const categoryEntries = await buildPortfolioCategorySitemapEntries(
+  const portfolioEntries = await buildPortfolioSitemapEntries(
     settings.seo.canonicalUrl || SITE_CONFIG.url
   );
 
-  return buildSitemap(settings, categoryEntries);
+  return buildSitemap(settings, portfolioEntries);
 }

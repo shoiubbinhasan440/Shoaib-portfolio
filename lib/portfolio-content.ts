@@ -55,6 +55,7 @@ export type PortfolioProjectGalleryItem = {
 export type PortfolioVideo = {
   id: number;
   title: string;
+  slug?: string | null;
   category: string;
   youtube_url: string;
   thumbnail: string;
@@ -67,6 +68,7 @@ export type PortfolioVideo = {
 export type PortfolioGraphic = {
   id: string;
   title: string;
+  slug?: string | null;
   category: string;
   image_url: string;
   description?: string | null;
@@ -104,6 +106,7 @@ export type PortfolioPreviewItem = {
   sourceType: PortfolioSourceType;
   id: string;
   title: string;
+  slug: string;
   description?: string | null;
   category: string | null;
   categorySlug: string | null;
@@ -413,12 +416,16 @@ function normalizeLookupValue(value: string) {
   return value.trim().toLowerCase();
 }
 
-function slugifyValue(value: string) {
+export function slugifyPortfolioValue(value: string) {
   return value
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '-')
     .replace(/[^\w-]/g, '');
+}
+
+function slugifyValue(value: string) {
+  return slugifyPortfolioValue(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1281,6 +1288,26 @@ export function getPortfolioItemMeta(
   };
 }
 
+export function getPortfolioItemPublicSlug(
+  item: Pick<PortfolioPreviewItem, 'sourceType' | 'id' | 'title'> & { slug?: string | null },
+  meta?: Pick<PortfolioItemMetaConfig, 'slug'> | null
+) {
+  return (
+    slugifyPortfolioValue(meta?.slug || '') ||
+    slugifyPortfolioValue(item.slug || '') ||
+    slugifyPortfolioValue(item.title) ||
+    `${item.sourceType}-${item.id}`
+  );
+}
+
+export function getPortfolioItemDetailPath(
+  item: Pick<PortfolioPreviewItem, 'sourceType' | 'id' | 'title'> & { slug?: string | null },
+  meta?: Pick<PortfolioItemMetaConfig, 'slug'> | null
+) {
+  const routeType = item.sourceType === 'graphic' ? 'graphics' : 'videos';
+  return `/portfolio/${routeType}/${getPortfolioItemPublicSlug(item, meta)}`;
+}
+
 export function getHomepageConfigForVideo(
   video: Pick<PortfolioVideo, 'id' | 'order_num'>,
   configMap: HomepagePortfolioConfigMap
@@ -1383,6 +1410,7 @@ export function toPortfolioPreviewItems(
     sourceType: 'video',
     id: String(video.id),
     title: video.title,
+    slug: video.slug || slugifyPortfolioValue(video.title),
     description: video.description || null,
     imageUrl: video.thumbnail,
     visible: video.visible,
@@ -1396,6 +1424,7 @@ export function toPortfolioPreviewItems(
     sourceType: 'graphic',
     id: String(graphic.id),
     title: graphic.title,
+    slug: graphic.slug || slugifyPortfolioValue(graphic.title),
     description: graphic.description || null,
     imageUrl: graphic.image_url,
     visible: graphic.visible,

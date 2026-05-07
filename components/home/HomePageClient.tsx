@@ -1466,12 +1466,13 @@ export default function HomePageClient({
         minHeight: '100vh',
         width: '100%',
         maxWidth: '100%',
+        minWidth: 0,
         boxSizing: 'border-box',
         background: bg,
         color: text,
         fontFamily: "'Inter', system-ui, sans-serif",
         overflowX: 'hidden',
-        paddingBottom: 'calc(72px + env(safe-area-inset-bottom))',
+        paddingBottom: 'calc(110px + env(safe-area-inset-bottom))',
         animation: 'homepage-content-fade-in 220ms ease-out both',
       }}
     >
@@ -1486,7 +1487,16 @@ export default function HomePageClient({
         }}
       >
         {sections.map(section => (
-          <div key={section.key} style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
+          <div
+            key={section.key}
+            style={{
+              width: '100%',
+              maxWidth: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box',
+              overflowX: 'hidden',
+            }}
+          >
             {section.node}
           </div>
         ))}
