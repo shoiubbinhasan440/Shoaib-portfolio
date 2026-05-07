@@ -44,6 +44,7 @@ export default function AdminShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [moduleQuery, setModuleQuery] = useState('');
+  const [navOffset, setNavOffset] = useState(0);
 
   const currentModule = useMemo(() => findAdminModule(pathname), [pathname]);
   const uniqueModuleCount = ADMIN_MODULES.length;
@@ -84,10 +85,29 @@ export default function AdminShell({
     : '0 22px 48px rgba(15,23,42,0.08)';
 
   useEffect(() => {
-    const syncViewport = () => setMobile(window.innerWidth < 1080);
+    const syncViewport = () => {
+      setMobile(window.innerWidth < 1080);
+      const navbar = document.querySelector<HTMLElement>('.site-navbar');
+      setNavOffset(navbar?.offsetHeight || 0);
+    };
+
     syncViewport();
     window.addEventListener('resize', syncViewport);
-    return () => window.removeEventListener('resize', syncViewport);
+
+    const navbar = document.querySelector<HTMLElement>('.site-navbar');
+    const observer =
+      typeof ResizeObserver !== 'undefined' && navbar
+        ? new ResizeObserver(syncViewport)
+        : null;
+
+    if (observer && navbar) {
+      observer.observe(navbar);
+    }
+
+    return () => {
+      window.removeEventListener('resize', syncViewport);
+      observer?.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -118,19 +138,16 @@ export default function AdminShell({
   }, [router]);
 
   useEffect(() => {
-    if (!mobile) {
-      return;
-    }
-
     const previousOverflow = document.body.style.overflow;
-    if (drawerOpen) {
-      document.body.style.overflow = 'hidden';
-    }
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
 
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
     };
-  }, [drawerOpen, mobile]);
+  }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -148,6 +165,8 @@ export default function AdminShell({
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
+          minHeight: 0,
+          overflow: 'hidden',
           color: tokens.text,
         }}
       >
@@ -282,6 +301,8 @@ export default function AdminShell({
             gap: 18,
             flex: 1,
             overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehavior: 'contain',
             paddingRight: 6,
             marginRight: -6,
             minHeight: 0,
@@ -425,6 +446,7 @@ export default function AdminShell({
             borderTop: `1px solid ${tokens.line}`,
             marginTop: 16,
             paddingTop: 16,
+            flexShrink: 0,
             display: 'grid',
             gap: 10,
           }}
@@ -481,10 +503,14 @@ export default function AdminShell({
     );
   }
 
+  const shellHeight = `calc(100vh - ${navOffset}px)`;
+
   return (
     <div
       style={{
-        minHeight: '100vh',
+        height: shellHeight,
+        maxHeight: shellHeight,
+        overflow: 'hidden',
         background: shellBg,
         color: tokens.text,
       }}
@@ -515,6 +541,9 @@ export default function AdminShell({
             left: drawerOpen ? 0 : '-100%',
             bottom: 0,
             width: 'min(90vw, 380px)',
+            height: '100vh',
+            maxHeight: '100vh',
+            overflow: 'hidden',
             padding: 18,
             background: sidebarBg,
             borderRight: `1px solid ${tokens.line}`,
@@ -531,7 +560,10 @@ export default function AdminShell({
         style={{
           display: 'grid',
           gridTemplateColumns: mobile ? '1fr' : '320px minmax(0, 1fr)',
-          minHeight: '100vh',
+          height: shellHeight,
+          maxHeight: shellHeight,
+          minHeight: 0,
+          overflow: 'hidden',
         }}
       >
         {!mobile ? (
@@ -543,7 +575,10 @@ export default function AdminShell({
               boxShadow: pageShadow,
               position: 'sticky',
               top: 0,
-              height: '100dvh',
+              height: shellHeight,
+              maxHeight: shellHeight,
+              minHeight: 0,
+              overflow: 'hidden',
               alignSelf: 'start',
             }}
           >
@@ -551,13 +586,25 @@ export default function AdminShell({
           </aside>
         ) : null}
 
-        <main style={{ padding: mobile ? '16px 14px 22px' : '28px' }}>
+        <main
+          style={{
+            height: shellHeight,
+            maxHeight: shellHeight,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            overscrollBehavior: 'contain',
+            WebkitOverflowScrolling: 'touch',
+            padding: mobile ? '16px 14px 22px' : '28px',
+          }}
+        >
           <div
             style={{
               maxWidth: 1360,
               margin: '0 auto',
               display: 'grid',
               gap: 22,
+              paddingBottom: mobile ? 'calc(20px + env(safe-area-inset-bottom))' : 28,
             }}
           >
             {mobile ? (

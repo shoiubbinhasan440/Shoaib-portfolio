@@ -125,6 +125,7 @@ export default function PortfolioPage() {
         minHeight: '100vh',
         width: '100%',
         maxWidth: '100%',
+        boxSizing: 'border-box',
         overflowX: 'hidden',
         paddingBottom: 'calc(72px + env(safe-area-inset-bottom))',
         background: dark ? '#080808' : '#f8fbff',

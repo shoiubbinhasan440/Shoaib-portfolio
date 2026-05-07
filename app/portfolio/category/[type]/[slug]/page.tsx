@@ -154,6 +154,7 @@ export default function PortfolioCategoryPage() {
         minHeight: '100vh',
         width: '100%',
         maxWidth: '100%',
+        boxSizing: 'border-box',
         overflowX: 'hidden',
         paddingBottom: 'calc(72px + env(safe-area-inset-bottom))',
         background: dark ? '#080808' : '#f8fbff',
@@ -185,10 +186,14 @@ export default function PortfolioCategoryPage() {
             display: 'grid',
             placeItems: 'center',
             color: dark ? '#f8fafc' : '#0f172a',
-            padding: '120px 24px',
+            padding: isMobile ? '96px 16px' : '120px 24px',
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            overflowX: 'hidden',
           }}
         >
-          <div style={{ textAlign: 'center', maxWidth: 560 }}>
+          <div style={{ textAlign: 'center', width: '100%', maxWidth: 560, minWidth: 0 }}>
             <h1 style={{ margin: '0 0 12px', fontSize: 34 }}>Category not found</h1>
             <p style={{ margin: 0, color: dark ? '#94a3b8' : '#475569' }}>
               This portfolio category route needs a valid video or graphic type.

@@ -1466,6 +1466,7 @@ export default function HomePageClient({
         minHeight: '100vh',
         width: '100%',
         maxWidth: '100%',
+        boxSizing: 'border-box',
         background: bg,
         color: text,
         fontFamily: "'Inter', system-ui, sans-serif",
@@ -1474,9 +1475,20 @@ export default function HomePageClient({
         animation: 'homepage-content-fade-in 220ms ease-out both',
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, maxWidth: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          maxWidth: '100%',
+          minWidth: 0,
+          overflowX: 'clip',
+        }}
+      >
         {sections.map(section => (
-          <div key={section.key}>{section.node}</div>
+          <div key={section.key} style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}>
+            {section.node}
+          </div>
         ))}
       </div>
 

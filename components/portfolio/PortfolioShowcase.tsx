@@ -239,7 +239,7 @@ function getColumnsForViewport(width: number, settings: HomepagePortfolioSection
       : Math.max(1, settings.desktopColumns);
 
   if (width < 700) {
-    return mobileColumns;
+    return Math.min(2, mobileColumns);
   }
 
   if (width < 1080) {
@@ -263,7 +263,7 @@ function getPageColumnsForViewport(width: number, config: PortfolioPageBuilderCo
   }
 
   if (width < 700) {
-    return config.showcase.mobileColumns;
+    return Math.min(2, Math.max(1, config.showcase.mobileColumns));
   }
 
   if (width < 1080) {
@@ -788,21 +788,25 @@ export default function PortfolioShowcase({
       ? '0 24px 44px rgba(2,6,23,0.24)'
       : '0 18px 32px rgba(15,23,42,0.08)',
   });
-  const showcaseGap = showcaseStyles?.card.gap || cardGap;
+  const showcaseGap = isMobile ? Math.min(showcaseStyles?.card.gap || cardGap, 16) : showcaseStyles?.card.gap || cardGap;
   const cardInfoDensity = getCardInfoDensity(variant, homepageConfig, pageBuilder);
   const showCardMeta = cardInfoDensity !== 'title-only';
   const showFullCardDetails = cardInfoDensity === 'full';
+  const safeColumnCount = isMobile ? Math.min(2, Math.max(1, columns)) : Math.max(1, columns);
+  const safeGridTemplate = `repeat(${safeColumnCount}, minmax(0, 1fr))`;
   const masonryColumns =
     useMasonryLayout && viewportWidth >= 390 && viewportWidth < 700
       ? 2
-      : columns;
+      : safeColumnCount;
   const mobileChipScrollerStyle = isMobile
     ? ({
+        boxSizing: 'border-box' as const,
         width: '100%',
         maxWidth: '100%',
         minWidth: 0,
         overflowX: 'auto' as const,
         overflowY: 'hidden' as const,
+        overscrollBehaviorX: 'contain' as const,
         WebkitOverflowScrolling: 'touch' as const,
         scrollbarWidth: 'none' as const,
         flexWrap: 'nowrap' as const,
@@ -813,7 +817,11 @@ export default function PortfolioShowcase({
   const mobileChipButtonStyle = isMobile
     ? ({
         flex: '0 0 auto',
-        maxWidth: 'calc(100vw - 40px)',
+        boxSizing: 'border-box' as const,
+        maxWidth: 'min(100%, calc(100vw - 32px))',
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
         whiteSpace: 'nowrap' as const,
       })
     : {};
@@ -841,7 +849,7 @@ export default function PortfolioShowcase({
         style={{
           boxSizing: 'border-box',
           maxWidth: isMobile
-            ? '100%'
+            ? '100vw'
             : getSectionWidthOverride(
                 heroStyles?.layout.width || 'default',
                 getSectionMaxWidth(variant, homepageConfig, pageBuilder)
@@ -864,7 +872,7 @@ export default function PortfolioShowcase({
               ),
           width: '100%',
           minWidth: 0,
-          overflowX: 'hidden',
+          overflowX: 'clip',
         }}
       >
         <div
@@ -971,7 +979,7 @@ export default function PortfolioShowcase({
                       maxWidth: variant === 'page' ? 760 : 760,
                       minWidth: 0,
                       width: '100%',
-                      overflowWrap: 'break-word',
+                      overflowWrap: 'anywhere',
                     }}
                   >
                     {badgeText ? (
@@ -1037,7 +1045,7 @@ export default function PortfolioShowcase({
                         color: text,
                         lineHeight: 1.05,
                         maxWidth: '100%',
-                        overflowWrap: 'break-word',
+                        overflowWrap: 'anywhere',
                         ...getTypographyStyleOverrides(
                           'title',
                           heroStyles?.typography.title,
@@ -1066,7 +1074,7 @@ export default function PortfolioShowcase({
                         fontSize: variant === 'page' ? 16 : 15,
                         lineHeight: 1.85,
                         maxWidth: variant === 'page' ? 680 : headerAlignment === 'center' ? 720 : 620,
-                        overflowWrap: 'break-word',
+                        overflowWrap: 'anywhere',
                         ...getTypographyStyleOverrides(
                           'subtitle',
                           heroStyles?.typography.subtitle,
@@ -1094,7 +1102,7 @@ export default function PortfolioShowcase({
                           fontSize: 15,
                           lineHeight: 1.8,
                           maxWidth: 720,
-                          overflowWrap: 'break-word',
+                          overflowWrap: 'anywhere',
                           ...getTypographyStyleOverrides(
                             'body',
                             heroStyles?.typography.body,
@@ -1143,7 +1151,7 @@ export default function PortfolioShowcase({
                         boxShadow: '0 18px 40px rgba(37,99,235,0.22)',
                         flexShrink: 0,
                         whiteSpace: 'normal',
-                        overflowWrap: 'break-word',
+                        overflowWrap: 'anywhere',
                         ...heroButtonStyle,
                         ...getTypographyStyleOverrides(
                           'button',
@@ -1363,7 +1371,7 @@ export default function PortfolioShowcase({
                       fontSize: 13,
                       minWidth: 0,
                       width: isMobile ? '100%' : undefined,
-                      overflowWrap: 'break-word',
+                      overflowWrap: 'anywhere',
                     }}
                   >
                     Smart showcase highlights curated work with larger cards and smoother browsing.
@@ -1404,19 +1412,22 @@ export default function PortfolioShowcase({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns:
-                      variant === 'page'
-                        ? `repeat(${columns}, minmax(0, 1fr))`
-                        : `repeat(${columns}, minmax(0, 1fr))`,
+                    gridTemplateColumns: safeGridTemplate,
                     gap: showcaseGap,
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    overflowX: 'clip',
                   }}
                 >
-                {Array.from({ length: variant === 'page' ? 6 : Math.max(3, columns) }).map((_, index) => (
+                {Array.from({ length: variant === 'page' ? 6 : Math.max(3, safeColumnCount) }).map((_, index) => (
                   <div
                     key={index}
                     style={{
                       borderRadius: 24,
                       minHeight: variant === 'homepage' && homepageConfig.cardDensity === 'compact' ? 220 : 280,
+                      minWidth: 0,
                       border: `1px solid ${soft}`,
                       background: cardSurface,
                     }}
@@ -1454,7 +1465,7 @@ export default function PortfolioShowcase({
                       display: useMasonryLayout ? 'block' : 'grid',
                       gridTemplateColumns: useMasonryLayout
                         ? undefined
-                        : `repeat(${columns}, minmax(0, 1fr))`,
+                        : safeGridTemplate,
                       gridAutoRows: !useMasonryLayout && isMobile ? '1fr' : undefined,
                       gap: useMasonryLayout ? undefined : showcaseGap,
                       columnCount: useMasonryLayout ? masonryColumns : undefined,
@@ -1523,9 +1534,12 @@ export default function PortfolioShowcase({
                             style={{
                               display: 'grid',
                               gridTemplateColumns:
-                                previewItems.length > 1 ? '1.15fr 0.85fr' : '1fr',
+                                previewItems.length > 1
+                                  ? 'minmax(0, 1.15fr) minmax(0, 0.85fr)'
+                                  : 'minmax(0, 1fr)',
                               gap: 8,
                               minHeight: isMobile ? 170 : 210,
+                              width: '100%',
                               minWidth: 0,
                               maxWidth: '100%',
                             }}
@@ -1582,8 +1596,13 @@ export default function PortfolioShowcase({
                               <div
                                 style={{
                                   display: 'grid',
-                                  gridTemplateColumns: previewItems.length > 3 ? '1fr 1fr' : '1fr',
+                                  gridTemplateColumns:
+                                    previewItems.length > 3
+                                      ? 'repeat(2, minmax(0, 1fr))'
+                                      : 'minmax(0, 1fr)',
                                   gap: 8,
+                                  minWidth: 0,
+                                  maxWidth: '100%',
                                 }}
                               >
                                 {previewItems.slice(1, 6).map(item => (
@@ -1692,7 +1711,7 @@ export default function PortfolioShowcase({
                                 fontWeight: 900,
                                 color: text,
                                 lineHeight: 1.1,
-                                overflowWrap: 'break-word',
+                                overflowWrap: 'anywhere',
                               }}
                             >
                               {group.title}
@@ -1791,7 +1810,7 @@ export default function PortfolioShowcase({
                         display: useMasonryLayout ? 'block' : 'grid',
                         gridTemplateColumns: useMasonryLayout
                           ? undefined
-                          : `repeat(${columns}, minmax(0, 1fr))`,
+                          : safeGridTemplate,
                         gridAutoRows: !useMasonryLayout && isMobile ? '1fr' : undefined,
                         gap: useMasonryLayout ? undefined : showcaseGap,
                         columnCount: useMasonryLayout ? masonryColumns : undefined,
@@ -1827,11 +1846,11 @@ export default function PortfolioShowcase({
                           variant === 'homepage' &&
                           homepageConfig.layoutType === 'featured-first' &&
                           index === 0 &&
-                          columns > 1;
+                          safeColumnCount > 1;
                         const smartLeadCard =
                           variant === 'page' &&
                           smartShowcaseMode &&
-                          columns > 1 &&
+                          safeColumnCount > 1 &&
                           index === 0 &&
                           (itemMeta.smartShowcase || itemMeta.featuredPriority > 0);
                         const focusKey = getItemKey(item);
@@ -1964,8 +1983,8 @@ export default function PortfolioShowcase({
                               transition:
                                 'transform 0.22s ease, border-color 0.22s ease, opacity 0.22s ease, box-shadow 0.22s ease',
                               gridColumn:
-                                !useMasonryLayout && leadCard && columns > 1
-                                  ? `span ${Math.min(2, columns)}`
+                                !useMasonryLayout && leadCard && safeColumnCount > 1
+                                  ? `span ${Math.min(2, safeColumnCount)}`
                                   : undefined,
                               opacity: dimmed ? 0.56 : 1,
                               transform: focusMatch ? 'translateY(-6px)' : 'translateY(0)',
@@ -2116,7 +2135,7 @@ export default function PortfolioShowcase({
                                           maxWidth: '100%',
                                         }
                                       : {
-                                          overflowWrap: 'break-word',
+                                          overflowWrap: 'anywhere',
                                         }),
                                   }}
                                 >
@@ -2460,7 +2479,7 @@ export default function PortfolioShowcase({
                     fontWeight: 700,
                     textAlign: 'center',
                     whiteSpace: 'normal',
-                    overflowWrap: 'break-word',
+                    overflowWrap: 'anywhere',
                     ...secondaryButtonStyle,
                   }}
                 >
@@ -2545,7 +2564,7 @@ export default function PortfolioShowcase({
                     letterSpacing: '-0.04em',
                     color: text,
                     maxWidth: '100%',
-                    overflowWrap: 'break-word',
+                    overflowWrap: 'anywhere',
                     ...getTypographyStyleOverrides(
                       'title',
                       ctaStyles?.typography.title,
@@ -2570,7 +2589,7 @@ export default function PortfolioShowcase({
                       color: muted,
                       fontSize: 15,
                       lineHeight: 1.8,
-                      overflowWrap: 'break-word',
+                      overflowWrap: 'anywhere',
                       ...getTypographyStyleOverrides(
                         'body',
                         ctaStyles?.typography.body,
@@ -2622,7 +2641,7 @@ export default function PortfolioShowcase({
                         textDecoration: 'none',
                         textAlign: 'center',
                         whiteSpace: 'normal',
-                        overflowWrap: 'break-word',
+                        overflowWrap: 'anywhere',
                         ...getButtonStyleOverrides(ctaStyles, {
                           dark,
                           fallbackBackground: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
@@ -2656,7 +2675,7 @@ export default function PortfolioShowcase({
                         textDecoration: 'none',
                         textAlign: 'center',
                         whiteSpace: 'normal',
-                        overflowWrap: 'break-word',
+                        overflowWrap: 'anywhere',
                         ...secondaryButtonStyle,
                       }}
                     >
