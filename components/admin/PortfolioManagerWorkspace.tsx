@@ -23,6 +23,8 @@ import {
 } from '@/components/admin/admin-ui';
 import type {
   PortfolioItemMetaConfigMap,
+  PortfolioProjectGalleryItem,
+  PortfolioProjectType,
   PortfolioPreviewItem,
   PortfolioSourceType,
 } from '@/lib/portfolio-content';
@@ -78,6 +80,14 @@ export type PortfolioManagerItem = {
   storySolution: string;
   storyTools: string;
   storyResult: string;
+  projectId: string;
+  projectTitle: string;
+  projectCoverImage: string;
+  projectType: PortfolioProjectType;
+  projectDescription: string;
+  projectOrder: number;
+  projectVisible: boolean;
+  projectGallery: PortfolioProjectGalleryItem[];
   createdAt?: string;
   tier?: string;
 };
@@ -110,6 +120,85 @@ type PortfolioManagerWorkspaceProps = {
 };
 
 type SortMode = 'order' | 'homepage' | 'featured' | 'newest' | 'oldest';
+type PortfolioToneStyle =
+  | 'Cinematic'
+  | 'Luxury'
+  | 'Minimal'
+  | 'Dark'
+  | 'Emotional'
+  | 'Corporate'
+  | 'Futuristic'
+  | 'Documentary'
+  | 'Islamic'
+  | 'Humanitarian';
+type AiGenerateField =
+  | 'all'
+  | 'title'
+  | 'description'
+  | 'tags'
+  | 'seoTitle'
+  | 'seoDescription'
+  | 'challenge'
+  | 'solution'
+  | 'toolsUsed'
+  | 'result'
+  | 'typeLabel'
+  | 'formatLabel'
+  | 'category'
+  | 'aspectRatio';
+type PortfolioAiContent = {
+  aspectRatio: string;
+  challenge: string;
+  description: string;
+  formatLabel: string;
+  result: string;
+  seoDescription: string;
+  seoTitle: string;
+  solution: string;
+  suggestedCategory: string;
+  tags: string[];
+  title: string;
+  toolsUsed: string;
+  typeLabel: string;
+  visualRead?: {
+    atmosphere: string;
+    colorGrade: string;
+    composition: string;
+    genre: string;
+    lighting: string;
+    mood: string;
+    subject: string;
+  };
+};
+
+const toneStyleOptions: PortfolioToneStyle[] = [
+  'Cinematic',
+  'Luxury',
+  'Minimal',
+  'Dark',
+  'Emotional',
+  'Corporate',
+  'Futuristic',
+  'Documentary',
+  'Islamic',
+  'Humanitarian',
+];
+
+const regenerateFieldOptions: Array<{ field: AiGenerateField; label: string }> = [
+  { field: 'title', label: 'Title' },
+  { field: 'description', label: 'Description' },
+  { field: 'tags', label: 'Tags' },
+  { field: 'seoTitle', label: 'SEO title' },
+  { field: 'seoDescription', label: 'SEO description' },
+  { field: 'challenge', label: 'Challenge' },
+  { field: 'solution', label: 'Solution' },
+  { field: 'toolsUsed', label: 'Tools' },
+  { field: 'result', label: 'Result' },
+  { field: 'typeLabel', label: 'Type' },
+  { field: 'formatLabel', label: 'Format' },
+  { field: 'category', label: 'Category' },
+  { field: 'aspectRatio', label: 'Ratio' },
+];
 
 function itemKey(type: PortfolioSourceType, itemId: string) {
   return `${type}:${itemId}`;
@@ -163,6 +252,26 @@ function createPreviewItem(
     order_num: item.order_num,
     tier: item.tier || undefined,
     youtube_url: item.youtubeUrl || undefined,
+    projectId: item.projectId,
+    projectTitle: item.projectTitle,
+    projectCoverImage: item.projectCoverImage,
+    projectType: item.projectType,
+    projectDescription: item.projectDescription,
+    projectOrder: item.projectOrder,
+    projectVisible: item.projectVisible,
+    projectItems: [
+      {
+        id: `${managerType}:${item.id || 'draft'}`,
+        title: item.title,
+        imageUrl: item.imageUrl,
+        sourceType: managerType,
+        youtube_url: item.youtubeUrl || undefined,
+        description: item.description,
+        categoryName: matchedCategory?.label || item.category || 'Portfolio',
+        formatLabel: item.formatLabel,
+      },
+      ...item.projectGallery,
+    ],
   } satisfies PortfolioPreviewItem;
 }
 
@@ -209,6 +318,14 @@ function createMetaConfig(
           tools: item.storyTools,
           result: item.storyResult,
         },
+        projectId: item.projectId,
+        projectTitle: item.projectTitle,
+        projectCoverImage: item.projectCoverImage,
+        projectType: item.projectType,
+        projectDescription: item.projectDescription,
+        projectOrder: item.projectOrder,
+        projectVisible: item.projectVisible,
+        projectGallery: item.projectGallery,
       },
     ])
   ) as PortfolioItemMetaConfigMap;
@@ -276,6 +393,14 @@ function createEmptyItem(
     storySolution: '',
     storyTools: '',
     storyResult: '',
+    projectId: '',
+    projectTitle: '',
+    projectCoverImage: '',
+    projectType: managerType === 'video' ? 'Video' : 'Graphic',
+    projectDescription: '',
+    projectOrder: getNextOrder(items),
+    projectVisible: true,
+    projectGallery: [],
     createdAt: '',
     tier: '',
   } satisfies PortfolioManagerItem;
@@ -417,6 +542,12 @@ export default function PortfolioManagerWorkspace({
   const [featuredFilter, setFeaturedFilter] = useState<'all' | 'featured' | 'standard'>('all');
   const [sortMode, setSortMode] = useState<SortMode>('order');
   const [previewItemId, setPreviewItemId] = useState('');
+  const [aiTone, setAiTone] = useState<PortfolioToneStyle>('Cinematic');
+  const [aiStage, setAiStage] = useState('');
+  const [aiGeneratingField, setAiGeneratingField] = useState<AiGenerateField | ''>('');
+  const [aiNotice, setAiNotice] = useState('');
+  const [aiVisualRead, setAiVisualRead] = useState<PortfolioAiContent['visualRead'] | null>(null);
+  const [aiFillPulse, setAiFillPulse] = useState(false);
 
   useEffect(() => {
     const syncViewport = () => setViewportWidth(window.innerWidth);
@@ -604,6 +735,192 @@ export default function PortfolioManagerWorkspace({
       }
     } catch {
       // Parent handlers already surface a friendly message.
+    }
+  }
+
+  function updateProjectGalleryItem(
+    index: number,
+    patch: Partial<PortfolioProjectGalleryItem>
+  ) {
+    setDraft(current => ({
+      ...current,
+      projectGallery: current.projectGallery.map((galleryItem, galleryIndex) =>
+        galleryIndex === index ? { ...galleryItem, ...patch } : galleryItem
+      ),
+    }));
+  }
+
+  function removeProjectGalleryItem(index: number) {
+    setDraft(current => ({
+      ...current,
+      projectGallery: current.projectGallery.filter((_, galleryIndex) => galleryIndex !== index),
+    }));
+  }
+
+  function appendProjectGalleryItem(url: string) {
+    if (!url.trim()) {
+      return;
+    }
+
+    setDraft(current => ({
+      ...current,
+      projectGallery: [
+        ...current.projectGallery,
+        {
+          id: `extra-${Date.now()}`,
+          title: '',
+          imageUrl: url.trim(),
+          sourceType: managerType,
+          description: '',
+          categoryName: current.category,
+          formatLabel: current.formatLabel,
+        },
+      ],
+    }));
+  }
+
+  function resolveSuggestedCategory(suggestedCategory: string, fallback: string) {
+    const normalizedSuggestion = suggestedCategory.trim().toLowerCase();
+    if (!normalizedSuggestion) {
+      return fallback;
+    }
+
+    const matchedOption = uniqueCategoryOptions.find(
+      option =>
+        option.value.toLowerCase() === normalizedSuggestion ||
+        option.label.toLowerCase() === normalizedSuggestion
+    );
+
+    return matchedOption?.value || fallback;
+  }
+
+  function applyAiContent(content: PortfolioAiContent, targetField: AiGenerateField) {
+    setDraft(current => {
+      const nextDraft = { ...current };
+      const applyAll = targetField === 'all';
+
+      if (applyAll || targetField === 'title') {
+        nextDraft.title = content.title || nextDraft.title;
+      }
+      if (applyAll || targetField === 'description') {
+        nextDraft.description = content.description || nextDraft.description;
+        nextDraft.previewDescription = content.description || nextDraft.previewDescription;
+      }
+      if (applyAll || targetField === 'tags') {
+        nextDraft.tags = content.tags?.length ? content.tags : nextDraft.tags;
+      }
+      if (applyAll || targetField === 'seoTitle') {
+        nextDraft.seoTitle = content.seoTitle || nextDraft.seoTitle;
+      }
+      if (applyAll || targetField === 'seoDescription') {
+        nextDraft.seoDescription = content.seoDescription || nextDraft.seoDescription;
+      }
+      if (applyAll || targetField === 'challenge') {
+        nextDraft.storyChallenge = content.challenge || nextDraft.storyChallenge;
+      }
+      if (applyAll || targetField === 'solution') {
+        nextDraft.storySolution = content.solution || nextDraft.storySolution;
+      }
+      if (applyAll || targetField === 'toolsUsed') {
+        nextDraft.storyTools = content.toolsUsed || nextDraft.storyTools;
+      }
+      if (applyAll || targetField === 'result') {
+        nextDraft.storyResult = content.result || nextDraft.storyResult;
+      }
+      if (applyAll || targetField === 'typeLabel') {
+        nextDraft.typeLabel = content.typeLabel || nextDraft.typeLabel;
+      }
+      if (applyAll || targetField === 'formatLabel') {
+        nextDraft.formatLabel = content.formatLabel || nextDraft.formatLabel;
+      }
+      if (applyAll || targetField === 'category') {
+        nextDraft.category = resolveSuggestedCategory(
+          content.suggestedCategory || '',
+          nextDraft.category
+        );
+      }
+      if (applyAll || targetField === 'aspectRatio') {
+        nextDraft.aspectRatio = content.aspectRatio || nextDraft.aspectRatio;
+      }
+
+      return nextDraft;
+    });
+
+    setAiVisualRead(content.visualRead || null);
+    setAiFillPulse(true);
+    window.setTimeout(() => setAiFillPulse(false), 900);
+  }
+
+  async function generateAiContent(
+    targetField: AiGenerateField = 'all',
+    imageUrlOverride?: string,
+    draftOverride?: PortfolioManagerItem
+  ) {
+    const sourceDraft = draftOverride || draft;
+    const imageUrl = imageUrlOverride || sourceDraft.imageUrl || sourceDraft.coverImage;
+
+    if (!imageUrl) {
+      setAiNotice('Upload or paste an image first so the AI can read the artwork.');
+      return;
+    }
+
+    setAiGeneratingField(targetField);
+    setAiNotice('');
+    setAiStage('Analyzing artwork...');
+
+    const stageTimer = window.setTimeout(() => {
+      setAiStage('Generating cinematic content...');
+    }, 900);
+    const seoTimer = window.setTimeout(() => {
+      setAiStage('Optimizing SEO...');
+    }, 1800);
+
+    try {
+      const response = await fetch('/api/admin/portfolio-ai-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categories: uniqueCategoryOptions.map(option => option.label),
+          currentContent: {
+            category: sourceDraft.category,
+            description: sourceDraft.description,
+            formatLabel: sourceDraft.formatLabel,
+            tags: sourceDraft.tags,
+            title: sourceDraft.title,
+            typeLabel: sourceDraft.typeLabel,
+          },
+          imageUrl,
+          managerType,
+          targetField,
+          tone: aiTone,
+          youtubeUrl: sourceDraft.youtubeUrl,
+        }),
+      });
+      const result = (await response.json()) as {
+        content?: PortfolioAiContent;
+        error?: string;
+      };
+
+      if (!response.ok || !result.content) {
+        throw new Error(result.error || 'AI content generation failed.');
+      }
+
+      applyAiContent(result.content, targetField);
+      setAiStage('');
+      setAiNotice(
+        targetField === 'all'
+          ? 'AI content generated and filled across the portfolio draft.'
+          : `${regenerateFieldOptions.find(option => option.field === targetField)?.label || 'Field'} regenerated.`
+      );
+    } catch (error) {
+      setAiStage('');
+      setAiNotice(
+        error instanceof Error ? error.message : 'AI content generation failed.'
+      );
+    } finally {
+      window.clearTimeout(stageTimer);
+      window.clearTimeout(seoTimer);
+      setAiGeneratingField('');
     }
   }
 
@@ -1060,6 +1377,166 @@ export default function PortfolioManagerWorkspace({
           )}
         </AdminPanel>
 
+        <AdminPanel
+          title="AI smart content workflow"
+          description="Upload an artwork or thumbnail, then generate polished portfolio writing that reads the image mood, lighting, genre, composition, and story direction."
+          badge={aiGeneratingField ? aiStage || 'Generating...' : 'Vision-assisted'}
+          actions={
+            <AdminActionButton
+              onClick={() => void generateAiContent('all')}
+              disabled={Boolean(aiGeneratingField) || !draft.imageUrl}
+            >
+              {aiGeneratingField === 'all' ? aiStage || 'Generating...' : 'Generate AI Content'}
+            </AdminActionButton>
+          }
+        >
+          <div
+            style={{
+              display: 'grid',
+              gap: 16,
+              transform: aiFillPulse ? 'translateY(-2px)' : 'translateY(0)',
+              transition: 'transform 260ms ease, box-shadow 260ms ease',
+            }}
+          >
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 14,
+                alignItems: 'end',
+              }}
+            >
+              <AdminField
+                label="Tone style"
+                hint="Controls the creative direction of the generated writing."
+              >
+                <select
+                  value={aiTone}
+                  onChange={event => setAiTone(event.target.value as PortfolioToneStyle)}
+                  style={inputStyle}
+                >
+                  {toneStyleOptions.map(option => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </AdminField>
+              <AdminField
+                label="Artwork source"
+                hint="AI reads the uploaded image URL currently saved in the media field."
+              >
+                <input
+                  value={draft.imageUrl || ''}
+                  readOnly
+                  placeholder="Upload artwork first"
+                  style={{
+                    ...inputStyle,
+                    color: draft.imageUrl ? tokens.text : tokens.subtle,
+                  }}
+                />
+              </AdminField>
+            </div>
+
+            {aiStage ? (
+              <div
+                style={{
+                  borderRadius: 18,
+                  border: `1px solid ${tokens.accentSoft}`,
+                  background: `linear-gradient(135deg, ${tokens.accentSoft}, rgba(14,165,233,0.08))`,
+                  color: tokens.accentText,
+                  padding: '14px 16px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                }}
+              >
+                {aiStage}
+              </div>
+            ) : null}
+
+            {aiNotice ? (
+              <div
+                style={{
+                  borderRadius: 18,
+                  border: `1px solid ${tokens.line}`,
+                  background: tokens.fieldSoft,
+                  color: aiNotice.includes('failed') || aiNotice.includes('missing') ? tokens.dangerText : tokens.text,
+                  padding: '14px 16px',
+                  fontSize: 14,
+                  lineHeight: 1.7,
+                }}
+              >
+                {aiNotice}
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {regenerateFieldOptions.map(option => (
+                <button
+                  key={option.field}
+                  type="button"
+                  disabled={Boolean(aiGeneratingField) || !draft.imageUrl}
+                  onClick={() => void generateAiContent(option.field)}
+                  style={{
+                    borderRadius: 999,
+                    border: `1px solid ${tokens.line}`,
+                    background:
+                      aiGeneratingField === option.field ? tokens.accentSoft : tokens.field,
+                    color:
+                      aiGeneratingField === option.field ? tokens.accentText : tokens.text,
+                    cursor: aiGeneratingField || !draft.imageUrl ? 'not-allowed' : 'pointer',
+                    opacity: aiGeneratingField || !draft.imageUrl ? 0.68 : 1,
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    transition: 'background 180ms ease, color 180ms ease, transform 180ms ease',
+                  }}
+                >
+                  {aiGeneratingField === option.field ? 'Regenerating...' : `Regenerate ${option.label}`}
+                </button>
+              ))}
+            </div>
+
+            {aiVisualRead ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gap: 10,
+                }}
+              >
+                {Object.entries(aiVisualRead).map(([label, value]) => (
+                  <div
+                    key={label}
+                    style={{
+                      borderRadius: 16,
+                      border: `1px solid ${tokens.line}`,
+                      background: tokens.fieldSoft,
+                      padding: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: tokens.subtle,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        letterSpacing: '0.08em',
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {label}
+                    </div>
+                    <div style={{ color: tokens.text, fontSize: 13, lineHeight: 1.55 }}>
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </AdminPanel>
+
         <div
           style={{
             display: 'grid',
@@ -1301,7 +1778,9 @@ export default function PortfolioManagerWorkspace({
                             onFileSelected={async file => {
                               const nextUrl = await onUploadMedia(file, draft);
                               if (nextUrl) {
+                                const nextDraft = { ...draft, imageUrl: nextUrl };
                                 setDraft(current => ({ ...current, imageUrl: nextUrl }));
+                                void generateAiContent('all', nextUrl, nextDraft);
                               }
                             }}
                             uploading={uploadingMedia}
@@ -1325,7 +1804,9 @@ export default function PortfolioManagerWorkspace({
                             onFileSelected={async file => {
                               const nextUrl = await onUploadMedia(file, draft);
                               if (nextUrl) {
+                                const nextDraft = { ...draft, imageUrl: nextUrl };
                                 setDraft(current => ({ ...current, imageUrl: nextUrl }));
+                                void generateAiContent('all', nextUrl, nextDraft);
                               }
                             }}
                             uploading={uploadingMedia}
@@ -1369,6 +1850,226 @@ export default function PortfolioManagerWorkspace({
                           </AdminField>
                         </>
                       )}
+                    </div>
+                  ),
+                },
+                {
+                  id: 'project',
+                  label: 'Project Group',
+                  description:
+                    'Group multiple saved items or extra uploaded designs behind one public portfolio card.',
+                  content: (
+                    <div style={{ display: 'grid', gap: 16 }}>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                          gap: 14,
+                        }}
+                      >
+                        <AdminField
+                          label="Project/group id"
+                          hint="Use the same id on multiple graphics/videos to collapse them into one public card."
+                        >
+                          <input
+                            value={draft.projectId}
+                            onChange={event =>
+                              setDraft(current => ({
+                                ...current,
+                                projectId: event.target.value,
+                              }))
+                            }
+                            placeholder="brand-launch-2026"
+                            style={inputStyle}
+                          />
+                        </AdminField>
+                        <AdminField
+                          label="Project title"
+                          hint="Shown as the single public card title when this item represents a group."
+                        >
+                          <input
+                            value={draft.projectTitle}
+                            onChange={event =>
+                              setDraft(current => ({
+                                ...current,
+                                projectTitle: event.target.value,
+                              }))
+                            }
+                            placeholder={draft.title || 'Use item title'}
+                            style={inputStyle}
+                          />
+                        </AdminField>
+                        <AdminField label="Project type" hint="Used inside the preview modal.">
+                          <select
+                            value={draft.projectType}
+                            onChange={event =>
+                              setDraft(current => ({
+                                ...current,
+                                projectType: event.target.value as PortfolioProjectType,
+                              }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="Graphic">Graphic</option>
+                            <option value="Video">Video</option>
+                            <option value="Mixed">Mixed</option>
+                          </select>
+                        </AdminField>
+                        <AdminField label="Project order" hint="Lower numbers pick the cover/position first.">
+                          <input
+                            type="number"
+                            value={draft.projectOrder}
+                            onChange={event =>
+                              setDraft(current => ({
+                                ...current,
+                                projectOrder: Number(event.target.value) || 0,
+                              }))
+                            }
+                            style={inputStyle}
+                          />
+                        </AdminField>
+                        <AdminImageField
+                          label="Project cover image"
+                          value={draft.projectCoverImage}
+                          onChange={value =>
+                            setDraft(current => ({
+                              ...current,
+                              projectCoverImage: value,
+                            }))
+                          }
+                          onFileSelected={async file => {
+                            const nextUrl = await onUploadMedia(file, draft);
+                            if (nextUrl) {
+                              setDraft(current => ({ ...current, projectCoverImage: nextUrl }));
+                            }
+                          }}
+                          uploading={uploadingMedia}
+                          full
+                          uploadProfile={managerType === 'video' ? 'thumbnail' : 'showcase'}
+                          hint="Optional. If empty, the first grouped item image becomes the cover."
+                          previewAlt={draft.projectTitle || draft.title || 'Project cover'}
+                          previewHeight={180}
+                        />
+                        <AdminField
+                          label="Project description"
+                          hint="Shown in the preview modal details panel."
+                          full
+                        >
+                          <textarea
+                            value={draft.projectDescription}
+                            onChange={event =>
+                              setDraft(current => ({
+                                ...current,
+                                projectDescription: event.target.value,
+                              }))
+                            }
+                            placeholder={draft.previewDescription || draft.description}
+                            style={textareaStyle}
+                          />
+                        </AdminField>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 12 }}>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <QuickToggleButton
+                            active={draft.projectVisible}
+                            label={draft.projectVisible ? 'Project grouping visible' : 'Grouping hidden'}
+                            onClick={() =>
+                              setDraft(current => ({
+                                ...current,
+                                projectVisible: !current.projectVisible,
+                              }))
+                            }
+                          />
+                          <span style={{ color: tokens.muted, fontSize: 13 }}>
+                            Existing items join this project by sharing the same project id.
+                          </span>
+                        </div>
+                        <AdminImageField
+                          label="Add extra project image/design"
+                          value=""
+                          onChange={appendProjectGalleryItem}
+                          onFileSelected={async file => {
+                            const nextUrl = await onUploadMedia(file, draft);
+                            if (nextUrl) {
+                              appendProjectGalleryItem(nextUrl);
+                            }
+                          }}
+                          uploading={uploadingMedia}
+                          full
+                          uploadProfile={managerType === 'video' ? 'thumbnail' : 'showcase'}
+                          hint="Adds gallery-only images under this project without creating a new graphics/videos row."
+                          previewAlt="Extra project image"
+                        />
+                        {draft.projectGallery.length > 0 ? (
+                          <div style={{ display: 'grid', gap: 10 }}>
+                            {draft.projectGallery.map((galleryItem, galleryIndex) => (
+                              <div
+                                key={`${galleryItem.id}-${galleryIndex}`}
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: isMobile ? '1fr' : '92px minmax(0, 1fr) auto',
+                                  gap: 12,
+                                  alignItems: 'center',
+                                  border: `1px solid ${tokens.line}`,
+                                  borderRadius: 18,
+                                  background: tokens.fieldSoft,
+                                  padding: 12,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    height: 68,
+                                    borderRadius: 14,
+                                    overflow: 'hidden',
+                                    background: tokens.field,
+                                  }}
+                                >
+                                  {galleryItem.imageUrl ? (
+                                    <img
+                                      src={galleryItem.imageUrl}
+                                      alt={galleryItem.title || 'Project gallery item'}
+                                      style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: galleryItem.sourceType === 'video' ? 'cover' : 'contain',
+                                      }}
+                                    />
+                                  ) : null}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                                  <input
+                                    value={galleryItem.title}
+                                    onChange={event =>
+                                      updateProjectGalleryItem(galleryIndex, {
+                                        title: event.target.value,
+                                      })
+                                    }
+                                    placeholder="Gallery item title"
+                                    style={inputStyle}
+                                  />
+                                  <input
+                                    value={galleryItem.imageUrl}
+                                    onChange={event =>
+                                      updateProjectGalleryItem(galleryIndex, {
+                                        imageUrl: event.target.value,
+                                      })
+                                    }
+                                    placeholder="Image URL"
+                                    style={inputStyle}
+                                  />
+                                </div>
+                                <AdminActionButton
+                                  onClick={() => removeProjectGalleryItem(galleryIndex)}
+                                  variant="danger"
+                                >
+                                  Remove
+                                </AdminActionButton>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   ),
                 },

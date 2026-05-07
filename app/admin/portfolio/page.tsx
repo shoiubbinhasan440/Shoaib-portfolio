@@ -23,6 +23,7 @@ import {
   toPortfolioPreviewItems,
   type HomepagePortfolioSectionSettings,
   type PortfolioAllOrder,
+  type PortfolioCardInfoDensity,
   type PortfolioCategory,
   type PortfolioLayoutMode,
   type PortfolioPreviewItem,
@@ -116,6 +117,12 @@ const densityOptions: Array<{ value: PortfolioPageDensity; label: string }> = [
   { value: 'compact', label: 'Compact' },
   { value: 'balanced', label: 'Balanced' },
   { value: 'spacious', label: 'Spacious' },
+];
+
+const cardInfoDensityOptions: Array<{ value: PortfolioCardInfoDensity; label: string }> = [
+  { value: 'title-only', label: 'Title only' },
+  { value: 'title-meta', label: 'Title + meta' },
+  { value: 'full', label: 'Full details' },
 ];
 
 const gapOptions: Array<{ value: PortfolioPageGap; label: string }> = [
@@ -1250,6 +1257,27 @@ export default function PortfolioAdminPage() {
                       style={inputStyle}
                     >
                       {densityOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field
+                    label="Card info density"
+                    hint="Default is title only so details stay inside the preview modal."
+                  >
+                    <select
+                      value={pageBuilder.showcase.cardInfoDensity}
+                      onChange={event =>
+                        updateShowcase(
+                          'cardInfoDensity',
+                          event.target.value as PortfolioCardInfoDensity
+                        )
+                      }
+                      style={inputStyle}
+                    >
+                      {cardInfoDensityOptions.map(option => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>

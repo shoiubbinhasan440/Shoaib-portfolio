@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 html,
 body {
   font-family: Arial, Helvetica, sans-serif;
@@ -7,7 +18,9 @@ body {
 }
 
 body {
+  max-width: 100%;
   min-height: 100vh;
+  overflow-x: hidden;
   color: #f8fafc;
 }
 

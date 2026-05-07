@@ -32,6 +32,7 @@ import {
   getPortfolioItemsForTab,
   getPortfolioTabs,
   sortPortfolioItemsByOrder,
+  type PortfolioCardInfoDensity,
   type HomepagePortfolioSectionSettings,
   type PortfolioCategory,
   type PortfolioItemMetaConfigMap,
@@ -80,6 +81,107 @@ function getOrderedSourceTypes(order: PortfolioPageSettings['allTab']['order']) 
 
 function getItemKey(item: Pick<PortfolioPreviewItem, 'sourceType' | 'id'>) {
   return `${item.sourceType}:${item.id}`;
+}
+
+function getItemProjectKey(item: PortfolioPreviewItem, itemMetaConfig: PortfolioItemMetaConfigMap) {
+  const meta = getPortfolioItemMeta(item, itemMetaConfig);
+  return meta.projectVisible === false ? '' : meta.projectId.trim();
+}
+
+function toProjectDisplayItems(
+  items: PortfolioPreviewItem[],
+  itemMetaConfig: PortfolioItemMetaConfigMap
+) {
+  const grouped = new Map<string, PortfolioPreviewItem[]>();
+  const ungrouped: PortfolioPreviewItem[] = [];
+
+  items.forEach(item => {
+    const projectKey = getItemProjectKey(item, itemMetaConfig);
+    if (!projectKey) {
+      const meta = getPortfolioItemMeta(item, itemMetaConfig);
+      ungrouped.push({
+        ...item,
+        projectItems: [
+          {
+            id: getItemKey(item),
+            title: item.title,
+            imageUrl: item.imageUrl,
+            sourceType: item.sourceType,
+            youtube_url: item.youtube_url,
+            description: item.description || '',
+            categoryName: item.categoryName,
+            formatLabel: meta.formatLabel,
+          },
+          ...meta.projectGallery,
+        ],
+      });
+      return;
+    }
+
+    grouped.set(projectKey, [...(grouped.get(projectKey) || []), item]);
+  });
+
+  const projectItems = [...grouped.entries()].map(([projectKey, groupItems]) => {
+    const sortedItems = [...groupItems].sort((leftItem, rightItem) => {
+      const leftMeta = getPortfolioItemMeta(leftItem, itemMetaConfig);
+      const rightMeta = getPortfolioItemMeta(rightItem, itemMetaConfig);
+      const leftOrder = leftMeta.projectOrder || leftItem.order_num;
+      const rightOrder = rightMeta.projectOrder || rightItem.order_num;
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return leftItem.title.localeCompare(rightItem.title);
+    });
+    const coverItem = sortedItems[0];
+    const coverMeta = getPortfolioItemMeta(coverItem, itemMetaConfig);
+    const projectGallery = sortedItems.flatMap(groupItem => {
+      const groupMeta = getPortfolioItemMeta(groupItem, itemMetaConfig);
+      return [
+        {
+          id: getItemKey(groupItem),
+          title: groupItem.title,
+          imageUrl: groupItem.imageUrl,
+          sourceType: groupItem.sourceType,
+          youtube_url: groupItem.youtube_url,
+          description: groupItem.description || '',
+          categoryName: groupItem.categoryName,
+          formatLabel: groupMeta.formatLabel,
+        },
+        ...groupMeta.projectGallery,
+      ];
+    });
+
+    return {
+      ...coverItem,
+      id: coverItem.id,
+      title: coverMeta.projectTitle || coverMeta.previewTitle || coverItem.title,
+      description: coverMeta.projectDescription || coverItem.description,
+      imageUrl: coverMeta.projectCoverImage || coverMeta.coverImage || coverItem.imageUrl,
+      order_num: coverMeta.projectOrder || coverItem.order_num,
+      projectId: projectKey,
+      projectTitle: coverMeta.projectTitle || coverItem.title,
+      projectCoverImage: coverMeta.projectCoverImage || coverItem.imageUrl,
+      projectType: coverMeta.projectType,
+      projectDescription: coverMeta.projectDescription,
+      projectOrder: coverMeta.projectOrder,
+      projectVisible: coverMeta.projectVisible,
+      projectItems: projectGallery,
+    } satisfies PortfolioPreviewItem;
+  });
+
+  return sortPortfolioItemsByOrder([...ungrouped, ...projectItems]);
+}
+
+function getCardInfoDensity(
+  variant: PortfolioShowcaseProps['variant'],
+  homepageConfig: HomepagePortfolioSectionSettings,
+  pageBuilder?: PortfolioPageBuilderConfig
+): PortfolioCardInfoDensity {
+  return variant === 'homepage'
+    ? homepageConfig.cardInfoDensity
+    : pageBuilder?.showcase.cardInfoDensity || 'title-only';
 }
 
 function getSortedDisplayItems(items: PortfolioPreviewItem[], variant: PortfolioShowcaseProps['variant']) {
@@ -356,7 +458,7 @@ export default function PortfolioShowcase({
   const defaultTab = tabs[0]?.key || 'all';
   const activeTab = tabs.some(tab => tab.key === activeTabState) ? activeTabState : defaultTab;
 
-  const tabItems = useMemo(() => {
+  const tabItems = (() => {
     if (variant === 'page') {
       return getSortedDisplayItems(
         getPortfolioItemsForTab(items, pageSettings, activeTab),
@@ -372,9 +474,9 @@ export default function PortfolioShowcase({
           : items;
 
     return getSortedDisplayItems(tabFilteredItems, variant);
-  }, [activeTab, items, pageSettings, variant]);
+  })();
 
-  const categoriesForTab: ShowcaseCategory[] = useMemo(() => {
+  const categoriesForTab: ShowcaseCategory[] = (() => {
     if (variant === 'page') {
       return getPortfolioCategoriesForTab(items, categories, pageSettings, activeTab)
         .map(category => {
@@ -436,7 +538,7 @@ export default function PortfolioShowcase({
 
         return leftCategory.displayName.localeCompare(rightCategory.displayName);
       });
-  }, [activeTab, categories, homepageConfig, items, pageBuilder?.categoryConfig, pageSettings, tabItems, variant]);
+  })();
 
   const requestedCategory = activeCategoryByTab[activeTab] || 'all';
   const fallbackCategory =
@@ -450,7 +552,7 @@ export default function PortfolioShowcase({
         ? requestedCategory
         : fallbackCategory;
 
-  const filteredItems = useMemo(() => {
+  const filteredItems = (() => {
     const nextItems =
       activeCategory === 'all'
         ? tabItems
@@ -461,9 +563,9 @@ export default function PortfolioShowcase({
     }
 
     return nextItems;
-  }, [activeCategory, columns, homepageConfig.maxRows, tabItems, variant]);
+  })();
 
-  const showcaseItems = useMemo(() => {
+  const showcaseItems = (() => {
     if (variant !== 'page' || !smartShowcaseMode) {
       return filteredItems;
     }
@@ -486,12 +588,14 @@ export default function PortfolioShowcase({
 
       return leftItem.title.localeCompare(rightItem.title);
     });
-  }, [filteredItems, itemMetaConfig, smartShowcaseMode, variant]);
+  })();
+
+  const projectDisplayItems = toProjectDisplayItems(showcaseItems, itemMetaConfig);
 
   const shouldGroupAll =
     activeTab === 'all' &&
-    showcaseItems.some(item => item.sourceType === 'video') &&
-    showcaseItems.some(item => item.sourceType === 'graphic');
+    projectDisplayItems.some(item => item.sourceType === 'video') &&
+    projectDisplayItems.some(item => item.sourceType === 'graphic');
   const sectionSourceTypes = shouldGroupAll
     ? variant === 'homepage'
       ? getHomepageAllowedSourceTypes(homepageConfig)
@@ -505,7 +609,7 @@ export default function PortfolioShowcase({
             sourceType === 'video'
               ? pageSettings.tabs.video.label
               : pageSettings.tabs.graphic.label,
-          items: showcaseItems.filter(item => item.sourceType === sourceType),
+          items: projectDisplayItems.filter(item => item.sourceType === sourceType),
         }))
         .filter(section => section.items.length > 0)
     : [
@@ -520,7 +624,7 @@ export default function PortfolioShowcase({
               : activeTab === 'video'
                 ? pageSettings.tabs.video.label
                 : pageSettings.tabs.all.label,
-          items: showcaseItems,
+          items: projectDisplayItems,
         },
       ];
   const displayItems = groupedSections.flatMap(section => section.items);
@@ -685,39 +789,43 @@ export default function PortfolioShowcase({
       : '0 18px 32px rgba(15,23,42,0.08)',
   });
   const showcaseGap = showcaseStyles?.card.gap || cardGap;
-  const masonryColumns = isMobile
-    ? 2
-    : variant === 'homepage'
-      ? Math.min(4, Math.max(3, columns))
+  const cardInfoDensity = getCardInfoDensity(variant, homepageConfig, pageBuilder);
+  const showCardMeta = cardInfoDensity !== 'title-only';
+  const showFullCardDetails = cardInfoDensity === 'full';
+  const masonryColumns =
+    useMasonryLayout && viewportWidth >= 390 && viewportWidth < 700
+      ? 2
       : columns;
+  const mobileChipScrollerStyle = isMobile
+    ? ({
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        overflowX: 'auto' as const,
+        overflowY: 'hidden' as const,
+        WebkitOverflowScrolling: 'touch' as const,
+        scrollbarWidth: 'none' as const,
+        flexWrap: 'nowrap' as const,
+        justifyContent: 'flex-start',
+        paddingBottom: 4,
+      })
+    : {};
+  const mobileChipButtonStyle = isMobile
+    ? ({
+        flex: '0 0 auto',
+        maxWidth: 'calc(100vw - 40px)',
+        whiteSpace: 'nowrap' as const,
+      })
+    : {};
 
   function handleItemAction(item: PortfolioPreviewItem) {
-    const itemMeta = getPortfolioItemMeta(item, itemMetaConfig);
-
     if (variant === 'page') {
-      const itemConfig = getPortfolioPageItemConfig(item, pageBuilder?.itemConfig || {});
-      if (!itemConfig.previewEnabled) {
-        const fallbackUrl =
-          itemMeta.externalPreviewUrl ||
-          (item.sourceType === 'video' ? item.youtube_url : item.imageUrl);
-
-        if (fallbackUrl) {
-          window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
-          return;
-        }
-      }
-
       setSelectedItem(item);
       return;
     }
 
     const itemConfig = getHomepageConfigForItem(item, homepageConfig.itemConfig);
     const canPreview = homepageConfig.enablePreviewModal && itemConfig.previewEnabled;
-
-    if (homepageConfig.clickAction === 'portfolio') {
-      router.push(previewFooterLink);
-      return;
-    }
 
     if (canPreview) {
       setSelectedItem(item);
@@ -731,32 +839,43 @@ export default function PortfolioShowcase({
     <>
       <section
         style={{
-          maxWidth: getSectionWidthOverride(
-            heroStyles?.layout.width || 'default',
-            getSectionMaxWidth(variant, homepageConfig, pageBuilder)
-          ),
+          boxSizing: 'border-box',
+          maxWidth: isMobile
+            ? '100%'
+            : getSectionWidthOverride(
+                heroStyles?.layout.width || 'default',
+                getSectionMaxWidth(variant, homepageConfig, pageBuilder)
+              ),
           margin: '0 auto',
-          padding: getSectionPaddingOverride(
-            heroStyles?.layout.padding || 'default',
-            isMobile,
-            variant === 'page'
-              ? pageBuilder?.hero.spacing === 'compact'
-                ? '56px 24px 72px'
-                : pageBuilder?.hero.spacing === 'spacious'
-                  ? '88px 24px 104px'
-                  : '72px 24px 88px'
-              : viewportWidth < 700
-                ? '34px 16px 18px'
-                : '44px 24px 20px'
-          ),
+          padding: isMobile
+            ? variant === 'page'
+              ? '36px 12px 76px'
+              : '30px 12px 20px'
+            : getSectionPaddingOverride(
+                heroStyles?.layout.padding || 'default',
+                isMobile,
+                variant === 'page'
+                  ? pageBuilder?.hero.spacing === 'compact'
+                    ? '56px 24px 72px'
+                    : pageBuilder?.hero.spacing === 'spacious'
+                      ? '88px 24px 104px'
+                      : '72px 24px 88px'
+                  : '44px 24px 20px'
+              ),
           width: '100%',
+          minWidth: 0,
+          overflowX: 'hidden',
         }}
       >
         <div
           style={{
             position: 'relative',
             overflow: 'hidden',
-            borderRadius: variant === 'page' ? 34 : 30,
+            boxSizing: 'border-box',
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
+            borderRadius: isMobile ? 22 : variant === 'page' ? 34 : 30,
             border: `1px solid ${border}`,
             background:
               variant === 'page' && pageBuilder?.hero.showBannerImage && pageBuilder.hero.bannerImage
@@ -802,7 +921,15 @@ export default function PortfolioShowcase({
             style={{
               position: 'relative',
               zIndex: 1,
-              padding: variant === 'page' ? '44px 34px 34px' : viewportWidth < 700 ? '24px 18px 20px' : '30px 24px 24px',
+              boxSizing: 'border-box',
+              width: '100%',
+              maxWidth: '100%',
+              minWidth: 0,
+              padding: isMobile
+                ? '22px 14px 18px'
+                : variant === 'page'
+                  ? '44px 34px 34px'
+                  : '30px 24px 24px',
               display: 'grid',
               gap: variant === 'page' ? 24 : 0,
             }}
@@ -834,9 +961,19 @@ export default function PortfolioShowcase({
                     gap: 20,
                     textAlign: variant === 'page' ? pageBuilder?.hero.alignment || 'center' : headerAlignment,
                     marginBottom: 28,
+                    minWidth: 0,
+                    width: '100%',
+                    maxWidth: '100%',
                   }}
                 >
-                  <div style={{ maxWidth: variant === 'page' ? 760 : 760 }}>
+                  <div
+                    style={{
+                      maxWidth: variant === 'page' ? 760 : 760,
+                      minWidth: 0,
+                      width: '100%',
+                      overflowWrap: 'break-word',
+                    }}
+                  >
                     {badgeText ? (
                       <div
                         style={{
@@ -899,6 +1036,8 @@ export default function PortfolioShowcase({
                         letterSpacing: '-0.05em',
                         color: text,
                         lineHeight: 1.05,
+                        maxWidth: '100%',
+                        overflowWrap: 'break-word',
                         ...getTypographyStyleOverrides(
                           'title',
                           heroStyles?.typography.title,
@@ -927,6 +1066,7 @@ export default function PortfolioShowcase({
                         fontSize: variant === 'page' ? 16 : 15,
                         lineHeight: 1.85,
                         maxWidth: variant === 'page' ? 680 : headerAlignment === 'center' ? 720 : 620,
+                        overflowWrap: 'break-word',
                         ...getTypographyStyleOverrides(
                           'subtitle',
                           heroStyles?.typography.subtitle,
@@ -948,12 +1088,13 @@ export default function PortfolioShowcase({
 
                     {variant === 'page' && pageBuilder?.hero.showIntro && introText ? (
                       <p
-                        style={{
-                          margin: '14px 0 0',
+                      style={{
+                        margin: '14px 0 0',
                           color: dark ? 'rgba(226,232,240,0.76)' : '#475569',
                           fontSize: 15,
                           lineHeight: 1.8,
                           maxWidth: 720,
+                          overflowWrap: 'break-word',
                           ...getTypographyStyleOverrides(
                             'body',
                             heroStyles?.typography.body,
@@ -988,7 +1129,10 @@ export default function PortfolioShowcase({
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 10,
+                        boxSizing: 'border-box',
                         minHeight: 48,
+                        width: isMobile ? '100%' : undefined,
+                        maxWidth: '100%',
                         padding: '13px 22px',
                         borderRadius: 14,
                         background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
@@ -998,6 +1142,8 @@ export default function PortfolioShowcase({
                         fontWeight: 700,
                         boxShadow: '0 18px 40px rgba(37,99,235,0.22)',
                         flexShrink: 0,
+                        whiteSpace: 'normal',
+                        overflowWrap: 'break-word',
                         ...heroButtonStyle,
                         ...getTypographyStyleOverrides(
                           'button',
@@ -1035,6 +1181,7 @@ export default function PortfolioShowcase({
                           : 'flex-start',
                     gap: 10,
                     marginBottom: 18,
+                    ...mobileChipScrollerStyle,
                   }}
                 >
                 {tabs.map(tab => (
@@ -1065,6 +1212,7 @@ export default function PortfolioShowcase({
                         activeTab === tab.key
                           ? '0 18px 34px rgba(37,99,235,0.24)'
                           : 'none',
+                      ...mobileChipButtonStyle,
                     }}
                   >
                     <span>{tab.label}</span>
@@ -1101,6 +1249,7 @@ export default function PortfolioShowcase({
                           : 'flex-start',
                     gap: 10,
                     marginBottom: 28,
+                    ...mobileChipScrollerStyle,
                   }}
                 >
                 {variant === 'page' || homepageConfig.showAllChip ? (
@@ -1137,6 +1286,7 @@ export default function PortfolioShowcase({
                               '#38bdf8'
                             )
                           : muted,
+                      ...mobileChipButtonStyle,
                     }}
                   >
                     সব ({tabItems.length})
@@ -1183,6 +1333,7 @@ export default function PortfolioShowcase({
                                 '#38bdf8'
                               )
                             : muted,
+                        ...mobileChipButtonStyle,
                       }}
                     >
                       {category.displayName} ({count})
@@ -1200,10 +1351,21 @@ export default function PortfolioShowcase({
                     alignItems: 'center',
                     gap: 12,
                     flexWrap: 'wrap',
+                    flexDirection: isMobile ? 'column' : 'row',
                     marginBottom: 22,
+                    minWidth: 0,
+                    width: '100%',
                   }}
                 >
-                  <div style={{ color: muted, fontSize: 13 }}>
+                  <div
+                    style={{
+                      color: muted,
+                      fontSize: 13,
+                      minWidth: 0,
+                      width: isMobile ? '100%' : undefined,
+                      overflowWrap: 'break-word',
+                    }}
+                  >
                     Smart showcase highlights curated work with larger cards and smoother browsing.
                   </div>
                   <button
@@ -1226,6 +1388,10 @@ export default function PortfolioShowcase({
                       color: smartShowcaseMode ? '#38bdf8' : text,
                       cursor: 'pointer',
                       fontWeight: 700,
+                      maxWidth: '100%',
+                      width: isMobile ? '100%' : undefined,
+                      justifyContent: 'center',
+                      whiteSpace: 'normal',
                     }}
                   >
                     <span>{smartShowcaseMode ? 'Smart Showcase On' : 'Smart Showcase Off'}</span>
@@ -1294,6 +1460,11 @@ export default function PortfolioShowcase({
                       columnCount: useMasonryLayout ? masonryColumns : undefined,
                       columnGap: useMasonryLayout ? showcaseGap : undefined,
                       columnFill: useMasonryLayout ? 'balance' : undefined,
+                      boxSizing: 'border-box',
+                      width: '100%',
+                      maxWidth: '100%',
+                      minWidth: 0,
+                      overflowX: 'clip',
                     }}
                   >
                     {categoryPreviewGroups.map(group => {
@@ -1305,7 +1476,6 @@ export default function PortfolioShowcase({
                         dark,
                         '#38bdf8'
                       );
-
                       return (
                         <Link
                           key={group.key}
@@ -1314,6 +1484,10 @@ export default function PortfolioShowcase({
                             position: 'relative',
                             display: 'grid',
                             gap: 16,
+                            boxSizing: 'border-box',
+                            width: '100%',
+                            maxWidth: '100%',
+                            minWidth: 0,
                             minHeight: homepageConfig.cardDensity === 'compact' ? 300 : 360,
                             breakInside: useMasonryLayout ? 'avoid' : undefined,
                             pageBreakInside: useMasonryLayout ? 'avoid' : undefined,
@@ -1352,6 +1526,8 @@ export default function PortfolioShowcase({
                                 previewItems.length > 1 ? '1.15fr 0.85fr' : '1fr',
                               gap: 8,
                               minHeight: isMobile ? 170 : 210,
+                              minWidth: 0,
+                              maxWidth: '100%',
                             }}
                           >
                             {previewItems[0] ? (
@@ -1464,10 +1640,10 @@ export default function PortfolioShowcase({
                             ) : null}
                           </div>
 
-                          <div style={{ display: 'grid', gap: 14 }}>
+                          <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
                             <div
                               style={{
-                                display: 'flex',
+                                display: showCardMeta ? 'flex' : 'none',
                                 gap: 8,
                                 alignItems: 'center',
                                 flexWrap: 'wrap',
@@ -1516,13 +1692,14 @@ export default function PortfolioShowcase({
                                 fontWeight: 900,
                                 color: text,
                                 lineHeight: 1.1,
+                                overflowWrap: 'break-word',
                               }}
                             >
                               {group.title}
                             </div>
                             <div
                               style={{
-                                display: 'flex',
+                                display: showCardMeta ? 'flex' : 'none',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 gap: 12,
@@ -1620,6 +1797,11 @@ export default function PortfolioShowcase({
                         columnCount: useMasonryLayout ? masonryColumns : undefined,
                         columnGap: useMasonryLayout ? showcaseGap : undefined,
                         columnFill: useMasonryLayout ? 'balance' : undefined,
+                        boxSizing: 'border-box',
+                        width: '100%',
+                        maxWidth: '100%',
+                        minWidth: 0,
+                        overflowX: 'clip',
                       }}
                     >
                       {section.items.map((item, index) => {
@@ -1702,14 +1884,7 @@ export default function PortfolioShowcase({
                               ? 190
                               : [260, 320, 230, 290][index % 4];
                         const graphicFrameBackground = dark ? '#020617' : '#e2e8f0';
-                        const masonryGraphicMaxHeight =
-                          variant === 'homepage'
-                            ? isMobile
-                              ? 210
-                              : 300
-                            : isMobile
-                              ? 260
-                              : 440;
+                        const masonryGraphicMaxHeight = isMobile ? 260 : 440;
                         const mediaObjectFit =
                           item.sourceType === 'graphic'
                             ? isMobile ||
@@ -1737,6 +1912,7 @@ export default function PortfolioShowcase({
                           <button
                             key={focusKey}
                             type="button"
+                            aria-label={`Open preview for ${item.title}`}
                             onClick={() => handleItemAction(item)}
                             onMouseEnter={() => {
                               setFocusItemKey(focusKey);
@@ -1774,7 +1950,10 @@ export default function PortfolioShowcase({
                               background: cardSurface,
                               display: 'flex',
                               flexDirection: 'column',
-                              width: useMasonryLayout ? '100%' : undefined,
+                              boxSizing: 'border-box',
+                              width: '100%',
+                              maxWidth: '100%',
+                              minWidth: 0,
                               breakInside: useMasonryLayout ? 'avoid' : undefined,
                               pageBreakInside: useMasonryLayout ? 'avoid' : undefined,
                               marginBottom: useMasonryLayout ? showcaseGap : undefined,
@@ -1906,16 +2085,13 @@ export default function PortfolioShowcase({
                                 display: 'flex',
                                 flex: isMobile ? 1 : undefined,
                                 flexDirection: 'column',
+                                minWidth: 0,
+                                maxWidth: '100%',
                               }}
                             >
                               {(variant === 'page' || homepageConfig.showTitle) && (
                                 <div
                                   style={{
-                                    fontSize: denseCard ? 17 : 20,
-                                    fontWeight: 800,
-                                    color: text,
-                                    lineHeight: 1.15,
-                                    marginBottom: isMobile ? 8 : 10,
                                     ...getTypographyStyleOverrides(
                                       'title',
                                       showcaseStyles?.typography.title,
@@ -1927,15 +2103,21 @@ export default function PortfolioShowcase({
                                         fallbackLineHeight: 1.15,
                                       }
                                     ),
+                                    fontSize: isMobile ? 14 : denseCard ? 17 : 20,
+                                    fontWeight: 800,
+                                    color: text,
+                                    lineHeight: isMobile ? 1.12 : 1.15,
+                                    marginBottom: showCardMeta ? (isMobile ? 8 : 10) : 0,
                                     ...(isMobile
                                       ? {
-                                          fontSize: 14,
-                                          lineHeight: 1.12,
                                           whiteSpace: 'nowrap',
                                           overflow: 'hidden',
                                           textOverflow: 'ellipsis',
+                                          maxWidth: '100%',
                                         }
-                                      : {}),
+                                      : {
+                                          overflowWrap: 'break-word',
+                                        }),
                                   }}
                                 >
                                   {item.title}
@@ -1944,7 +2126,7 @@ export default function PortfolioShowcase({
 
                               <div
                                 style={{
-                                  display: 'flex',
+                                  display: showCardMeta ? 'flex' : 'none',
                                   alignItems: 'center',
                                   gap: isMobile ? 5 : 8,
                                   flexWrap: isMobile ? 'nowrap' : 'wrap',
@@ -2099,6 +2281,7 @@ export default function PortfolioShowcase({
                               </div>
 
                               {!isMobile &&
+                              showFullCardDetails &&
                               (variant === 'page' || homepageConfig.showDescription) &&
                               item.description ? (
                                 <p
@@ -2123,7 +2306,7 @@ export default function PortfolioShowcase({
                                 </p>
                               ) : null}
 
-                              {!isMobile && visibleTags.length > 0 ? (
+                              {!isMobile && showFullCardDetails && visibleTags.length > 0 ? (
                                 <div
                                   style={{
                                     display: 'flex',
@@ -2158,7 +2341,7 @@ export default function PortfolioShowcase({
 
                               <div
                                 style={{
-                                  display: 'flex',
+                                  display: showCardMeta ? 'flex' : 'none',
                                   alignItems: 'center',
                                   justifyContent: 'space-between',
                                   gap: isMobile ? 6 : 12,
@@ -2251,6 +2434,9 @@ export default function PortfolioShowcase({
                       homepageConfig.alignment === 'center' ? 'center' : 'flex-start'
                     ),
                     marginTop: 28,
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
                   }}
                 >
                 <Link
@@ -2260,7 +2446,10 @@ export default function PortfolioShowcase({
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 10,
+                    boxSizing: 'border-box',
                     minHeight: 46,
+                    width: isMobile ? '100%' : undefined,
+                    maxWidth: '100%',
                     padding: '12px 20px',
                     borderRadius: 14,
                     border: `1px solid ${soft}`,
@@ -2269,6 +2458,9 @@ export default function PortfolioShowcase({
                     textDecoration: 'none',
                     fontSize: 14,
                     fontWeight: 700,
+                    textAlign: 'center',
+                    whiteSpace: 'normal',
+                    overflowWrap: 'break-word',
                     ...secondaryButtonStyle,
                   }}
                 >
@@ -2287,6 +2479,10 @@ export default function PortfolioShowcase({
                     paddingTop: 26,
                     borderTop: `1px solid ${soft}`,
                     display: 'grid',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
                     justifyItems:
                       pageBuilder.cta.alignment === 'center' ? 'center' : 'stretch',
                     textAlign: pageBuilder.cta.alignment,
@@ -2348,6 +2544,8 @@ export default function PortfolioShowcase({
                     fontWeight: 800,
                     letterSpacing: '-0.04em',
                     color: text,
+                    maxWidth: '100%',
+                    overflowWrap: 'break-word',
                     ...getTypographyStyleOverrides(
                       'title',
                       ctaStyles?.typography.title,
@@ -2372,6 +2570,7 @@ export default function PortfolioShowcase({
                       color: muted,
                       fontSize: 15,
                       lineHeight: 1.8,
+                      overflowWrap: 'break-word',
                       ...getTypographyStyleOverrides(
                         'body',
                         ctaStyles?.typography.body,
@@ -2393,6 +2592,8 @@ export default function PortfolioShowcase({
                     display: 'flex',
                     gap: 12,
                     flexWrap: 'wrap',
+                    width: '100%',
+                    maxWidth: '100%',
                     justifyContent: getButtonAlignmentOverride(
                       ctaStyles?.layout.buttonAlign || 'default',
                       pageBuilder.cta.alignment === 'center'
@@ -2407,7 +2608,11 @@ export default function PortfolioShowcase({
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: 10,
+                        boxSizing: 'border-box',
+                        width: isMobile ? '100%' : undefined,
+                        maxWidth: '100%',
                         padding: '13px 20px',
                         borderRadius: 14,
                         background: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
@@ -2415,6 +2620,9 @@ export default function PortfolioShowcase({
                         fontSize: 14,
                         fontWeight: 700,
                         textDecoration: 'none',
+                        textAlign: 'center',
+                        whiteSpace: 'normal',
+                        overflowWrap: 'break-word',
                         ...getButtonStyleOverrides(ctaStyles, {
                           dark,
                           fallbackBackground: 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)',
@@ -2433,7 +2641,11 @@ export default function PortfolioShowcase({
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: 10,
+                        boxSizing: 'border-box',
+                        width: isMobile ? '100%' : undefined,
+                        maxWidth: '100%',
                         padding: '13px 20px',
                         borderRadius: 14,
                         border: `1px solid ${soft}`,
@@ -2442,6 +2654,9 @@ export default function PortfolioShowcase({
                         fontSize: 14,
                         fontWeight: 700,
                         textDecoration: 'none',
+                        textAlign: 'center',
+                        whiteSpace: 'normal',
+                        overflowWrap: 'break-word',
                         ...secondaryButtonStyle,
                       }}
                     >

@@ -80,6 +80,14 @@ function createMetaEntry(item: PortfolioManagerItem) {
       tools: item.storyTools,
       result: item.storyResult,
     },
+    projectId: item.projectId,
+    projectTitle: item.projectTitle,
+    projectCoverImage: item.projectCoverImage,
+    projectType: item.projectType,
+    projectDescription: item.projectDescription,
+    projectOrder: item.projectOrder,
+    projectVisible: item.projectVisible,
+    projectGallery: item.projectGallery,
   };
 }
 
@@ -214,6 +222,14 @@ export default function AdminGraphics() {
           storySolution: itemMeta.story.solution || '',
           storyTools: itemMeta.story.tools || '',
           storyResult: itemMeta.story.result || '',
+          projectId: itemMeta.projectId,
+          projectTitle: itemMeta.projectTitle,
+          projectCoverImage: itemMeta.projectCoverImage,
+          projectType: itemMeta.projectType,
+          projectDescription: itemMeta.projectDescription,
+          projectOrder: itemMeta.projectOrder || graphic.order_num,
+          projectVisible: itemMeta.projectVisible,
+          projectGallery: itemMeta.projectGallery,
           createdAt: graphic.created_at || '',
           tier: '',
         } satisfies PortfolioManagerItem;

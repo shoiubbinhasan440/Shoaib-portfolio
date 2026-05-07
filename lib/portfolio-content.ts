@@ -14,6 +14,7 @@ export type HomepagePortfolioFilterAlignment = 'left' | 'center';
 export type HomepagePortfolioWidth = 'normal' | 'wide' | 'full';
 export type HomepagePortfolioGap = 'small' | 'medium' | 'large';
 export type HomepagePortfolioDensity = 'compact' | 'normal' | 'spacious';
+export type PortfolioCardInfoDensity = 'title-only' | 'title-meta' | 'full';
 export type HomepagePortfolioLayoutType =
   | 'uniform-grid'
   | 'featured-first'
@@ -31,12 +32,24 @@ export type HomepagePortfolioClickAction = 'preview' | 'portfolio' | 'preview-wi
 export type HomepagePortfolioChipStyle = 'soft' | 'glass' | 'editorial';
 export type HomepagePortfolioDisplayMode = 'item-grid' | 'category-preview';
 export type PortfolioLayoutMode = 'grid' | 'masonry';
+export type PortfolioProjectType = 'Graphic' | 'Video' | 'Mixed';
 
 export type PortfolioItemStory = {
   challenge?: string;
   solution?: string;
   tools?: string;
   result?: string;
+};
+
+export type PortfolioProjectGalleryItem = {
+  id: string;
+  title: string;
+  imageUrl: string;
+  sourceType?: PortfolioSourceType;
+  youtube_url?: string;
+  description?: string;
+  categoryName?: string;
+  formatLabel?: string;
 };
 
 export type PortfolioVideo = {
@@ -107,6 +120,14 @@ export type PortfolioPreviewItem = {
   order_num: number;
   tier?: string;
   youtube_url?: string;
+  projectId?: string;
+  projectTitle?: string;
+  projectCoverImage?: string;
+  projectType?: PortfolioProjectType;
+  projectDescription?: string;
+  projectOrder?: number;
+  projectVisible?: boolean;
+  projectItems?: PortfolioProjectGalleryItem[];
 };
 
 export type HomepagePortfolioItemConfig = {
@@ -147,6 +168,14 @@ export type PortfolioItemMetaConfig = {
   smartShowcase?: boolean;
   featuredPriority?: number;
   story?: PortfolioItemStory;
+  projectId?: string;
+  projectTitle?: string;
+  projectCoverImage?: string;
+  projectType?: PortfolioProjectType;
+  projectDescription?: string;
+  projectOrder?: number;
+  projectVisible?: boolean;
+  projectGallery?: PortfolioProjectGalleryItem[];
 };
 
 export type HomepagePortfolioCategoryConfig = {
@@ -212,6 +241,7 @@ export type HomepagePortfolioSectionSettings = {
   showPreviewIcon: boolean;
   showHoverOverlay: boolean;
   showFeaturedBadge: boolean;
+  cardInfoDensity: PortfolioCardInfoDensity;
   styles: BuilderSectionStyles;
   itemConfig: HomepagePortfolioConfigMap;
   categoryConfig: HomepagePortfolioCategoryConfigMap;
@@ -324,6 +354,7 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
   showPreviewIcon: true,
   showHoverOverlay: true,
   showFeaturedBadge: true,
+  cardInfoDensity: 'title-only',
   styles: createDefaultBuilderSectionStyles(),
   itemConfig: {},
   categoryConfig: {},
@@ -486,6 +517,45 @@ function sanitizePortfolioItemStory(value: unknown): PortfolioItemStory {
   };
 }
 
+function sanitizeProjectGalleryItem(value: unknown, index: number): PortfolioProjectGalleryItem | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const imageUrl = textValue(value.imageUrl ?? value.image_url, '').trim();
+  const youtubeUrl = textValue(value.youtube_url ?? value.youtubeUrl, '').trim();
+  if (!imageUrl && !youtubeUrl) {
+    return null;
+  }
+
+  const sourceType = pickEnum(
+    value.sourceType,
+    ['graphic', 'video'] as const,
+    youtubeUrl ? 'video' : 'graphic'
+  );
+
+  return {
+    id: textValue(value.id, `gallery-${index + 1}`),
+    title: textValue(value.title, ''),
+    imageUrl,
+    sourceType,
+    youtube_url: youtubeUrl,
+    description: textValue(value.description, ''),
+    categoryName: textValue(value.categoryName, ''),
+    formatLabel: textValue(value.formatLabel, ''),
+  };
+}
+
+function sanitizeProjectGallery(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry, index) => sanitizeProjectGalleryItem(entry, index))
+    .filter((entry): entry is PortfolioProjectGalleryItem => Boolean(entry));
+}
+
 function sanitizePortfolioItemMetaValue(
   value: unknown,
   fallback: PortfolioItemMetaConfig = {}
@@ -556,6 +626,21 @@ function sanitizePortfolioItemMetaValue(
       99
     ),
     story: sanitizePortfolioItemStory(value.story),
+    projectId: textValue(value.projectId, fallback.projectId || ''),
+    projectTitle: textValue(value.projectTitle, fallback.projectTitle || ''),
+    projectCoverImage: textValue(value.projectCoverImage, fallback.projectCoverImage || ''),
+    projectType: pickEnum(
+      value.projectType,
+      ['Graphic', 'Video', 'Mixed'] as const,
+      fallback.projectType || 'Graphic'
+    ),
+    projectDescription: textValue(
+      value.projectDescription,
+      fallback.projectDescription || ''
+    ),
+    projectOrder: clampNumber(value.projectOrder, fallback.projectOrder ?? 0, 0, 9999),
+    projectVisible: boolValue(value.projectVisible, fallback.projectVisible ?? true),
+    projectGallery: sanitizeProjectGallery(value.projectGallery),
   } satisfies PortfolioItemMetaConfig;
 }
 
@@ -897,6 +982,11 @@ function sanitizeHomepagePortfolioSettings(
     showPreviewIcon: boolValue(value.showPreviewIcon, fallback.showPreviewIcon),
     showHoverOverlay: boolValue(value.showHoverOverlay, fallback.showHoverOverlay),
     showFeaturedBadge: boolValue(value.showFeaturedBadge, fallback.showFeaturedBadge),
+    cardInfoDensity: pickEnum(
+      value.cardInfoDensity,
+      ['title-only', 'title-meta', 'full'] as const,
+      fallback.cardInfoDensity
+    ),
     styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
     itemConfig:
       Object.keys(legacyItemConfig).length > 0
@@ -1180,6 +1270,14 @@ export function getPortfolioItemMeta(
       tools: rawConfig.story?.tools || '',
       result: rawConfig.story?.result || '',
     },
+    projectId: rawConfig.projectId || '',
+    projectTitle: rawConfig.projectTitle || '',
+    projectCoverImage: rawConfig.projectCoverImage || '',
+    projectType: rawConfig.projectType || 'Graphic',
+    projectDescription: rawConfig.projectDescription || '',
+    projectOrder: rawConfig.projectOrder ?? 0,
+    projectVisible: rawConfig.projectVisible ?? true,
+    projectGallery: rawConfig.projectGallery || [],
   };
 }
 

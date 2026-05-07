@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   getPortfolioItemMeta,
   type PortfolioItemMetaConfigMap,
+  type PortfolioProjectGalleryItem,
   type PortfolioPreviewItem,
 } from '@/lib/portfolio-content';
 
@@ -114,12 +115,36 @@ function ActivePortfolioPreviewModal({
   const [dragging, setDragging] = useState(false);
   const [naturalSize, setNaturalSize] = useState({ height: 0, width: 0 });
   const [viewportWidth, setViewportWidth] = useState(1280);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
 
   const activeItem = item;
   const activeMeta = useMemo(
     () => (activeItem ? getPortfolioItemMeta(activeItem, itemMetaConfig) : null),
     [activeItem, itemMetaConfig]
   );
+  const activeGalleryItems = useMemo(() => {
+    if (!activeItem || !activeMeta) {
+      return [] as PortfolioProjectGalleryItem[];
+    }
+
+    const baseItem: PortfolioProjectGalleryItem = {
+      id: getItemKey(activeItem),
+      title: activeItem.title,
+      imageUrl: activeItem.imageUrl,
+      sourceType: activeItem.sourceType,
+      youtube_url: activeItem.youtube_url,
+      description: activeItem.description || '',
+      categoryName: activeItem.categoryName,
+      formatLabel: activeMeta.formatLabel,
+    };
+
+    return activeItem.projectItems?.length ? activeItem.projectItems : [baseItem];
+  }, [activeItem, activeMeta]);
+  const safeGalleryIndex =
+    activeGalleryIndex < activeGalleryItems.length ? activeGalleryIndex : 0;
+  const activeGalleryItem = activeGalleryItems[safeGalleryIndex] || activeGalleryItems[0];
+  const activeMediaType = activeGalleryItem?.sourceType || activeItem.sourceType;
+  const activeMediaImageUrl = activeGalleryItem?.imageUrl || activeItem.imageUrl;
 
   const currentIndex = activeItem
     ? items.findIndex(candidate => getItemKey(candidate) === getItemKey(activeItem))
@@ -128,9 +153,15 @@ function ActivePortfolioPreviewModal({
   const previewTitle = activeMeta?.previewTitle || activeItem?.title || '';
   const previewSubtitle =
     activeMeta?.previewSubtitle ||
-    [activeMeta?.typeLabel, activeItem?.categoryName].filter(Boolean).join(' • ');
+    [activeItem.projectType || activeMeta?.typeLabel, activeItem?.categoryName]
+      .filter(Boolean)
+      .join(' • ');
   const previewDescription =
-    activeMeta?.previewDescription || activeItem?.description || '';
+    activeMeta?.projectDescription ||
+    activeItem.projectDescription ||
+    activeMeta?.previewDescription ||
+    activeItem?.description ||
+    '';
   const tagList: string[] = activeMeta?.showTags ? activeMeta.tags : [];
   const storyRows = activeMeta?.story
     ? ([
@@ -143,13 +174,18 @@ function ActivePortfolioPreviewModal({
 
   const previewVideoUrl = activeItem
     ? withAutoplay(
-        normalizeEmbedUrl(activeMeta?.externalPreviewUrl || activeItem.youtube_url || '')
+        normalizeEmbedUrl(
+          activeGalleryItem?.youtube_url ||
+            (activeMediaType === 'video'
+              ? activeMeta?.externalPreviewUrl || activeItem.youtube_url || ''
+              : '')
+        )
       )
     : '';
   const ratioLabel =
     activeMeta?.aspectRatio || toRatioLabel(naturalSize.width, naturalSize.height);
   const graphicAspectRatio =
-    activeItem.sourceType === 'graphic'
+    activeMediaType === 'graphic'
       ? naturalSize.width && naturalSize.height
         ? `${naturalSize.width} / ${naturalSize.height}`
         : toCssAspectRatio(activeMeta?.aspectRatio || '')
@@ -158,8 +194,8 @@ function ActivePortfolioPreviewModal({
     naturalSize.width && naturalSize.height
       ? `${naturalSize.width} x ${naturalSize.height}`
       : '';
-  const ambientBackground = activeItem?.imageUrl
-    ? `radial-gradient(circle at 20% 18%, rgba(56,189,248,0.18), transparent 28%), radial-gradient(circle at 78% 20%, rgba(37,99,235,0.22), transparent 26%), linear-gradient(135deg, rgba(2,6,23,0.88), rgba(15,23,42,0.96)), url(${activeItem.imageUrl}) center/cover no-repeat`
+  const ambientBackground = activeMediaImageUrl
+    ? `radial-gradient(circle at 20% 18%, rgba(56,189,248,0.18), transparent 28%), radial-gradient(circle at 78% 20%, rgba(37,99,235,0.22), transparent 26%), linear-gradient(135deg, rgba(2,6,23,0.88), rgba(15,23,42,0.96)), url(${activeMediaImageUrl}) center/cover no-repeat`
     : 'linear-gradient(135deg, rgba(2,6,23,0.94), rgba(15,23,42,0.96))';
 
   useEffect(() => {
@@ -168,6 +204,19 @@ function ActivePortfolioPreviewModal({
     window.addEventListener('resize', syncViewport);
     return () => window.removeEventListener('resize', syncViewport);
   }, []);
+
+  function selectGalleryIndex(nextIndex: number) {
+    if (!activeGalleryItems.length) {
+      return;
+    }
+
+    const normalizedIndex =
+      (nextIndex + activeGalleryItems.length) % activeGalleryItems.length;
+    setActiveGalleryIndex(normalizedIndex);
+    setNaturalSize({ height: 0, width: 0 });
+    setOffset({ x: 0, y: 0 });
+    setZoom(1);
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -225,7 +274,7 @@ function ActivePortfolioPreviewModal({
   }
 
   function startDrag(clientX: number, clientY: number) {
-    if (zoom <= 1 || activeItem?.sourceType !== 'graphic') {
+    if (zoom <= 1 || activeMediaType !== 'graphic') {
       return;
     }
 
@@ -237,7 +286,7 @@ function ActivePortfolioPreviewModal({
   }
 
   function moveDrag(clientX: number, clientY: number) {
-    if (!dragging || zoom <= 1 || activeItem?.sourceType !== 'graphic') {
+    if (!dragging || zoom <= 1 || activeMediaType !== 'graphic') {
       return;
     }
 
@@ -331,7 +380,11 @@ function ActivePortfolioPreviewModal({
                   textTransform: 'uppercase',
                 }}
               >
-                {activeItem.sourceType === 'video' ? 'Video Preview' : 'Graphic Preview'}
+                {activeItem.projectItems?.length
+                  ? 'Project Preview'
+                  : activeMediaType === 'video'
+                    ? 'Video Preview'
+                    : 'Graphic Preview'}
               </span>
               <span
                 style={{
@@ -446,7 +499,7 @@ function ActivePortfolioPreviewModal({
             display: 'grid',
             gridTemplateColumns: stackedLayout
               ? 'minmax(0, 1fr)'
-              : activeItem.sourceType === 'graphic'
+              : activeMediaType === 'graphic'
                 ? 'minmax(0, 1.45fr) minmax(300px, 0.9fr)'
                 : 'minmax(0, 1.3fr) minmax(300px, 0.95fr)',
             gap: 18,
@@ -457,7 +510,7 @@ function ActivePortfolioPreviewModal({
             style={{
               position: 'relative',
               minHeight:
-                activeItem.sourceType === 'video'
+                activeMediaType === 'video'
                   ? compactChrome
                     ? 220
                     : 360
@@ -483,7 +536,7 @@ function ActivePortfolioPreviewModal({
               }}
             />
 
-            {activeItem.sourceType === 'video' ? (
+            {activeMediaType === 'video' ? (
               <div
                 style={{
                   position: 'relative',
@@ -507,7 +560,7 @@ function ActivePortfolioPreviewModal({
                   }}
                 >
                   <iframe
-                    title={`${activeItem.title} portfolio video preview`}
+                    title={`${activeGalleryItem?.title || activeItem.title} portfolio video preview`}
                     src={previewVideoUrl}
                     loading="lazy"
                     referrerPolicy="strict-origin-when-cross-origin"
@@ -535,22 +588,26 @@ function ActivePortfolioPreviewModal({
                   zIndex: 1,
                   width: '100%',
                   minHeight: compactChrome ? 360 : 520,
-                  display: 'grid',
-                  gridTemplateRows: 'auto 1fr',
+                  display: 'block',
                   touchAction: zoom > 1 ? 'none' : 'pan-y',
                 }}
               >
                 <div
                   style={{
+                    position: 'absolute',
+                    top: compactChrome ? 10 : 14,
+                    left: compactChrome ? 10 : 14,
+                    right: compactChrome ? 10 : 14,
+                    zIndex: 8,
                     display: 'flex',
                     gap: 10,
                     flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '16px 16px 0',
+                    pointerEvents: 'none',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', pointerEvents: 'auto' }}>
                     {ratioLabel ? (
                       <span
                         style={{
@@ -598,7 +655,7 @@ function ActivePortfolioPreviewModal({
                     ) : null}
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', pointerEvents: 'auto' }}>
                     <button
                       type="button"
                       onClick={() => updateZoom(1)}
@@ -684,13 +741,15 @@ function ActivePortfolioPreviewModal({
                   style={{
                     display: 'grid',
                     placeItems: 'center',
-                    padding: compactChrome ? '12px' : '16px',
-                    minHeight: compactChrome ? 280 : 420,
+                    padding: compactChrome ? '68px 12px 12px' : '76px 16px 16px',
+                    minHeight: compactChrome ? 360 : 520,
+                    maxHeight: compactChrome ? '68vh' : '74vh',
+                    overflow: 'auto',
                   }}
                 >
                   <img
-                    src={activeItem.imageUrl}
-                    alt={previewTitle}
+                    src={activeMediaImageUrl}
+                    alt={activeGalleryItem?.title || previewTitle}
                     onLoad={event => {
                       setNaturalSize({
                         width: event.currentTarget.naturalWidth,
@@ -719,6 +778,110 @@ function ActivePortfolioPreviewModal({
                 </div>
               </div>
             )}
+
+            {activeGalleryItems.length > 1 ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: compactChrome ? 10 : 14,
+                  right: compactChrome ? 10 : 14,
+                  bottom: compactChrome ? 10 : 14,
+                  zIndex: 10,
+                  display: 'grid',
+                  gridTemplateColumns: 'auto minmax(0, 1fr) auto',
+                  gap: 8,
+                  alignItems: 'center',
+                  padding: 8,
+                  borderRadius: 18,
+                  border: `1px solid ${soft}`,
+                  background: dark ? 'rgba(2,6,23,0.72)' : 'rgba(255,255,255,0.84)',
+                  backdropFilter: 'blur(16px)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    selectGalleryIndex(safeGalleryIndex - 1)
+                  }
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    border: `1px solid ${soft}`,
+                    background: dark ? 'rgba(15,23,42,0.74)' : 'rgba(248,250,252,0.9)',
+                    color: text,
+                    cursor: 'pointer',
+                    fontWeight: 900,
+                  }}
+                >
+                  ←
+                </button>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    overflowX: 'auto',
+                    paddingBottom: 2,
+                  }}
+                >
+                  {activeGalleryItems.map((galleryItem, galleryIndex) => (
+                    <button
+                      key={`${galleryItem.id}-${galleryIndex}`}
+                      type="button"
+                      onClick={() => selectGalleryIndex(galleryIndex)}
+                      aria-label={`Show ${galleryItem.title || `project item ${galleryIndex + 1}`}`}
+                      style={{
+                        position: 'relative',
+                        flex: '0 0 auto',
+                        width: compactChrome ? 54 : 66,
+                        height: compactChrome ? 40 : 48,
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        border: `2px solid ${
+                          safeGalleryIndex === galleryIndex ? '#38bdf8' : soft
+                        }`,
+                        background: dark ? '#020617' : '#e2e8f0',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {galleryItem.imageUrl ? (
+                        <img
+                          src={galleryItem.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: galleryItem.sourceType === 'video' ? 'cover' : 'contain',
+                          }}
+                        />
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    selectGalleryIndex(safeGalleryIndex + 1)
+                  }
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    border: `1px solid ${soft}`,
+                    background: dark ? 'rgba(15,23,42,0.74)' : 'rgba(248,250,252,0.9)',
+                    color: text,
+                    cursor: 'pointer',
+                    fontWeight: 900,
+                  }}
+                >
+                  →
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div
@@ -754,9 +917,35 @@ function ActivePortfolioPreviewModal({
                       fontWeight: 700,
                     }}
                   >
-                    {activeItem.categoryName}
+                    {activeGalleryItem?.categoryName || activeItem.categoryName}
                   </span>
-                  {activeMeta.formatLabel ? (
+                  <span
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 999,
+                      background: dark ? 'rgba(2,6,23,0.7)' : 'rgba(226,232,240,0.8)',
+                      color: text,
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {activeItem.projectType || activeMeta.typeLabel}
+                  </span>
+                  {activeItem.projectItems?.length ? (
+                    <span
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 999,
+                        background: dark ? 'rgba(2,6,23,0.7)' : 'rgba(226,232,240,0.8)',
+                        color: muted,
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {safeGalleryIndex + 1} / {activeGalleryItems.length} designs
+                    </span>
+                  ) : null}
+                  {activeMeta.cardBadge ? (
                     <span
                       style={{
                         padding: '6px 12px',
@@ -767,7 +956,21 @@ function ActivePortfolioPreviewModal({
                         fontWeight: 700,
                       }}
                     >
-                      {activeMeta.formatLabel}
+                      {activeMeta.cardBadge}
+                    </span>
+                  ) : null}
+                  {(activeGalleryItem?.formatLabel || activeMeta.formatLabel) ? (
+                    <span
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 999,
+                        background: dark ? 'rgba(14,165,233,0.12)' : 'rgba(14,165,233,0.1)',
+                        color: '#38bdf8',
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {activeGalleryItem?.formatLabel || activeMeta.formatLabel}
                     </span>
                   ) : null}
                 </div>
@@ -842,7 +1045,9 @@ function ActivePortfolioPreviewModal({
                 </div>
               ) : null}
 
-              {(activeMeta.previewCtaLabel && activeMeta.previewCtaLink) || footerAction ? (
+              {(activeMeta.previewCtaLabel && activeMeta.previewCtaLink) ||
+              activeMeta.externalPreviewUrl ||
+              footerAction ? (
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {activeMeta.previewCtaLabel && activeMeta.previewCtaLink ? (
                     <a
@@ -865,6 +1070,30 @@ function ActivePortfolioPreviewModal({
                     >
                       {activeMeta.previewCtaLabel}
                       <span>→</span>
+                    </a>
+                  ) : null}
+                  {activeMeta.externalPreviewUrl ? (
+                    <a
+                      href={activeMeta.externalPreviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: '12px 18px',
+                        borderRadius: 14,
+                        border: `1px solid ${soft}`,
+                        background: dark ? 'rgba(15,23,42,0.58)' : 'rgba(255,255,255,0.86)',
+                        color: text,
+                        textDecoration: 'none',
+                        fontSize: 14,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Open external preview
+                      <span>↗</span>
                     </a>
                   ) : null}
                   {footerAction ? (

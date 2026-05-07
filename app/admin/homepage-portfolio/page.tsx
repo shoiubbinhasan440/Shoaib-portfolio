@@ -91,6 +91,7 @@ import {
   type HomepagePortfolioSectionAlignment,
   type HomepagePortfolioSectionSettings,
   type HomepagePortfolioWidth,
+  type PortfolioCardInfoDensity,
   type PortfolioLayoutMode,
   type PortfolioCategory,
   type PortfolioPageSettings,
@@ -231,6 +232,12 @@ const densityOptions: Array<{ value: HomepagePortfolioDensity; label: string }> 
   { value: 'compact', label: 'Compact' },
   { value: 'normal', label: 'Normal' },
   { value: 'spacious', label: 'Spacious' },
+];
+
+const cardInfoDensityOptions: Array<{ value: PortfolioCardInfoDensity; label: string }> = [
+  { value: 'title-only', label: 'Title only' },
+  { value: 'title-meta', label: 'Title + meta' },
+  { value: 'full', label: 'Full details' },
 ];
 
 const gapOptions: Array<{ value: HomepagePortfolioGap; label: string }> = [
@@ -2105,6 +2112,27 @@ export default function AdminHomepageBuilderPage() {
                     style={inputStyle}
                   >
                     {densityOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label="Card info density"
+                  hint="Default is title only, keeping metadata inside the preview modal."
+                >
+                  <select
+                    value={portfolioConfig.cardInfoDensity}
+                    onChange={event =>
+                      updatePortfolio(
+                        'cardInfoDensity',
+                        event.target.value as PortfolioCardInfoDensity
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    {cardInfoDensityOptions.map(option => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>

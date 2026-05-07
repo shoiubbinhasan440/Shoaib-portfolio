@@ -10,6 +10,7 @@ import {
 } from '@/lib/page-builder-styles';
 import type {
   PortfolioCategory,
+  PortfolioCardInfoDensity,
   PortfolioLayoutMode,
   PortfolioPreviewItem,
 } from '@/lib/portfolio-content';
@@ -61,6 +62,7 @@ export type PortfolioPageShowcaseConfig = {
   desktopColumns: number;
   tabletColumns: number;
   mobileColumns: number;
+  cardInfoDensity: PortfolioCardInfoDensity;
   styles: BuilderSectionStyles;
 };
 
@@ -230,6 +232,7 @@ export function createDefaultPortfolioPageBuilderConfig(map?: SettingMap): Portf
       desktopColumns: 3,
       tabletColumns: 2,
       mobileColumns: 1,
+      cardInfoDensity: 'title-only',
       styles: createDefaultBuilderSectionStyles(),
     },
     cta: {
@@ -342,6 +345,12 @@ function sanitizeShowcase(
     desktopColumns: Math.min(4, Math.max(1, number(value.desktopColumns, fallback.desktopColumns))),
     tabletColumns: Math.min(3, Math.max(1, number(value.tabletColumns, fallback.tabletColumns))),
     mobileColumns: Math.min(2, Math.max(1, number(value.mobileColumns, fallback.mobileColumns))),
+    cardInfoDensity:
+      value.cardInfoDensity === 'title-meta' || value.cardInfoDensity === 'full'
+        ? value.cardInfoDensity
+        : value.cardInfoDensity === 'title-only'
+          ? value.cardInfoDensity
+          : fallback.cardInfoDensity,
     styles: sanitizeBuilderSectionStyles(value.styles, fallback.styles),
   };
 }
