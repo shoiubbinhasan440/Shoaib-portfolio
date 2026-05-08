@@ -1681,7 +1681,6 @@ export default function PortfolioShowcase({
                       const categoryFocusMatch = focusItemKey === group.key;
                       const categoryUrl = `/portfolio/category/${group.sourceType === 'graphic' ? 'graphics' : group.sourceType}/${encodeURIComponent(group.slug)}`;
                       const itemPluralLabel = group.sourceType === 'video' ? 'videos' : 'graphics';
-                      const samplePreviewItems = previewItems.slice(0, 3);
                       const accentColor = resolveSectionThemeColor(
                         showcaseStyles?.colors.accentLight || '',
                         showcaseStyles?.colors.accentDark || '',
@@ -1953,72 +1952,6 @@ export default function PortfolioShowcase({
                             >
                               {group.title}
                             </div>
-                            {samplePreviewItems.length > 0 ? (
-                              <div
-                                style={{
-                                  display: 'grid',
-                                  gap: 7,
-                                  minWidth: 0,
-                                  paddingTop: 2,
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    color: muted,
-                                    fontSize: 10,
-                                    fontWeight: 900,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.08em',
-                                  }}
-                                >
-                                  Included works
-                                </div>
-                                {samplePreviewItems.map((item, itemIndex) => (
-                                  <span
-                                    key={getItemKey(item)}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 8,
-                                      minWidth: 0,
-                                      color: text,
-                                      fontSize: 12,
-                                      fontWeight: 800,
-                                      lineHeight: 1.25,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        display: 'grid',
-                                        placeItems: 'center',
-                                        flex: '0 0 auto',
-                                        width: 20,
-                                        height: 20,
-                                        borderRadius: 999,
-                                        background: dark
-                                          ? 'rgba(148,163,184,0.16)'
-                                          : 'rgba(203,213,225,0.7)',
-                                        color: accentColor,
-                                        fontSize: 10,
-                                        fontWeight: 900,
-                                      }}
-                                    >
-                                      {itemIndex + 1}
-                                    </span>
-                                    <span
-                                      style={{
-                                        minWidth: 0,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                    >
-                                      {item.title}
-                                    </span>
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
                             <div
                               style={{
                                 display: 'flex',

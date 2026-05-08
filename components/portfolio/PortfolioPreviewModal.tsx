@@ -118,6 +118,7 @@ function ActivePortfolioPreviewModal({
   const [viewportWidth, setViewportWidth] = useState(1280);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [immersiveView, setImmersiveView] = useState(false);
 
   const activeItem = item;
   const activeMeta = useMemo(
@@ -226,6 +227,11 @@ function ActivePortfolioPreviewModal({
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
+        if (immersiveView) {
+          setImmersiveView(false);
+          return;
+        }
+
         onClose();
         return;
       }
@@ -247,7 +253,7 @@ function ActivePortfolioPreviewModal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, items, onClose, onSelect]);
+  }, [currentIndex, immersiveView, items, onClose, onSelect]);
 
   function stepTo(direction: 'prev' | 'next') {
     if (!items.length || currentIndex < 0) {
@@ -270,12 +276,10 @@ function ActivePortfolioPreviewModal({
     }
   }
 
-  async function openFullscreen() {
-    try {
-      await previewSurfaceRef.current?.requestFullscreen?.();
-    } catch {
-      // Ignore browser fullscreen failures.
-    }
+  function toggleImmersiveView() {
+    setImmersiveView(current => !current);
+    setOffset({ x: 0, y: 0 });
+    updateZoom(1);
   }
 
   async function copyShareLink() {
@@ -327,6 +331,20 @@ function ActivePortfolioPreviewModal({
     : 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(241,245,249,0.98))';
   const stackedLayout = viewportWidth < 1040;
   const compactChrome = viewportWidth < 700;
+  const previewMinHeight =
+    activeMediaType === 'video'
+      ? compactChrome
+        ? 220
+        : immersiveView
+          ? 'calc(100vh - 190px)'
+          : 360
+      : compactChrome
+        ? 360
+        : immersiveView
+          ? 'calc(100vh - 190px)'
+          : 520;
+  const previewImageMinHeight =
+    compactChrome ? 360 : immersiveView ? 'calc(100vh - 190px)' : 520;
 
   return (
     <div
@@ -346,8 +364,16 @@ function ActivePortfolioPreviewModal({
       <div
         onClick={event => event.stopPropagation()}
         style={{
-          width: 'min(1280px, 100%)',
-          maxHeight: compactChrome ? 'calc(100vh - 20px)' : 'calc(100vh - 32px)',
+          width: immersiveView
+            ? compactChrome
+              ? 'calc(100vw - 20px)'
+              : 'calc(100vw - 32px)'
+            : 'min(1280px, 100%)',
+          maxHeight: compactChrome
+            ? 'calc(100vh - 20px)'
+            : immersiveView
+              ? 'calc(100vh - 32px)'
+              : 'calc(100vh - 32px)',
           overflow: 'hidden',
           borderRadius: compactChrome ? 24 : 30,
           border: `1px solid ${soft}`,
@@ -490,6 +516,26 @@ function ActivePortfolioPreviewModal({
             ) : null}
             <button
               type="button"
+              onClick={toggleImmersiveView}
+              style={{
+                minHeight: 40,
+                borderRadius: 14,
+                border: `1px solid ${soft}`,
+                background: immersiveView
+                  ? 'linear-gradient(135deg, #2563eb, #0ea5e9)'
+                  : dark
+                    ? 'rgba(15,23,42,0.7)'
+                    : 'rgba(255,255,255,0.84)',
+                color: immersiveView ? '#fff' : text,
+                cursor: 'pointer',
+                fontWeight: 800,
+                padding: '0 14px',
+              }}
+            >
+              {immersiveView ? 'Normal view' : 'Full view'}
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               style={{
                 width: 40,
@@ -514,7 +560,9 @@ function ActivePortfolioPreviewModal({
             display: 'grid',
             gridTemplateColumns: stackedLayout
               ? 'minmax(0, 1fr)'
-              : activeMediaType === 'graphic'
+              : immersiveView
+                ? 'minmax(0, 1fr) minmax(320px, 380px)'
+                : activeMediaType === 'graphic'
                 ? 'minmax(0, 1.45fr) minmax(300px, 0.9fr)'
                 : 'minmax(0, 1.3fr) minmax(300px, 0.95fr)',
             gap: 18,
@@ -522,16 +570,17 @@ function ActivePortfolioPreviewModal({
         >
           <div
             ref={previewSurfaceRef}
+            onClick={event => {
+              const target = event.target as HTMLElement;
+              if (target.closest('button, a, iframe')) {
+                return;
+              }
+
+              toggleImmersiveView();
+            }}
             style={{
               position: 'relative',
-              minHeight:
-                activeMediaType === 'video'
-                  ? compactChrome
-                    ? 220
-                    : 360
-                  : compactChrome
-                    ? 360
-                    : 520,
+              minHeight: previewMinHeight,
               borderRadius: 24,
               overflow: 'hidden',
               border: `1px solid ${soft}`,
@@ -540,6 +589,7 @@ function ActivePortfolioPreviewModal({
               alignItems: 'stretch',
               justifyContent: 'stretch',
               minWidth: 0,
+              cursor: activeMediaType === 'graphic' ? 'zoom-in' : 'default',
             }}
           >
             <div
@@ -736,18 +786,22 @@ function ActivePortfolioPreviewModal({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void openFullscreen()}
+                      onClick={toggleImmersiveView}
                       style={{
                         padding: '8px 12px',
                         borderRadius: 12,
                         border: `1px solid ${soft}`,
-                        background: dark ? 'rgba(15,23,42,0.58)' : 'rgba(255,255,255,0.84)',
-                        color: text,
+                        background: immersiveView
+                          ? 'linear-gradient(135deg, #2563eb, #0ea5e9)'
+                          : dark
+                            ? 'rgba(15,23,42,0.58)'
+                            : 'rgba(255,255,255,0.84)',
+                        color: immersiveView ? '#fff' : text,
                         cursor: 'pointer',
                         fontWeight: 700,
                       }}
                     >
-                      Fullscreen
+                      {immersiveView ? 'Normal view' : 'Full view'}
                     </button>
                   </div>
                 </div>
@@ -757,8 +811,12 @@ function ActivePortfolioPreviewModal({
                     display: 'grid',
                     placeItems: 'center',
                     padding: compactChrome ? '68px 12px 12px' : '76px 16px 16px',
-                    minHeight: compactChrome ? 360 : 520,
-                    maxHeight: compactChrome ? '68vh' : '74vh',
+                    minHeight: previewImageMinHeight,
+                    maxHeight: compactChrome
+                      ? '68vh'
+                      : immersiveView
+                        ? 'calc(100vh - 190px)'
+                        : '74vh',
                     overflow: 'auto',
                   }}
                 >
@@ -773,7 +831,7 @@ function ActivePortfolioPreviewModal({
                     }}
                     style={{
                       maxWidth: '100%',
-                      maxHeight: '72vh',
+                      maxHeight: immersiveView ? 'calc(100vh - 220px)' : '72vh',
                       width: 'auto',
                       height: 'auto',
                       aspectRatio: graphicAspectRatio,
