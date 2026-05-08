@@ -931,7 +931,10 @@ export default function PortfolioShowcase({
     variant === 'page' ? pageShowcaseConfig?.showCardCta ?? true : homepageConfig.showCardCta;
   const cardCtaText =
     variant === 'page'
-      ? pageShowcaseConfig?.cardCtaText || 'Open Preview'
+      ? (pageShowcaseConfig?.cardCtaText || 'Open full page').trim().toLowerCase() ===
+        'open preview'
+        ? 'Open full page'
+        : pageShowcaseConfig?.cardCtaText || 'Open full page'
       : homepageConfig.cardCtaText;
   const showPreviewIcon =
     variant === 'page'
@@ -978,12 +981,7 @@ export default function PortfolioShowcase({
 
   function handleItemAction(item: PortfolioPreviewItem) {
     if (variant === 'page') {
-      if (pageShowcaseConfig?.enablePreviewModal === false) {
-        router.push(getPortfolioItemDetailPath(item, getPortfolioItemMeta(item, itemMetaConfig)));
-        return;
-      }
-
-      setSelectedItem(item);
+      router.push(getPortfolioItemDetailPath(item, getPortfolioItemMeta(item, itemMetaConfig)));
       return;
     }
 
@@ -1677,7 +1675,7 @@ export default function PortfolioShowcase({
                       const previewItems = group.items.slice(0, homepageConfig.thumbnailsPerCategory);
                       const typeLabel = group.sourceType === 'video' ? 'Video' : 'Graphics';
                       const featuredPreview = previewItems[0];
-                      const thumbnailPreviewItems = previewItems.slice(1, 5);
+                      const thumbnailPreviewItems = previewItems.slice(0, 4);
                       const categoryFocusMatch = focusItemKey === group.key;
                       const categoryUrl = `/portfolio/category/${group.sourceType === 'graphic' ? 'graphics' : group.sourceType}/${encodeURIComponent(group.slug)}`;
                       const itemPluralLabel = group.sourceType === 'video' ? 'videos' : 'graphics';
@@ -1764,18 +1762,18 @@ export default function PortfolioShowcase({
                                   alt={featuredPreview.title}
                                   loading="lazy"
                                   decoding="async"
-	                                  style={{
-	                                    position: 'relative',
-	                                    display: 'block',
-	                                    width: '100%',
-	                                    height: 'auto',
-	                                    maxWidth: '100%',
-	                                    objectFit: 'cover',
-	                                    objectPosition: 'center',
-	                                    padding: 0,
-	                                    transform: categoryFocusMatch ? 'scale(1.035)' : 'scale(1)',
-	                                    transition: 'transform 0.5s ease',
-	                                  }}
+                                  style={{
+                                    position: 'relative',
+                                    display: 'block',
+                                    width: '100%',
+                                    height: 'auto',
+                                    maxWidth: '100%',
+                                    objectFit: 'cover',
+                                    objectPosition: 'center',
+                                    padding: 0,
+                                    transform: categoryFocusMatch ? 'scale(1.035)' : 'scale(1)',
+                                    transition: 'transform 0.5s ease',
+                                  }}
                                 />
                               ) : (
                                 <img
@@ -1783,14 +1781,14 @@ export default function PortfolioShowcase({
                                   alt={featuredPreview.title}
                                   loading="lazy"
                                   decoding="async"
-	                                  style={{
-	                                    position: 'relative',
-	                                    display: 'block',
-	                                    width: '100%',
-	                                    height: 'auto',
-	                                    maxWidth: '100%',
-	                                    objectFit: 'cover',
-	                                    objectPosition: 'center',
+                                  style={{
+                                    position: 'relative',
+                                    display: 'block',
+                                    width: '100%',
+                                    height: 'auto',
+                                    maxWidth: '100%',
+                                    objectFit: 'cover',
+                                    objectPosition: 'center',
                                     transform: categoryFocusMatch ? 'scale(1.035)' : 'scale(1)',
                                     transition: 'transform 0.5s ease',
                                   }}
@@ -1799,14 +1797,14 @@ export default function PortfolioShowcase({
                             ) : null}
                             <div
                               aria-hidden="true"
-	                              style={{
-	                                position: 'absolute',
-	                                inset: 0,
-	                                background: dark
-	                                  ? 'linear-gradient(180deg, rgba(2,6,23,0.08) 0%, rgba(2,6,23,0) 34%, rgba(2,6,23,0.22) 100%)'
-	                                  : 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 38%, rgba(15,23,42,0.12) 100%)',
-	                              }}
-	                            />
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: dark
+                                  ? 'linear-gradient(180deg, rgba(2,6,23,0.08) 0%, rgba(2,6,23,0) 34%, rgba(2,6,23,0.22) 100%)'
+                                  : 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 38%, rgba(15,23,42,0.12) 100%)',
+                              }}
+                            />
                             <div
                               style={{
                                 position: 'absolute',
@@ -1861,70 +1859,65 @@ export default function PortfolioShowcase({
                               >
                                 {group.count}
                               </span>
-	                            </div>
-		                          </div>
-
-                          {thumbnailPreviewItems.length > 0 ? (
-                            <div
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: `repeat(${Math.min(
-                                  thumbnailPreviewItems.length,
-                                  4
-                                )}, minmax(0, 1fr))`,
-                                gap: 8,
-                                padding: isMobile ? '10px 12px 0' : '12px 14px 0',
-                                width: '100%',
-                                maxWidth: '100%',
-                                minWidth: 0,
-                                boxSizing: 'border-box',
-                              }}
-                            >
-                              {thumbnailPreviewItems.map(item => (
-                                <span
-                                  key={getItemKey(item)}
-                                  style={{
-                                    position: 'relative',
-                                    width: '100%',
-                                    maxWidth: '100%',
-                                    minWidth: 0,
-                                    aspectRatio: '1 / 1',
-                                    borderRadius: 12,
-                                    overflow: 'hidden',
-                                    border: dark
-                                      ? '1px solid rgba(148,163,184,0.18)'
-                                      : '1px solid rgba(148,163,184,0.28)',
-                                    background:
-                                      item.sourceType === 'graphic'
-                                        ? dark
-                                          ? '#020617'
-                                          : '#e2e8f0'
-                                        : dark
-                                          ? '#0f172a'
-                                          : '#dbeafe',
-                                  }}
-                                >
-                                  <img
-                                    src={item.imageUrl}
-                                    alt={item.title}
-                                    loading="lazy"
-                                    decoding="async"
-                                    style={{
-                                      position: 'absolute',
-                                      inset: 0,
-                                      display: 'block',
-                                      width: '100%',
-                                      height: '100%',
-                                      maxWidth: '100%',
-                                      objectFit: item.sourceType === 'graphic' ? 'contain' : 'cover',
-                                      objectPosition: 'center',
-                                      padding: item.sourceType === 'graphic' ? 4 : 0,
-                                    }}
-                                  />
-                                </span>
-                              ))}
                             </div>
-                          ) : null}
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+                              gap: 8,
+                              padding: isMobile ? '10px 12px 0' : '12px 14px 0',
+                              width: '100%',
+                              maxWidth: '100%',
+                              minWidth: 0,
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            {thumbnailPreviewItems.map(item => (
+                              <span
+                                key={getItemKey(item)}
+                                style={{
+                                  position: 'relative',
+                                  width: '100%',
+                                  maxWidth: '100%',
+                                  minWidth: 0,
+                                  aspectRatio: '1 / 1',
+                                  borderRadius: 12,
+                                  overflow: 'hidden',
+                                  border: dark
+                                    ? '1px solid rgba(148,163,184,0.18)'
+                                    : '1px solid rgba(148,163,184,0.28)',
+                                  background:
+                                    item.sourceType === 'graphic'
+                                      ? dark
+                                        ? '#020617'
+                                        : '#e2e8f0'
+                                      : dark
+                                        ? '#0f172a'
+                                        : '#dbeafe',
+                                }}
+                              >
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.title}
+                                  loading="lazy"
+                                  decoding="async"
+                                  style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    display: 'block',
+                                    width: '100%',
+                                    height: '100%',
+                                    maxWidth: '100%',
+                                    objectFit: item.sourceType === 'graphic' ? 'contain' : 'cover',
+                                    objectPosition: 'center',
+                                    padding: item.sourceType === 'graphic' ? 4 : 0,
+                                  }}
+                                />
+                              </span>
+                            ))}
+                          </div>
 
                           <div
                             style={{
@@ -2154,7 +2147,7 @@ export default function PortfolioShowcase({
                                 : 'Open artwork');
                         const displayPreviewLabel =
                           variant === 'page'
-                            ? pageShowcaseConfig?.previewButtonLabel || previewLabel
+                            ? 'Open full page'
                             : previewLabel;
                         const leadCard = featuredCard || smartLeadCard;
                         const geminiCardLook = useDesktopMasonry;
@@ -2225,7 +2218,11 @@ export default function PortfolioShowcase({
                             className="portfolio-showcase-card"
                             key={focusKey}
                             type="button"
-                            aria-label={`Open preview for ${item.title}`}
+                            aria-label={
+                              variant === 'page'
+                                ? `Open full page for ${item.title}`
+                                : `Open preview for ${item.title}`
+                            }
                             onClick={() => handleItemAction(item)}
                             onMouseEnter={() => {
                               setFocusItemKey(focusKey);

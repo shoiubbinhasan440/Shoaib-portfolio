@@ -382,21 +382,22 @@ function ActivePortfolioPreviewModal({
             ? '0 36px 100px rgba(0,0,0,0.52)'
             : '0 36px 100px rgba(15,23,42,0.18)',
           display: 'grid',
-          gridTemplateRows: 'auto 1fr',
+          gridTemplateRows: 'auto minmax(0, 1fr)',
         }}
       >
         <div
           style={{
             display: 'flex',
+            flexDirection: compactChrome ? 'column' : 'row',
             justifyContent: 'space-between',
-            alignItems: 'center',
+            alignItems: compactChrome ? 'stretch' : 'center',
             gap: 12,
             flexWrap: 'wrap',
             padding: compactChrome ? '16px' : '18px 20px',
             borderBottom: `1px solid ${soft}`,
           }}
         >
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ minWidth: 0, flex: 1, width: compactChrome ? '100%' : undefined }}>
             <div
               style={{
                 display: 'flex',
@@ -477,7 +478,16 @@ function ActivePortfolioPreviewModal({
             ) : null}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              justifyContent: compactChrome ? 'space-between' : 'flex-end',
+              width: compactChrome ? '100%' : undefined,
+            }}
+          >
             {items.length > 1 ? (
               <>
                 <button
@@ -556,16 +566,17 @@ function ActivePortfolioPreviewModal({
         <div
           style={{
             padding: compactChrome ? '14px' : '18px',
-            overflow: 'auto',
+            overflow: immersiveView ? 'hidden' : 'auto',
             display: 'grid',
             gridTemplateColumns: stackedLayout
               ? 'minmax(0, 1fr)'
               : immersiveView
                 ? 'minmax(0, 1fr) minmax(320px, 380px)'
                 : activeMediaType === 'graphic'
-                ? 'minmax(0, 1.45fr) minmax(300px, 0.9fr)'
-                : 'minmax(0, 1.3fr) minmax(300px, 0.95fr)',
+                  ? 'minmax(0, 1.45fr) minmax(300px, 0.9fr)'
+                  : 'minmax(0, 1.3fr) minmax(300px, 0.95fr)',
             gap: 18,
+            minHeight: 0,
           }}
         >
           <div
@@ -589,7 +600,11 @@ function ActivePortfolioPreviewModal({
               alignItems: 'stretch',
               justifyContent: 'stretch',
               minWidth: 0,
-              cursor: activeMediaType === 'graphic' ? 'zoom-in' : 'default',
+              cursor: activeMediaType === 'graphic'
+                ? immersiveView
+                  ? 'zoom-out'
+                  : 'zoom-in'
+                : 'default',
             }}
           >
             <div
@@ -611,6 +626,31 @@ function ActivePortfolioPreviewModal({
                   padding: compactChrome ? '14px' : '18px',
                 }}
               >
+                <button
+                  type="button"
+                  onClick={toggleImmersiveView}
+                  style={{
+                    position: 'absolute',
+                    top: compactChrome ? 24 : 30,
+                    right: compactChrome ? 24 : 30,
+                    zIndex: 3,
+                    padding: '9px 13px',
+                    borderRadius: 999,
+                    border: `1px solid ${soft}`,
+                    background: immersiveView
+                      ? 'linear-gradient(135deg, #2563eb, #0ea5e9)'
+                      : dark
+                        ? 'rgba(15,23,42,0.72)'
+                        : 'rgba(255,255,255,0.88)',
+                    color: immersiveView ? '#fff' : text,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    boxShadow: '0 12px 26px rgba(15,23,42,0.16)',
+                  }}
+                >
+                  {immersiveView ? 'Normal view' : 'Full view'}
+                </button>
                 <div
                   style={{
                     position: 'relative',
@@ -963,6 +1003,10 @@ function ActivePortfolioPreviewModal({
               gap: 16,
               alignSelf: 'start',
               minWidth: 0,
+              maxHeight:
+                immersiveView && !stackedLayout ? 'calc(100vh - 150px)' : undefined,
+              overflow: immersiveView && !stackedLayout ? 'auto' : undefined,
+              paddingRight: immersiveView && !stackedLayout ? 2 : undefined,
             }}
           >
             <div
