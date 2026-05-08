@@ -175,6 +175,9 @@ export default function PortfolioCategoryPage() {
               title: categoryTitle,
               subtitle: scopedPageSettings.subtitle,
               badge: typeLabel,
+              showButton: true,
+              buttonText: 'All Portfolio',
+              buttonLink: '/portfolio',
             },
           }}
           itemMetaConfig={itemMetaConfig}
@@ -199,6 +202,25 @@ export default function PortfolioCategoryPage() {
             <p style={{ margin: 0, color: dark ? '#94a3b8' : '#475569' }}>
               This portfolio category route needs a valid video or graphic type.
             </p>
+            <a
+              href="/portfolio"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                marginTop: 22,
+                padding: '12px 18px',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: 14,
+                fontWeight: 800,
+              }}
+            >
+              All Portfolio <span aria-hidden="true">→</span>
+            </a>
           </div>
         </section>
       )}

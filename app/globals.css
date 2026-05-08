@@ -40,6 +40,10 @@ picture {
   display: none;
 }
 
+.portfolio-showcase-homepage {
+  max-width: min(100%, var(--portfolio-showcase-max-width, 1360px)) !important;
+}
+
 @media (max-width: 700px) {
   .portfolio-showcase-section,
   .portfolio-showcase-section > *,

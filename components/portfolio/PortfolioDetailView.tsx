@@ -52,9 +52,14 @@ function Card({ item }: { item: PortfolioPreviewItem }) {
     <Link
       href={getItemHref(item)}
       style={{
-        display: 'grid',
-        gap: 10,
+        display: 'flex',
+        flexDirection: 'column',
         minWidth: 0,
+        overflow: 'hidden',
+        borderRadius: 22,
+        border: '1px solid rgba(148,163,184,0.18)',
+        background: 'linear-gradient(180deg, rgba(15,23,42,0.84), rgba(2,6,23,0.94))',
+        boxShadow: '0 14px 30px -14px rgba(0,0,0,0.5)',
         color: 'inherit',
         textDecoration: 'none',
       }}
@@ -64,11 +69,9 @@ function Card({ item }: { item: PortfolioPreviewItem }) {
           position: 'relative',
           display: 'block',
           width: '100%',
-          aspectRatio: item.sourceType === 'video' ? '16 / 9' : '4 / 3',
+          minWidth: 0,
           overflow: 'hidden',
-          borderRadius: 18,
-          border: '1px solid rgba(148,163,184,0.18)',
-          background: item.sourceType === 'video' ? '#0f172a' : '#e2e8f0',
+          background: item.sourceType === 'video' ? '#0f172a' : '#020617',
         }}
       >
         <img
@@ -79,25 +82,56 @@ function Card({ item }: { item: PortfolioPreviewItem }) {
           style={{
             display: 'block',
             width: '100%',
-            height: '100%',
+            height: 'auto',
             maxWidth: '100%',
             objectFit: item.sourceType === 'video' ? 'cover' : 'contain',
           }}
         />
+        {item.sourceType === 'video' ? (
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 46,
+              height: 46,
+              borderRadius: '50%',
+              background: 'rgba(15,23,42,0.76)',
+              display: 'grid',
+              placeItems: 'center',
+              boxShadow: '0 12px 28px rgba(0,0,0,0.22)',
+            }}
+          >
+            <span
+              style={{
+                width: 0,
+                height: 0,
+                borderTop: '8px solid transparent',
+                borderBottom: '8px solid transparent',
+                borderLeft: '13px solid #fff',
+                marginLeft: 3,
+              }}
+            />
+          </span>
+        ) : null}
       </span>
-      <span
-        style={{
-          color: '#f8fafc',
-          fontSize: 15,
-          fontWeight: 800,
-          lineHeight: 1.25,
-          overflowWrap: 'anywhere',
-        }}
-      >
-        {item.title}
-      </span>
-      <span style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700 }}>
-        {item.categoryName}
+      <span style={{ display: 'grid', gap: 7, padding: '14px 15px 16px', minWidth: 0 }}>
+        <span
+          style={{
+            color: '#f8fafc',
+            fontSize: 15,
+            fontWeight: 800,
+            lineHeight: 1.25,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {item.title}
+        </span>
+        <span style={{ color: '#94a3b8', fontSize: 12, fontWeight: 700 }}>
+          {item.categoryName}
+        </span>
       </span>
     </Link>
   );
@@ -152,12 +186,44 @@ export default function PortfolioDetailView({
           gap: 24,
         }}
       >
-        <nav style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: '#7dd3fc', fontSize: 13, fontWeight: 800 }}>
-          <Link href="/portfolio" style={{ color: 'inherit', textDecoration: 'none' }}>
-            Portfolio
+        <nav
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+            color: '#7dd3fc',
+            fontSize: 13,
+            fontWeight: 800,
+          }}
+        >
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+            <Link href="/portfolio" style={{ color: 'inherit', textDecoration: 'none' }}>
+              Portfolio
+            </Link>
+            <span>/</span>
+            <span>{item.sourceType === 'video' ? 'Videos' : 'Graphics'}</span>
+          </div>
+          <Link
+            href="/portfolio"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '10px 14px',
+              borderRadius: 999,
+              background: 'rgba(14,165,233,0.14)',
+              border: '1px solid rgba(125,211,252,0.28)',
+              color: '#e0f2fe',
+              textDecoration: 'none',
+              fontSize: 13,
+              fontWeight: 900,
+            }}
+          >
+            All Portfolio <span aria-hidden="true">→</span>
           </Link>
-          <span>/</span>
-          <span>{item.sourceType === 'video' ? 'Videos' : 'Graphics'}</span>
         </nav>
 
         <section
@@ -266,6 +332,28 @@ export default function PortfolioDetailView({
                 ))}
               </div>
             ) : null}
+
+            <Link
+              href="/portfolio"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                width: 'fit-content',
+                maxWidth: '100%',
+                padding: '12px 18px',
+                borderRadius: 14,
+                background: 'linear-gradient(135deg, #2563eb, #0ea5e9)',
+                color: '#fff',
+                textDecoration: 'none',
+                fontSize: 14,
+                fontWeight: 900,
+                boxShadow: '0 18px 40px rgba(37,99,235,0.22)',
+              }}
+            >
+              View all portfolio <span aria-hidden="true">→</span>
+            </Link>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
               {previousItem ? (

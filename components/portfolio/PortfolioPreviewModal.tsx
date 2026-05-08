@@ -1100,6 +1100,26 @@ function ActivePortfolioPreviewModal({
                 >
                   {copiedShareLink ? 'Copied link' : 'Copy share link'}
                 </button>
+                <a
+                  href="/portfolio"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '12px 18px',
+                    borderRadius: 14,
+                    border: `1px solid ${soft}`,
+                    background: dark ? 'rgba(15,23,42,0.58)' : 'rgba(255,255,255,0.86)',
+                    color: text,
+                    textDecoration: 'none',
+                    fontSize: 14,
+                    fontWeight: 800,
+                  }}
+                >
+                  All Portfolio
+                  <span>→</span>
+                </a>
               </div>
 
               {(activeMeta.previewCtaLabel && activeMeta.previewCtaLink) ||
