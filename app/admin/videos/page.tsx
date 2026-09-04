@@ -8,11 +8,16 @@ import PortfolioManagerWorkspace, {
   type PortfolioManagerItem,
 } from '@/components/admin/PortfolioManagerWorkspace';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
-import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import {
+  adminDeleteRows,
+  adminFetchPortfolioDataset,
+  adminInsertRowsWithSchemaFallback,
+  adminSelectRows,
+  adminUpdateRowsWithSchemaFallback,
+} from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { toSettingMap } from '@/lib/hero-settings';
 import {
-  fetchPortfolioDataset,
   findHomepageOrderConflict,
   getHomepageConfigForItem,
   getHomepagePortfolioItemKey,
@@ -155,9 +160,9 @@ export default function AdminVideos() {
     setLoading(true);
 
     try {
-      const [{ data: settingsRows }, dataset] = await Promise.all([
-        supabase.from('site_settings').select('*'),
-        fetchPortfolioDataset(supabase, { includeHidden: true }),
+      const [settingsRows, dataset] = await Promise.all([
+        adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
+        adminFetchPortfolioDataset(),
       ]);
 
       const map = toSettingMap(settingsRows || []);
@@ -403,9 +408,13 @@ export default function AdminVideos() {
 
     let savedId = draft.id;
     if (options.mode === 'update') {
-      await adminUpdateRows('videos', payload, { id: draft.id });
+      await adminUpdateRowsWithSchemaFallback('videos', payload, { id: draft.id });
     } else {
-      const data = await adminInsertRows<Array<{ id: number }>>('videos', [payload], 'id');
+      const data = await adminInsertRowsWithSchemaFallback<Array<{ id: number }>>(
+        'videos',
+        [payload],
+        'id'
+      );
       savedId = String(data?.[0]?.id || '');
     }
 
@@ -528,7 +537,11 @@ export default function AdminVideos() {
         visible: item.visible,
       };
 
-      const data = await adminInsertRows<Array<{ id: number }>>('videos', [insertPayload], 'id');
+      const data = await adminInsertRowsWithSchemaFallback<Array<{ id: number }>>(
+        'videos',
+        [insertPayload],
+        'id'
+      );
       const duplicatedId = String(data?.[0]?.id || '');
       const duplicatedItem = {
         ...item,

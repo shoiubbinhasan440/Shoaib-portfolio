@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
 import AdminTextStyleControls from '@/components/admin/AdminTextStyleControls';
+import { adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
@@ -116,6 +117,28 @@ function createAchievement(): ExperienceAchievement {
   };
 }
 
+function getEditableAchievements(item: ExperienceItem) {
+  return item.achievements.map(point => ({
+    text: point.text || '',
+    highlighted: Boolean(point.highlighted),
+    icon: point.icon,
+    color: point.color || '',
+  }));
+}
+
+function cleanExperienceDraft(config: AboutSystemConfig): AboutSystemConfig {
+  return {
+    ...config,
+    experience: {
+      ...config.experience,
+      items: config.experience.items.map(item => ({
+        ...item,
+        achievements: normalizeExperienceAchievements(item.achievements),
+      })),
+    },
+  };
+}
+
 export default function AdminExperiencesPage() {
   const router = useRouter();
   const tokens = useAdminThemeTokens();
@@ -126,7 +149,9 @@ export default function AdminExperiencesPage() {
   const [msg, setMsg] = useState('');
 
   async function loadSystem() {
-    const { data } = await supabase.from('site_settings').select('*');
+    const data = await adminSelectRows<Array<{ key: string; value: string }>>(
+      'site_settings'
+    );
     const map = toSettingMap(data || []);
     setAboutSystem(getAboutSystemConfig(map));
   }
@@ -198,7 +223,7 @@ export default function AdminExperiencesPage() {
 
   function updateAchievements(item: ExperienceItem, achievements: ExperienceAchievement[]) {
     updateExperienceItem(item.id, {
-      achievements: achievements.filter(point => point.text.trim() || point.highlighted),
+      achievements,
     });
   }
 
@@ -230,7 +255,7 @@ export default function AdminExperiencesPage() {
       await writeSiteSetting(
         supabase,
         ABOUT_SYSTEM_SETTING_KEY,
-        serializeAboutSystemConfig(aboutSystem)
+        serializeAboutSystemConfig(cleanExperienceDraft(aboutSystem))
       );
       await loadSystem();
       setMsg('✅ Experience Manager saved successfully.');
@@ -421,7 +446,7 @@ export default function AdminExperiencesPage() {
                     </div>
                   ) : null}
                   {sortedItems.map(item => {
-                    const achievements = normalizeExperienceAchievements(item.achievements);
+                    const achievements = getEditableAchievements(item);
 
                     return (
                       <div

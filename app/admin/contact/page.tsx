@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
@@ -144,7 +145,9 @@ export default function ContactAdminPage() {
   const [msg, setMsg] = useState('');
 
   async function loadSystem() {
-    const { data: settingsRows } = await supabase.from('site_settings').select('*');
+    const settingsRows = await adminSelectRows<Array<{ key: string; value: string }>>(
+      'site_settings'
+    );
     const map = toSettingMap(settingsRows || []);
     setPageConfig(getContactPageConfig(map));
   }

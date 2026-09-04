@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminSeoEditor from '@/components/admin/SeoEditor';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import {
   AdminActionButton,
@@ -152,7 +153,9 @@ export default function AdminSettingsPage() {
   const [savingWhatsAppConfig, setSavingWhatsAppConfig] = useState(false);
 
   async function loadSettings() {
-    const { data } = await supabase.from('site_settings').select('*');
+    const data = await adminSelectRows<Array<{ key: string; value: string }>>(
+      'site_settings'
+    );
     const map = toSettingMap(data || []);
     const nextConfig = getGlobalSettingsConfig(map);
     setRawSettings(map);

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
@@ -646,12 +647,12 @@ export default function AdminNavigationPage() {
   const [siteLogoAlt, setSiteLogoAlt] = useState('Site logo');
 
   async function loadSystem() {
-    const [{ data: settingsRows }, { data: legacyRows }] = await Promise.all([
-      supabase.from('site_settings').select('key, value'),
-      supabase
-        .from('navigation')
-        .select('id, label, href, order_num, visible')
-        .order('order_num', { ascending: true }),
+    const [settingsRows, legacyRows] = await Promise.all([
+      adminSelectRows<SettingRow[]>('site_settings', { select: 'key, value' }),
+      adminSelectRows<LegacyRow[]>('navigation', {
+        order: [{ column: 'order_num', ascending: true }],
+        select: 'id, label, href, order_num, visible',
+      }),
     ]);
 
     const map = toSettingMap((settingsRows || []) as SettingRow[]);

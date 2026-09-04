@@ -2,16 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import AdminModuleGrid from '@/components/admin/AdminModuleGrid';
 import AdminShell from '@/components/admin/AdminShell';
 import { useTheme } from '@/components/ThemeProvider';
+import { adminCountRows } from '@/lib/admin-data-client';
 import type { ClientProject, ContactLead, CreativeBrief } from '@/lib/crm';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type DashboardState = {
   briefs: CreativeBrief[];
@@ -50,10 +45,10 @@ export default function AdminDashboardPage() {
             fetch('/api/contact'),
             fetch('/api/admin/briefs'),
             fetch('/api/admin/projects'),
-            supabase.from('videos').select('id', { count: 'exact' }),
-            supabase.from('graphics').select('id', { count: 'exact' }),
-            supabase.from('categories').select('id', { count: 'exact' }),
-            supabase.from('page_views').select('id', { count: 'exact' }),
+            adminCountRows('videos'),
+            adminCountRows('graphics'),
+            adminCountRows('categories'),
+            adminCountRows('page_views'),
           ]);
 
         const leadData = leadResponse.ok
@@ -68,13 +63,13 @@ export default function AdminDashboardPage() {
 
         setState({
           briefs: briefData.briefs || [],
-          categories: categories.count || 0,
-          graphics: graphics.count || 0,
+          categories,
+          graphics,
           leads: leadData.leads || [],
           loading: false,
           projects: projectData.projects || [],
-          videos: videos.count || 0,
-          views: views.count || 0,
+          videos,
+          views,
         });
       } catch {
         setState(current => ({ ...current, loading: false }));

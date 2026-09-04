@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { connection } from 'next/server';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import Navbar from '@/components/Navbar';
@@ -13,6 +14,7 @@ function toJsonLd(data: unknown) {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  await connection();
   const settings = await getServerGlobalSettings();
   return buildPageMetadata(settings, 'home');
 }
@@ -22,6 +24,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await connection();
   const settings = await getServerGlobalSettings();
   const loaderConfig = await getPremiumLoaderConfig();
   const structuredData = buildStructuredData(settings);

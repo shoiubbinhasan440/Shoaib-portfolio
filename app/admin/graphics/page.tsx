@@ -8,11 +8,16 @@ import PortfolioManagerWorkspace, {
   type PortfolioManagerItem,
 } from '@/components/admin/PortfolioManagerWorkspace';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
-import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import {
+  adminDeleteRows,
+  adminFetchPortfolioDataset,
+  adminInsertRowsWithSchemaFallback,
+  adminSelectRows,
+  adminUpdateRowsWithSchemaFallback,
+} from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { toSettingMap } from '@/lib/hero-settings';
 import {
-  fetchPortfolioDataset,
   findHomepageOrderConflict,
   getHomepageConfigForItem,
   getHomepagePortfolioItemKey,
@@ -139,9 +144,9 @@ export default function AdminGraphics() {
     setLoading(true);
 
     try {
-      const [{ data: settingsRows }, dataset] = await Promise.all([
-        supabase.from('site_settings').select('*'),
-        fetchPortfolioDataset(supabase, { includeHidden: true }),
+      const [settingsRows, dataset] = await Promise.all([
+        adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
+        adminFetchPortfolioDataset(),
       ]);
 
       const map = toSettingMap(settingsRows || []);
@@ -375,9 +380,13 @@ export default function AdminGraphics() {
 
     let savedId = draft.id;
     if (options.mode === 'update') {
-      await adminUpdateRows('graphics', payload, { id: draft.id });
+      await adminUpdateRowsWithSchemaFallback('graphics', payload, { id: draft.id });
     } else {
-      const data = await adminInsertRows<Array<{ id: string }>>('graphics', [payload], 'id');
+      const data = await adminInsertRowsWithSchemaFallback<Array<{ id: string }>>(
+        'graphics',
+        [payload],
+        'id'
+      );
       savedId = String(data?.[0]?.id || '');
     }
 
@@ -495,7 +504,11 @@ export default function AdminGraphics() {
         order_num: items.length > 0 ? Math.max(...items.map(entry => entry.order_num)) + 1 : 1,
       };
 
-      const data = await adminInsertRows<Array<{ id: string }>>('graphics', [insertPayload], 'id');
+      const data = await adminInsertRowsWithSchemaFallback<Array<{ id: string }>>(
+        'graphics',
+        [insertPayload],
+        'id'
+      );
       const duplicatedId = String(data?.[0]?.id || '');
       const duplicatedItem = {
         ...item,

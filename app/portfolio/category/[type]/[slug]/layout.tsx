@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { connection } from 'next/server';
 import { getServerGlobalSettings } from '@/lib/server-site-settings';
 import { buildPortfolioCategoryMetadata } from '@/lib/site-metadata';
 import type { PortfolioCategory, PortfolioSourceType } from '@/lib/portfolio-content';
@@ -74,6 +75,7 @@ async function getCategorySeoDetails(sourceType: PortfolioSourceType, slug: stri
 export async function generateMetadata({
   params,
 }: CategoryLayoutProps): Promise<Metadata> {
+  await connection();
   const resolvedParams = await params;
   const sourceType = normalizeSourceType(resolvedParams.type) || 'video';
   const slug = decodeURIComponent(resolvedParams.slug || '');

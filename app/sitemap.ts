@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { connection } from 'next/server';
 import { getServerGlobalSettings } from '@/lib/server-site-settings';
 import { buildSitemap } from '@/lib/site-metadata';
 import {
@@ -110,6 +111,7 @@ async function buildPortfolioSitemapEntries(
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  await connection();
   const settings = await getServerGlobalSettings();
   const portfolioEntries = await buildPortfolioSitemapEntries(
     settings.seo.canonicalUrl || SITE_CONFIG.url

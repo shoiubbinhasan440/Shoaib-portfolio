@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
 import SeoVisibilityPanel from '@/components/admin/SeoVisibilityPanel';
 import {
@@ -17,20 +16,19 @@ import {
   getAdminTextareaStyle,
   useAdminThemeTokens,
 } from '@/components/admin/admin-ui';
-import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import {
+  adminDeleteRows,
+  adminFetchPortfolioDataset,
+  adminInsertRows,
+  adminUpdateRows,
+} from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
-import {
-  fetchPortfolioDataset,
-  type PortfolioCategory,
-  type PortfolioGraphic,
-  type PortfolioVideo,
+import type {
+  PortfolioCategory,
+  PortfolioGraphic,
+  PortfolioVideo,
 } from '@/lib/portfolio-content';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type CategoryType = 'video' | 'graphic' | 'both';
 type StatusFilter = 'all' | 'active' | 'hidden' | 'empty' | 'featured';
@@ -367,7 +365,7 @@ export default function AdminCategories() {
     setLoading(true);
 
     try {
-      const dataset = await fetchPortfolioDataset(supabase, { includeHidden: true });
+      const dataset = await adminFetchPortfolioDataset();
       setCategories(dataset.categories || []);
       setVideos(dataset.videos || []);
       setGraphics(dataset.graphics || []);

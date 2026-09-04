@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminFetchPortfolioDataset, adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { IMAGE_FILE_ACCEPT, type ImageUploadProfile } from '@/lib/image-upload-validation';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
@@ -65,7 +66,6 @@ import {
   DEFAULT_PORTFOLIO_PAGE_SETTINGS,
   HOMEPAGE_PORTFOLIO_SETTING_KEYS,
   HOMEPAGE_PORTFOLIO_SYSTEM_SETTING_KEY,
-  fetchPortfolioDataset,
   getHomepageCategoryConfig,
   getHomepageConfigForItem,
   getHomepagePortfolioCategoryKey,
@@ -549,9 +549,9 @@ export default function AdminHomepageBuilderPage() {
   const [uploadingField, setUploadingField] = useState('');
 
   async function loadBuilder() {
-    const [{ data: settingsRows }, dataset] = await Promise.all([
-      supabase.from('site_settings').select('*'),
-      fetchPortfolioDataset(supabase, { includeHidden: true }),
+    const [settingsRows, dataset] = await Promise.all([
+      adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
+      adminFetchPortfolioDataset(),
     ]);
 
     const map = toSettingMap(settingsRows || []);

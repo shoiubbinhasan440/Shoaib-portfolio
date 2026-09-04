@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { hasAdminSession } from '@/lib/auth-sessions';
 import { getServerGlobalSettings } from '@/lib/server-site-settings';
 import { getSupabaseAdminClient } from '@/lib/supabase-admin';
@@ -37,6 +38,60 @@ const ADMIN_TABLES = [
 ];
 
 const STORAGE_BUCKETS = ['media', 'graphics'];
+
+const PUBLIC_VISIBILITY_CHECKS = [
+  {
+    hiddenFilter: { column: 'visible', value: false },
+    table: 'graphics',
+  },
+  {
+    hiddenFilter: { column: 'visible', value: false },
+    table: 'videos',
+  },
+  {
+    hiddenFilter: { column: 'visible', value: false },
+    table: 'tutorials',
+  },
+  {
+    hiddenFilter: { column: 'active', value: false },
+    table: 'categories',
+  },
+] as const;
+
+const REQUIRED_SCHEMA_COLUMNS = [
+  {
+    columns: ['slug'],
+    migration: 'supabase/migrations/202605080001_add_portfolio_item_slugs.sql',
+    table: 'graphics',
+  },
+  {
+    columns: ['slug'],
+    migration: 'supabase/migrations/202605080001_add_portfolio_item_slugs.sql',
+    table: 'videos',
+  },
+  {
+    columns: [
+      'description',
+      'cover_image_url',
+      'thumbnail_image',
+      'icon',
+      'seo_title',
+      'seo_description',
+      'canonical_url',
+      'og_image_url',
+      'og_image',
+      'show_on_homepage',
+      'show_on_portfolio',
+      'show_on_portfolio_page',
+      'show_filter_chip',
+      'featured',
+      'featured_category',
+      'visibility_status',
+    ],
+    migration: 'supabase/migrations/202605070001_enhance_categories.sql',
+    table: 'categories',
+  },
+] as const;
 
 function addIssue(
   issues: HealthIssue[],
@@ -120,6 +175,77 @@ async function checkBucket(bucket: string): Promise<CheckResult> {
     return {
       ok: false,
       detail: error instanceof Error ? error.message : 'Bucket check failed',
+    };
+  }
+}
+
+async function checkRequiredColumns(
+  table: string,
+  columns: readonly string[]
+): Promise<CheckResult> {
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { error } = await supabase
+      .from(table)
+      .select(columns.join(','))
+      .limit(1);
+
+    if (error) {
+      return {
+        ok: false,
+        detail: error.message || `Missing one or more required columns: ${columns.join(', ')}`,
+      };
+    }
+
+    return { ok: true, detail: `${columns.length} required column(s) available` };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: error instanceof Error ? error.message : 'Column check failed',
+    };
+  }
+}
+
+async function checkAnonHiddenRead(
+  table: string,
+  hiddenFilter: { column: string; value: boolean }
+): Promise<CheckResult> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { ok: false, detail: 'Public Supabase credentials are missing.' };
+  }
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data, error } = await supabase
+      .from(table)
+      .select('id')
+      .eq(hiddenFilter.column, hiddenFilter.value)
+      .limit(1);
+
+    if (error) {
+      return { ok: true, detail: `Anon hidden-read blocked: ${error.message}` };
+    }
+
+    if ((data || []).length > 0) {
+      return {
+        ok: false,
+        detail: `Anon key can read hidden ${table} row(s) where ${hiddenFilter.column} = ${String(hiddenFilter.value)}.`,
+      };
+    }
+
+    return {
+      ok: true,
+      detail: `No hidden ${table} rows were exposed in the anon read sample.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: error instanceof Error ? error.message : 'Anon visibility check failed',
     };
   }
 }
@@ -219,7 +345,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [settings, tableResults, bucketResults] = await Promise.all([
+  const [settings, tableResults, bucketResults, schemaResults, anonVisibilityResults] = await Promise.all([
     getServerGlobalSettings().catch(error => {
       addIssue(
         issues,
@@ -233,10 +359,27 @@ export async function GET(request: NextRequest) {
     }),
     Promise.all(ADMIN_TABLES.map(async table => [table, await checkTable(table)] as const)),
     Promise.all(STORAGE_BUCKETS.map(async bucket => [bucket, await checkBucket(bucket)] as const)),
+    Promise.all(
+      REQUIRED_SCHEMA_COLUMNS.map(async requirement => [
+        requirement.table,
+        {
+          migration: requirement.migration,
+          result: await checkRequiredColumns(requirement.table, requirement.columns),
+        },
+      ] as const)
+    ),
+    Promise.all(
+      PUBLIC_VISIBILITY_CHECKS.map(async check => [
+        check.table,
+        await checkAnonHiddenRead(check.table, check.hiddenFilter),
+      ] as const)
+    ),
   ]);
 
   const tables = Object.fromEntries(tableResults);
   const buckets = Object.fromEntries(bucketResults);
+  const schema = Object.fromEntries(schemaResults);
+  const anonVisibility = Object.fromEntries(anonVisibilityResults);
 
   tableResults.forEach(([table, result]) => {
     addIssue(
@@ -261,6 +404,32 @@ export async function GET(request: NextRequest) {
       result.ok
         ? 'No action needed for this storage connectivity check.'
         : `Confirm the ${bucket} bucket exists and admin uploads use /api/admin/storage-upload.`
+    );
+  });
+
+  schemaResults.forEach(([table, { migration, result }]) => {
+    addIssue(
+      issues,
+      result.ok ? 'pass' : 'warning',
+      'Schema',
+      `${table} schema ${result.ok ? 'up to date' : 'needs migration'}`,
+      result.detail,
+      result.ok
+        ? 'No action needed for this schema check.'
+        : `Run ${migration}, or run supabase/migrations/202605090001_sync_admin_frontend_schema.sql from the Supabase SQL Editor.`
+    );
+  });
+
+  anonVisibilityResults.forEach(([table, result]) => {
+    addIssue(
+      issues,
+      result.ok ? 'pass' : 'warning',
+      'RLS',
+      `${table} hidden rows ${result.ok ? 'not exposed' : 'exposed to anon'}`,
+      result.detail,
+      result.ok
+        ? 'No action needed for this visibility sample.'
+        : 'Move admin reads to protected service-role API routes before tightening public RLS policies, then apply production RLS hardening.'
     );
   });
 
@@ -342,6 +511,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       buckets,
+      anonVisibility,
       counts,
       env,
       generatedAt,
@@ -351,6 +521,7 @@ export async function GET(request: NextRequest) {
         protectedStorageUpload: '/api/admin/storage-upload',
         protectedSupabaseWrite: '/api/admin/supabase-write',
       },
+      schema,
       tables,
     },
     {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminFetchPortfolioDataset, adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
@@ -41,7 +42,6 @@ import {
   toSettingMap,
   type SettingMap,
 } from '@/lib/hero-settings';
-import { fetchPortfolioDataset } from '@/lib/portfolio-content';
 import { writeSiteSetting } from '@/lib/site-settings';
 
 const supabase = createClient(
@@ -135,9 +135,9 @@ export default function AdminAboutPage() {
   const [msg, setMsg] = useState('');
 
   async function loadSystem() {
-    const [{ data: settings }, { videos, graphics }] = await Promise.all([
-      supabase.from('site_settings').select('*'),
-      fetchPortfolioDataset(supabase),
+    const [settings, { videos, graphics }] = await Promise.all([
+      adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
+      adminFetchPortfolioDataset(),
     ]);
 
     const map = toSettingMap(settings || []);

@@ -4,7 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminShell from '@/components/admin/AdminShell';
-import { adminDeleteRows, adminInsertRows, adminUpdateRows } from '@/lib/admin-data-client';
+import {
+  adminDeleteRows,
+  adminInsertRows,
+  adminSelectRows,
+  adminUpdateRows,
+} from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import PageStyleEditor from '@/components/admin/PageStyleEditor';
@@ -260,12 +265,14 @@ export default function AdminTutorialPage() {
 
   async function loadSystem() {
     const [settingsResult, tutorialsResult] = await Promise.all([
-      supabase.from('site_settings').select('*'),
-      supabase.from('tutorials').select('*').order('order_num', { ascending: true }),
+      adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
+      adminSelectRows<TutorialRecord[]>('tutorials', {
+        order: [{ column: 'order_num', ascending: true }],
+      }),
     ]);
 
-    const items = (tutorialsResult.data || []) as TutorialRecord[];
-    const map = toSettingMap(settingsResult.data || []);
+    const items = tutorialsResult || [];
+    const map = toSettingMap(settingsResult || []);
     setRawSettings(map);
     setPageConfig(getTutorialPageConfig(map, items.filter(item => item.visible).length));
     setTutorials(items);

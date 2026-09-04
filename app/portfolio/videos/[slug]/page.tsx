@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { connection } from 'next/server';
 import PortfolioDetailView from '@/components/portfolio/PortfolioDetailView';
 import { getPortfolioDetailData } from '@/lib/portfolio-detail';
 import { getServerGlobalSettings } from '@/lib/server-site-settings';
@@ -10,6 +11,7 @@ type PageProps = {
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  await connection();
   const { slug } = await params;
   const settings = await getServerGlobalSettings();
   const data = await getPortfolioDetailData('videos', slug);
@@ -25,6 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function VideoPortfolioDetailPage({ params }: PageProps) {
+  await connection();
   const { slug } = await params;
   const data = await getPortfolioDetailData('videos', slug);
 

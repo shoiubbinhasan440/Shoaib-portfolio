@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import AdminImageField from '@/components/admin/AdminImageField';
 import AdminShell from '@/components/admin/AdminShell';
+import { adminFetchPortfolioDataset, adminSelectRows } from '@/lib/admin-data-client';
 import { adminUploadFile } from '@/lib/admin-storage-client';
 import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import {
@@ -25,7 +26,6 @@ import {
   serializeGlobalFooterConfig,
 } from '@/lib/footer-content';
 import type { HomepageFooterSection } from '@/lib/homepage-content';
-import { fetchPortfolioDataset } from '@/lib/portfolio-content';
 import { serializeStyledSetting, toSettingMap, type SettingMap } from '@/lib/hero-settings';
 import { writeSiteSetting } from '@/lib/site-settings';
 
@@ -116,9 +116,9 @@ export default function FooterAdminPage() {
   const [msg, setMsg] = useState('');
 
   async function loadFooter() {
-    const [{ data: settingsRows }, dataset] = await Promise.all([
-      supabase.from('site_settings').select('*'),
-      fetchPortfolioDataset(supabase, { includeHidden: true }),
+    const [settingsRows, dataset] = await Promise.all([
+      adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
+      adminFetchPortfolioDataset(),
     ]);
 
     const map = toSettingMap(settingsRows || []);
