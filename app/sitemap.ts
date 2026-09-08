@@ -29,13 +29,13 @@ async function buildPortfolioSitemapEntries(
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const [{ data: settingsRows }, { videos, graphics, categories }] = await Promise.all([
+  const [{ data: settingsRows }, { videos, graphics, marketing, categories }] = await Promise.all([
     supabase.from('site_settings').select('key, value'),
     fetchPortfolioDataset(supabase),
   ]);
   const map = toSettingMap(settingsRows || []);
   const metaConfig = parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]);
-  const items = toPortfolioPreviewItems(videos, graphics, categories);
+  const items = toPortfolioPreviewItems(videos, graphics, categories, marketing);
   const keys = new Set<string>();
 
   items.forEach(item => {
@@ -53,6 +53,7 @@ async function buildPortfolioSitemapEntries(
   const orderedTypes = getHomepageAllowedSourceTypes({
     showVideos: true,
     showGraphics: true,
+    showMarketing: true,
     mixedOrder: 'video-first',
   });
 
@@ -74,7 +75,13 @@ async function buildPortfolioSitemapEntries(
 
       return {
         url: getCanonicalUrl(
-          `/portfolio/category/${sourceType === 'graphic' ? 'graphics' : sourceType}/${slug}`
+          `/portfolio/category/${
+            sourceType === 'graphic'
+              ? 'graphics'
+              : sourceType === 'marketing'
+                ? 'digital-marketing'
+                : sourceType
+          }/${slug}`
         ),
         lastModified: new Date(),
         changeFrequency: 'monthly' as const,
@@ -102,7 +109,7 @@ async function buildPortfolioSitemapEntries(
         url: getCanonicalUrl(getPortfolioItemDetailPath(item, meta)),
         lastModified: new Date(),
         changeFrequency: 'monthly' as const,
-        priority: item.sourceType === 'graphic' ? 0.68 : 0.66,
+        priority: item.sourceType === 'marketing' ? 0.67 : item.sourceType === 'graphic' ? 0.68 : 0.66,
         images: image ? [absoluteAssetUrl(image)] : undefined,
       };
     });

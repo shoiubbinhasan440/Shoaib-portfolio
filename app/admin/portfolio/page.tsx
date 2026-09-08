@@ -389,7 +389,8 @@ export default function PortfolioAdminPage() {
     const previewItems = toPortfolioPreviewItems(
       dataset.videos,
       dataset.graphics,
-      dataset.categories
+      dataset.categories,
+      dataset.marketing
     );
 
     setRawSettings(map);
@@ -703,11 +704,18 @@ export default function PortfolioAdminPage() {
           PORTFOLIO_PAGE_SETTING_KEYS.tabGraphicLabel,
           serializeStyledSetting(rawSettings[PORTFOLIO_PAGE_SETTING_KEYS.tabGraphicLabel], pageSettings.tabs.graphic.label)
         ),
+        writeSiteSetting(
+          supabase,
+          PORTFOLIO_PAGE_SETTING_KEYS.tabMarketingLabel,
+          serializeStyledSetting(rawSettings[PORTFOLIO_PAGE_SETTING_KEYS.tabMarketingLabel], pageSettings.tabs.marketing.label)
+        ),
         writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.tabAllEnabled, String(pageSettings.tabs.all.enabled)),
         writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.tabVideoEnabled, String(pageSettings.tabs.video.enabled)),
         writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.tabGraphicEnabled, String(pageSettings.tabs.graphic.enabled)),
+        writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.tabMarketingEnabled, String(pageSettings.tabs.marketing.enabled)),
         writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.allShowVideos, String(pageSettings.allTab.showVideos)),
         writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.allShowGraphics, String(pageSettings.allTab.showGraphics)),
+        writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.allShowMarketing, String(pageSettings.allTab.showMarketing)),
         writeSiteSetting(supabase, PORTFOLIO_PAGE_SETTING_KEYS.allOrder, pageSettings.allTab.order),
         writeSiteSetting(
           supabase,
@@ -722,7 +730,12 @@ export default function PortfolioAdminPage() {
       ];
 
       const tableUpdates = items.map(item => {
-        const table = item.sourceType === 'video' ? 'videos' : 'graphics';
+        const table =
+          item.sourceType === 'video'
+            ? 'videos'
+            : item.sourceType === 'marketing'
+              ? 'digital_marketing'
+              : 'graphics';
         return supabase
           .from(table)
           .update({
@@ -1108,6 +1121,7 @@ export default function PortfolioAdminPage() {
                       ['all', 'সব'],
                       ['video', 'ভিডিও এডিটিং'],
                       ['graphic', 'গ্রাফিক্স ডিজাইন'],
+                      ['marketing', 'ডিজিটাল মার্কেটিং'],
                     ] as const).map(([key, fallbackLabel]) => (
                       <div
                         key={key}
@@ -1154,6 +1168,14 @@ export default function PortfolioAdminPage() {
                       />
                       <span>Show graphics under “সব”</span>
                     </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={pageSettings.allTab.showMarketing}
+                        onChange={event => updateAllTab('showMarketing', event.target.checked)}
+                      />
+                      <span>Show digital marketing under “সব”</span>
+                    </label>
                     <Field label="“সব” order">
                       <select
                         value={pageSettings.allTab.order}
@@ -1162,6 +1184,7 @@ export default function PortfolioAdminPage() {
                       >
                         <option value="video-first">Videos first</option>
                         <option value="graphic-first">Graphics first</option>
+                        <option value="marketing-first">Marketing first</option>
                       </select>
                     </Field>
                     <Field label="Chip alignment">
@@ -1709,7 +1732,7 @@ export default function PortfolioAdminPage() {
         <Panel
           title="Portfolio items"
           badge={`${items.length} items`}
-          description="Each video/graphic item-এর portfolio visibility, homepage visibility, category, order, preview modal support এবং homepage order এখান থেকে control করুন।"
+          description="Each video/graphic/marketing item-এর portfolio visibility, homepage visibility, category, order, preview modal support এবং homepage order এখান থেকে control করুন।"
         >
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
             <button
@@ -1752,8 +1775,22 @@ export default function PortfolioAdminPage() {
                 cursor: 'pointer',
               }}
             >
-              Graphics
-            </button>
+                Graphics
+              </button>
+              <button
+                type="button"
+                onClick={() => setItemFilter('marketing')}
+                style={{
+                  background: itemFilter === 'marketing' ? '#2563eb' : '#111827',
+                  color: '#fff',
+                  border: '1px solid rgba(148,163,184,0.16)',
+                  borderRadius: 999,
+                  padding: '10px 14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Marketing
+              </button>
             <input
               value={search}
               onChange={event => setSearch(event.target.value)}
@@ -1782,7 +1819,7 @@ export default function PortfolioAdminPage() {
             {filteredItems.map(item => {
               const rowConflict = conflictItemKeys.has(itemKey(item));
               const categoryOptions = categories.filter(category =>
-                category.type === 'both' || category.type === item.sourceType
+                category.type === 'both' || category.type === 'all' || category.type === item.sourceType
               );
               const nextSuggestedOrder = nextHomepageOrder(items);
 
@@ -1802,7 +1839,7 @@ export default function PortfolioAdminPage() {
                     <div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 8 }}>
                         <span style={{ fontWeight: 800, fontSize: 18 }}>{item.title}</span>
-                        <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, background: item.sourceType === 'video' ? 'rgba(37,99,235,0.18)' : 'rgba(168,85,247,0.18)', color: item.sourceType === 'video' ? '#93c5fd' : '#d8b4fe', textTransform: 'uppercase', fontWeight: 800 }}>
+                        <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, background: item.sourceType === 'video' ? 'rgba(37,99,235,0.18)' : item.sourceType === 'marketing' ? 'rgba(20,184,166,0.18)' : 'rgba(168,85,247,0.18)', color: item.sourceType === 'video' ? '#93c5fd' : item.sourceType === 'marketing' ? '#5eead4' : '#d8b4fe', textTransform: 'uppercase', fontWeight: 800 }}>
                           {item.sourceType}
                         </span>
                         <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, background: item.visible ? 'rgba(22,163,74,0.16)' : 'rgba(71,85,105,0.22)', color: item.visible ? '#86efac' : '#cbd5e1', fontWeight: 700 }}>

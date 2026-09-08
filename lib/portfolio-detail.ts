@@ -15,7 +15,7 @@ import {
   type PortfolioSourceType,
 } from '@/lib/portfolio-content';
 
-export type PortfolioDetailRouteType = 'graphics' | 'videos';
+export type PortfolioDetailRouteType = 'digital-marketing' | 'graphics' | 'videos';
 
 export type PortfolioDetailData = {
   item: PortfolioPreviewItem;
@@ -26,11 +26,23 @@ export type PortfolioDetailData = {
 };
 
 export function routeTypeToSourceType(routeType: PortfolioDetailRouteType): PortfolioSourceType {
+  if (routeType === 'digital-marketing') {
+    return 'marketing';
+  }
+
   return routeType === 'graphics' ? 'graphic' : 'video';
 }
 
 export function getPortfolioDetailTypeLabel(sourceType: PortfolioSourceType) {
-  return sourceType === 'graphic' ? 'Graphics' : 'Video';
+  if (sourceType === 'graphic') {
+    return 'Graphics';
+  }
+
+  if (sourceType === 'marketing') {
+    return 'Digital Marketing';
+  }
+
+  return 'Video';
 }
 
 function isPublishedPortfolioItem(item: PortfolioPreviewItem, meta: PortfolioItemMetaConfig) {
@@ -66,7 +78,12 @@ export const getPortfolioDetailData = cache(
     const metaConfig = parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]);
     const sourceType = routeTypeToSourceType(routeType);
     const items = sortPortfolioItemsByOrder(
-      toPortfolioPreviewItems(dataset.videos, dataset.graphics, dataset.categories)
+      toPortfolioPreviewItems(
+        dataset.videos,
+        dataset.graphics,
+        dataset.categories,
+        dataset.marketing
+      )
         .filter(item => item.sourceType === sourceType)
         .filter(item => isPublishedPortfolioItem(item, getPortfolioItemMeta(item, metaConfig)))
     );

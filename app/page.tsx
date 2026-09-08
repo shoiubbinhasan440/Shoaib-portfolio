@@ -15,6 +15,7 @@ import {
   PORTFOLIO_ITEM_META_SETTING_KEY,
   type PortfolioCategory,
   type PortfolioGraphic,
+  type PortfolioMarketing,
   type PortfolioVideo,
 } from '@/lib/portfolio-content';
 
@@ -22,6 +23,7 @@ type HomepageInitialData = {
   settingsRows: SettingRow[];
   videos: PortfolioVideo[];
   graphics: PortfolioGraphic[];
+  marketing: PortfolioMarketing[];
   categories: PortfolioCategory[];
 };
 
@@ -36,6 +38,7 @@ async function getHomepageInitialData(): Promise<HomepageInitialData> {
       settingsRows: [],
       videos: [],
       graphics: [],
+      marketing: [],
       categories: [],
     };
   }
@@ -53,6 +56,7 @@ async function getHomepageInitialData(): Promise<HomepageInitialData> {
       settingsRows: ((settingsRows || []) as SettingRow[]),
       videos: dataset.videos,
       graphics: dataset.graphics,
+      marketing: dataset.marketing,
       categories: dataset.categories,
     };
   } catch (error) {
@@ -64,15 +68,16 @@ async function getHomepageInitialData(): Promise<HomepageInitialData> {
       settingsRows: [],
       videos: [],
       graphics: [],
+      marketing: [],
       categories: [],
     };
   }
 }
 
 export default async function HomePage() {
-  const { settingsRows, videos, graphics, categories } = await getHomepageInitialData();
+  const { settingsRows, videos, graphics, marketing, categories } = await getHomepageInitialData();
   const map = toSettingMap(settingsRows);
-  const projectCount = videos.length + graphics.length;
+  const projectCount = videos.length + graphics.length + marketing.length;
   const runtimeStats = {
     projectCount,
     clientCount: parseInt(map.stat_clients || '50', 10) || 50,
@@ -107,6 +112,7 @@ export default async function HomePage() {
       homepageBuilder={homepageBuilderWithFooter}
       portfolioVideos={videos}
       portfolioGraphics={graphics}
+      portfolioMarketing={marketing}
       portfolioCategories={categories}
       homepagePortfolioSettings={
         settingsRows.length > 0 ? getHomepagePortfolioSettings(map) : DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS

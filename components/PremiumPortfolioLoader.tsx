@@ -11,7 +11,7 @@ import type {
 export type PremiumPortfolioLoaderImage = {
   alt: string;
   src: string;
-  type?: 'graphic' | 'video' | 'brand';
+  type?: 'brand' | 'graphic' | 'marketing' | 'video';
 };
 
 type PremiumPortfolioLoaderProps = {

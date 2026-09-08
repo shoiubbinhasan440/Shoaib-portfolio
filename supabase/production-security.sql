@@ -5,6 +5,7 @@
 alter table public.site_settings enable row level security;
 alter table public.videos enable row level security;
 alter table public.graphics enable row level security;
+alter table public.digital_marketing enable row level security;
 alter table public.categories enable row level security;
 alter table public.tutorials enable row level security;
 alter table public.experiences enable row level security;
@@ -34,6 +35,7 @@ drop policy if exists "Public read site settings" on public.site_settings;
 drop policy if exists "Public read active categories" on public.categories;
 drop policy if exists "Public read visible videos" on public.videos;
 drop policy if exists "Public read visible graphics" on public.graphics;
+drop policy if exists "Public read visible digital marketing" on public.digital_marketing;
 drop policy if exists "Public read visible tutorials" on public.tutorials;
 drop policy if exists "Public read visible experiences" on public.experiences;
 
@@ -66,6 +68,12 @@ using (visible = true);
 
 create policy "Public read visible graphics"
 on public.graphics
+for select
+to anon, authenticated
+using (visible = true);
+
+create policy "Public read visible digital marketing"
+on public.digital_marketing
 for select
 to anon, authenticated
 using (visible = true);

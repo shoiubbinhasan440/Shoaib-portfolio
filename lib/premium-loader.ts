@@ -97,7 +97,12 @@ export const getPremiumLoaderConfig = cache(async (): Promise<PremiumLoaderResol
     });
     const dataset = await fetchPortfolioDataset(supabase);
     const homepagePortfolio = getHomepagePortfolioSettings(map);
-    const items = toPortfolioPreviewItems(dataset.videos, dataset.graphics, dataset.categories)
+    const items = toPortfolioPreviewItems(
+      dataset.videos,
+      dataset.graphics,
+      dataset.categories,
+      dataset.marketing
+    )
       .filter(item => item.sourceType === 'graphic' && item.imageUrl && item.visible && item.categoryActive);
 
     const featuredItems = items

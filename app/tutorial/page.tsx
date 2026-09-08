@@ -142,7 +142,7 @@ export default function TutorialPage() {
       setTutorials(tutorialItems);
       setFooterConfig(
         getGlobalFooterConfig(map, {
-          projectCount: dataset.videos.length + dataset.graphics.length,
+          projectCount: dataset.videos.length + dataset.graphics.length + dataset.marketing.length,
         })
       );
       setLoading(false);

@@ -9,7 +9,7 @@ export type Category = {
   id: string;
   name: string;
   slug: string;
-  type: 'video' | 'graphics';
+  type: 'video' | 'graphic' | 'graphics' | 'marketing' | 'both' | 'all';
   order_num: number;
   active: boolean;
 };

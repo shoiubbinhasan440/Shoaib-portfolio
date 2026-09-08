@@ -543,7 +543,7 @@ export default function AdminHomepageBuilderPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-  const [itemFilter, setItemFilter] = useState<'all' | 'homepage' | 'video' | 'graphic'>(
+  const [itemFilter, setItemFilter] = useState<'all' | 'homepage' | 'video' | 'graphic' | 'marketing'>(
     'homepage'
   );
   const [uploadingField, setUploadingField] = useState('');
@@ -558,9 +558,10 @@ export default function AdminHomepageBuilderPage() {
     const previewItems = toPortfolioPreviewItems(
       dataset.videos,
       dataset.graphics,
-      dataset.categories
+      dataset.categories,
+      dataset.marketing
     );
-    const projectCount = dataset.videos.length + dataset.graphics.length;
+    const projectCount = dataset.videos.length + dataset.graphics.length + dataset.marketing.length;
     const clientCount = extractNumericValue(map[HERO_SETTING_KEYS.statClients] || '50', 50);
     const yearsCount = extractNumericValue(map[HERO_SETTING_KEYS.statYears] || '3', 3);
     const runtimeStats = {
@@ -657,6 +658,7 @@ export default function AdminHomepageBuilderPage() {
         itemLimit: portfolioConfig.itemLimit,
         showVideos: portfolioConfig.showVideos,
         showGraphics: portfolioConfig.showGraphics,
+        showMarketing: portfolioConfig.showMarketing,
         categoryConfig: portfolioConfig.categoryConfig,
       }),
     [items, portfolioConfig]
@@ -669,6 +671,7 @@ export default function AdminHomepageBuilderPage() {
           itemConfig: portfolioConfig.itemConfig,
           showVideos: portfolioConfig.showVideos,
           showGraphics: portfolioConfig.showGraphics,
+          showMarketing: portfolioConfig.showMarketing,
           categoryConfig: portfolioConfig.categoryConfig,
         })
       ),
@@ -721,6 +724,10 @@ export default function AdminHomepageBuilderPage() {
 
       if (itemFilter === 'graphic') {
         return item.sourceType === 'graphic';
+      }
+
+      if (itemFilter === 'marketing') {
+        return item.sourceType === 'marketing';
       }
 
       return true;
@@ -1044,7 +1051,12 @@ export default function AdminHomepageBuilderPage() {
       return;
     }
 
-    if (portfolioConfig.enabled && !portfolioConfig.showVideos && !portfolioConfig.showGraphics) {
+    if (
+      portfolioConfig.enabled &&
+      !portfolioConfig.showVideos &&
+      !portfolioConfig.showGraphics &&
+      !portfolioConfig.showMarketing
+    ) {
       setMessage('❌ Homepage portfolio section-এর জন্য অন্তত একটি content type চালু রাখুন।');
       return;
     }
@@ -1910,6 +1922,14 @@ export default function AdminHomepageBuilderPage() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <input
                     type="checkbox"
+                    checked={portfolioConfig.showMarketing}
+                    onChange={event => updatePortfolio('showMarketing', event.target.checked)}
+                  />
+                  <span>Show digital marketing on homepage</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <input
+                    type="checkbox"
                     checked={portfolioConfig.showTabs}
                     onChange={event => updatePortfolio('showTabs', event.target.checked)}
                   />
@@ -1966,6 +1986,7 @@ export default function AdminHomepageBuilderPage() {
                   >
                     <option value="video-first">Videos first</option>
                     <option value="graphic-first">Graphics first</option>
+                    <option value="marketing-first">Marketing first</option>
                   </select>
                 </Field>
                 <Field label="Chip alignment">
@@ -2381,7 +2402,7 @@ export default function AdminHomepageBuilderPage() {
                   value={itemFilter}
                   onChange={event =>
                     setItemFilter(
-                      event.target.value as 'all' | 'homepage' | 'video' | 'graphic'
+                      event.target.value as 'all' | 'homepage' | 'video' | 'graphic' | 'marketing'
                     )
                   }
                   style={{ ...inputStyle, width: 200 }}
@@ -2390,6 +2411,7 @@ export default function AdminHomepageBuilderPage() {
                   <option value="all">All items</option>
                   <option value="video">Videos</option>
                   <option value="graphic">Graphics</option>
+                  <option value="marketing">Digital marketing</option>
                 </select>
               </div>
 
@@ -2444,8 +2466,8 @@ export default function AdminHomepageBuilderPage() {
                             {item.title}
                           </div>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
-                            <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, background: item.sourceType === 'video' ? 'rgba(59,130,246,0.14)' : 'rgba(16,185,129,0.14)', color: item.sourceType === 'video' ? '#93c5fd' : '#6ee7b7' }}>
-                              {item.sourceType}
+                            <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, background: item.sourceType === 'video' ? 'rgba(59,130,246,0.14)' : item.sourceType === 'marketing' ? 'rgba(20,184,166,0.14)' : 'rgba(16,185,129,0.14)', color: item.sourceType === 'video' ? '#93c5fd' : item.sourceType === 'marketing' ? '#5eead4' : '#6ee7b7' }}>
+                              {item.sourceType === 'marketing' ? 'marketing' : item.sourceType}
                             </span>
                             <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 999, background: '#111827', color: '#cbd5e1' }}>
                               {item.categoryName}

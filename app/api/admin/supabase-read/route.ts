@@ -8,6 +8,7 @@ const ALLOWED_TABLES = new Set([
   'categories',
   'contact_messages',
   'creative_briefs',
+  'digital_marketing',
   'client_project_files',
   'client_project_updates',
   'client_projects',

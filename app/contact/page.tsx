@@ -103,7 +103,7 @@ export default function ContactPage() {
       setPageConfig(getContactPageConfig(map));
       setFooterConfig(
         getGlobalFooterConfig(map, {
-          projectCount: dataset.videos.length + dataset.graphics.length,
+          projectCount: dataset.videos.length + dataset.graphics.length + dataset.marketing.length,
         })
       );
       setLoading(false);

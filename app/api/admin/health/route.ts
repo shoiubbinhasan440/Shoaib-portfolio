@@ -25,6 +25,7 @@ const ADMIN_TABLES = [
   'site_settings',
   'videos',
   'graphics',
+  'digital_marketing',
   'categories',
   'tutorials',
   'contact_messages',
@@ -43,6 +44,10 @@ const PUBLIC_VISIBILITY_CHECKS = [
   {
     hiddenFilter: { column: 'visible', value: false },
     table: 'graphics',
+  },
+  {
+    hiddenFilter: { column: 'visible', value: false },
+    table: 'digital_marketing',
   },
   {
     hiddenFilter: { column: 'visible', value: false },
@@ -68,6 +73,11 @@ const REQUIRED_SCHEMA_COLUMNS = [
     columns: ['slug'],
     migration: 'supabase/migrations/202605080001_add_portfolio_item_slugs.sql',
     table: 'videos',
+  },
+  {
+    columns: ['slug'],
+    migration: 'supabase/migrations/202605100001_create_digital_marketing_manager.sql',
+    table: 'digital_marketing',
   },
   {
     columns: [

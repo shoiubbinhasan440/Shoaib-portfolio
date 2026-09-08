@@ -135,9 +135,19 @@ export function buildPortfolioCategoryMetadata(
   }
 ): Metadata {
   const categoryTitle = params.categoryTitle || readableSlug(params.slug) || 'Portfolio Category';
-  const typeLabel = params.sourceType === 'video' ? 'Video Editing' : 'Graphics Design';
+  const typeLabel =
+    params.sourceType === 'video'
+      ? 'Video Editing'
+      : params.sourceType === 'marketing'
+        ? 'Digital Marketing'
+        : 'Graphics Design';
   const base = buildPageMetadata(settings, 'portfolio');
-  const routeType = params.sourceType === 'graphic' ? 'graphics' : params.sourceType;
+  const routeType =
+    params.sourceType === 'graphic'
+      ? 'graphics'
+      : params.sourceType === 'marketing'
+        ? 'digital-marketing'
+        : params.sourceType;
   const path = `/portfolio/category/${routeType}/${params.slug}`;
   const canonical = params.canonicalUrl ? getCanonicalUrl(params.canonicalUrl) : getCanonicalUrl(path);
   const title = params.seoTitle || `${categoryTitle} ${typeLabel} | ${SITE_CONFIG.siteName}`;
@@ -193,7 +203,13 @@ export function buildPortfolioItemMetadata(
     params.meta.seoDescription ||
     params.meta.previewDescription ||
     params.item.description ||
-    `View ${params.item.title}, a selected ${params.item.sourceType === 'video' ? 'video editing' : 'graphics design'} portfolio work by ${SITE_CONFIG.siteName}.`;
+    `View ${params.item.title}, a selected ${
+      params.item.sourceType === 'video'
+        ? 'video editing'
+        : params.item.sourceType === 'marketing'
+          ? 'digital marketing'
+          : 'graphics design'
+    } portfolio work by ${SITE_CONFIG.siteName}.`;
   const canonical = params.meta.canonicalUrl
     ? getCanonicalUrl(params.meta.canonicalUrl)
     : getCanonicalUrl(getPortfolioItemDetailPath(params.item, params.meta));

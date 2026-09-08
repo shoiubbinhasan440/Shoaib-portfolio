@@ -50,7 +50,7 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: settingsRows }, { videos, graphics, categories: categoryRows }] = await Promise.all([
+      const [{ data: settingsRows }, { videos, graphics, marketing, categories: categoryRows }] = await Promise.all([
         supabase.from('site_settings').select('*'),
         fetchPortfolioDataset(supabase),
       ]);
@@ -62,13 +62,13 @@ export default function PortfolioPage() {
         setItemMetaConfig(parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]));
         setFooterConfig(
           getGlobalFooterConfig(map, {
-            projectCount: videos.length + graphics.length,
+            projectCount: videos.length + graphics.length + marketing.length,
           })
         );
       }
 
       setCategories(categoryRows || []);
-      setItems(toPortfolioPreviewItems(videos, graphics, categoryRows || []));
+      setItems(toPortfolioPreviewItems(videos, graphics, categoryRows || [], marketing));
       setLoading(false);
     }
 

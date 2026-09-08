@@ -158,7 +158,7 @@ export default function AdminGraphics() {
       );
       const nextPageBuilder = getPortfolioPageBuilderConfig(map);
       const graphicCategories = dataset.categories
-        .filter(category => category.type === 'graphic' || category.type === 'both')
+        .filter(category => category.type === 'graphic' || category.type === 'both' || category.type === 'all')
         .map(category => ({
           label: category.name,
           value: category.slug,
@@ -256,7 +256,7 @@ export default function AdminGraphics() {
       setItemMetaConfig(nextMetaConfig);
       setPageBuilder(nextPageBuilder);
       setHomepageItems(
-        toPortfolioPreviewItems(dataset.videos, dataset.graphics, dataset.categories)
+        toPortfolioPreviewItems(dataset.videos, dataset.graphics, dataset.categories, dataset.marketing)
       );
       setLoading(false);
     } catch (error) {
@@ -361,7 +361,7 @@ export default function AdminGraphics() {
       throw new Error(
         getConflictMessage(
           conflict.title,
-          conflict.sourceType === 'video' ? 'video' : 'graphic',
+          conflict.sourceType === 'video' ? 'video' : conflict.sourceType === 'marketing' ? 'marketing' : 'graphic',
           normalizedHomepageOrder
         )
       );

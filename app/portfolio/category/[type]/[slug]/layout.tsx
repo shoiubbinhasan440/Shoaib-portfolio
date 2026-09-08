@@ -22,6 +22,10 @@ function normalizeSourceType(value: string): PortfolioSourceType | null {
     return 'graphic';
   }
 
+  if (value === 'marketing' || value === 'digital-marketing') {
+    return 'marketing';
+  }
+
   return null;
 }
 
@@ -51,7 +55,7 @@ async function getCategorySeoDetails(sourceType: PortfolioSourceType, slug: stri
     .from('categories')
     .select('*')
     .eq('slug', slug)
-    .in('type', [sourceType, 'both'])
+    .in('type', [sourceType, 'both', 'all'])
     .limit(1);
 
   const category = ((data || []) as Array<CategorySeoDetails & {

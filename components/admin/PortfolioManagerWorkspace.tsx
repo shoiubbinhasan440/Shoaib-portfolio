@@ -223,7 +223,15 @@ function toTagInput(tags: string[]) {
 }
 
 function getDefaultTypeLabel(managerType: PortfolioSourceType) {
-  return managerType === 'video' ? 'Video Edit' : 'Graphic Design';
+  if (managerType === 'video') {
+    return 'Video Edit';
+  }
+
+  if (managerType === 'marketing') {
+    return 'Digital Marketing';
+  }
+
+  return 'Graphic Design';
 }
 
 function createPreviewItem(
@@ -413,7 +421,8 @@ function createEmptyItem(
     projectId: '',
     projectTitle: '',
     projectCoverImage: '',
-    projectType: managerType === 'video' ? 'Video' : 'Graphic',
+    projectType:
+      managerType === 'video' ? 'Video' : managerType === 'marketing' ? 'Marketing' : 'Graphic',
     projectDescription: '',
     projectOrder: getNextOrder(items),
     projectVisible: true,
@@ -698,7 +707,12 @@ export default function PortfolioManagerWorkspace({
       .join(' • ');
   const previewDescription = draft.previewDescription || draft.description;
   const draftPublicUrl = getManagerItemPublicUrl(draft, managerType);
-  const publicUrlLabel = managerType === 'graphic' ? 'Graphics URL' : 'Video URL';
+  const publicUrlLabel =
+    managerType === 'graphic'
+      ? 'Graphics URL'
+      : managerType === 'marketing'
+        ? 'Marketing URL'
+        : 'Video URL';
 
   function openCreate() {
     setEditorMode('create');
@@ -976,11 +990,23 @@ export default function PortfolioManagerWorkspace({
   const typeSuggestions =
     managerType === 'video'
       ? ['Video Edit', 'Motion Reel', 'YouTube Edit', 'Short-form Cut', 'Cinematic Highlight']
-      : ['Graphic Design', 'Thumbnail', 'Poster', 'Banner', 'Logo', 'Social Creative', 'UI Design'];
+      : managerType === 'marketing'
+        ? [
+            'Digital Marketing',
+            'Meta Ads',
+            'Google Ads',
+            'Social Campaign',
+            'SEO Campaign',
+            'Content Strategy',
+            'Growth Campaign',
+          ]
+        : ['Graphic Design', 'Thumbnail', 'Poster', 'Banner', 'Logo', 'Social Creative', 'UI Design'];
   const formatSuggestions =
     managerType === 'video'
       ? ['16:9', '9:16', '1:1', 'Trailer', 'Teaser']
-      : ['Social Post', 'Banner', 'Thumbnail', 'Poster', 'Print Design', 'A4'];
+      : managerType === 'marketing'
+        ? ['Campaign Case Study', 'Ad Creative', 'Lead Funnel', 'SEO Plan', 'Content Calendar']
+        : ['Social Post', 'Banner', 'Thumbnail', 'Poster', 'Print Design', 'A4'];
 
   return (
     <AdminShell
@@ -1181,7 +1207,7 @@ export default function PortfolioManagerWorkspace({
                           style={{
                             width: '100%',
                             height: '100%',
-                            objectFit: managerType === 'graphic' ? 'contain' : 'cover',
+                            objectFit: managerType === 'video' ? 'cover' : 'contain',
                           }}
                         />
                       ) : (
@@ -1912,7 +1938,7 @@ export default function PortfolioManagerWorkspace({
                       >
                         <AdminField
                           label="Project/group id"
-                          hint="Use the same id on multiple graphics/videos to collapse them into one public card."
+                          hint="Use the same id on multiple portfolio items to collapse them into one public card."
                         >
                           <input
                             value={draft.projectId}
@@ -1955,6 +1981,7 @@ export default function PortfolioManagerWorkspace({
                           >
                             <option value="Graphic">Graphic</option>
                             <option value="Video">Video</option>
+                            <option value="Marketing">Marketing</option>
                             <option value="Mixed">Mixed</option>
                           </select>
                         </AdminField>
@@ -2041,7 +2068,7 @@ export default function PortfolioManagerWorkspace({
                           uploading={uploadingMedia}
                           full
                           uploadProfile={managerType === 'video' ? 'thumbnail' : 'showcase'}
-                          hint="Adds gallery-only images under this project without creating a new graphics/videos row."
+                          hint="Adds gallery-only images under this project without creating a new portfolio row."
                           previewAlt="Extra project image"
                         />
                         {draft.projectGallery.length > 0 ? (
@@ -2664,7 +2691,7 @@ export default function PortfolioManagerWorkspace({
                 <div
                   style={{
                     position: 'relative',
-                    paddingBottom: managerType === 'graphic' ? '78%' : '58%',
+                    paddingBottom: managerType === 'video' ? '58%' : '78%',
                     background: tokens.field,
                   }}
                 >
@@ -2677,7 +2704,7 @@ export default function PortfolioManagerWorkspace({
                         inset: 0,
                         width: '100%',
                         height: '100%',
-                        objectFit: managerType === 'graphic' ? 'contain' : 'cover',
+                        objectFit: managerType === 'video' ? 'cover' : 'contain',
                       }}
                     />
                   ) : null}

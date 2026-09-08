@@ -38,7 +38,7 @@ export const ADMIN_MODULE_GROUPS: Array<{
   {
     id: 'content',
     label: 'Content',
-    description: 'Video, graphics, categories, and tutorial content operations',
+    description: 'Video, graphics, digital marketing, categories, and tutorial content operations',
   },
   {
     id: 'settings',
@@ -176,10 +176,19 @@ export const ADMIN_MODULES: AdminModuleItem[] = [
   },
   {
     group: 'content',
+    href: '/admin/digital-marketing',
+    icon: '◈',
+    label: 'Digital Marketing Manager',
+    meta: 'Manage campaign case studies, ad creatives, SEO assets, and frontend portfolio sync',
+    badge: 'Growth',
+    keywords: ['marketing', 'campaigns', 'ads', 'seo', 'social media', 'portfolio items'],
+  },
+  {
+    group: 'content',
     href: '/admin/categories',
     icon: '⌂',
     label: 'Category Manager',
-    meta: 'Video and graphics categories across the site',
+    meta: 'Video, graphics, and marketing categories across the site',
     badge: 'Taxonomy',
     keywords: ['taxonomy', 'filters', 'labels'],
   },

@@ -75,9 +75,39 @@ type HomepageCategoryPreviewGroup = {
 };
 
 function getOrderedSourceTypes(order: PortfolioPageSettings['allTab']['order']) {
-  return order === 'graphic-first'
-    ? (['graphic', 'video'] as PortfolioSourceType[])
-    : (['video', 'graphic'] as PortfolioSourceType[]);
+  if (order === 'graphic-first') {
+    return ['graphic', 'video', 'marketing'] as PortfolioSourceType[];
+  }
+
+  if (order === 'marketing-first') {
+    return ['marketing', 'video', 'graphic'] as PortfolioSourceType[];
+  }
+
+  return ['video', 'graphic', 'marketing'] as PortfolioSourceType[];
+}
+
+function getSourceTypeLabel(sourceType: PortfolioSourceType, pageSettings: PortfolioPageSettings) {
+  if (sourceType === 'video') {
+    return pageSettings.tabs.video.label;
+  }
+
+  if (sourceType === 'marketing') {
+    return pageSettings.tabs.marketing.label;
+  }
+
+  return pageSettings.tabs.graphic.label;
+}
+
+function getSourceTypePathSegment(sourceType: PortfolioSourceType) {
+  if (sourceType === 'graphic') {
+    return 'graphics';
+  }
+
+  if (sourceType === 'marketing') {
+    return 'digital-marketing';
+  }
+
+  return 'video';
 }
 
 function getItemKey(item: Pick<PortfolioPreviewItem, 'sourceType' | 'id'>) {
@@ -412,6 +442,7 @@ export default function PortfolioShowcase({
     all: 'all',
     video: 'all',
     graphic: 'all',
+    marketing: 'all',
   });
   const [selectedItem, setSelectedItem] = useState<PortfolioPreviewItem | null>(null);
   const [focusItemKey, setFocusItemKey] = useState('');
@@ -460,10 +491,11 @@ export default function PortfolioShowcase({
 
     const videoCount = items.filter(item => item.sourceType === 'video').length;
     const graphicCount = items.filter(item => item.sourceType === 'graphic').length;
+    const marketingCount = items.filter(item => item.sourceType === 'marketing').length;
     const tabs: Array<{ key: PortfolioTabKey; label: string; count: number }> = [];
-    const hasMixedContent = videoCount > 0 && graphicCount > 0;
+    const populatedTypeCount = [videoCount, graphicCount, marketingCount].filter(count => count > 0).length;
 
-    if (homepageConfig.showTabs && hasMixedContent) {
+    if (homepageConfig.showTabs && populatedTypeCount > 1) {
       tabs.push({
         key: 'all',
         label: pageSettings.tabs.all.label,
@@ -487,8 +519,24 @@ export default function PortfolioShowcase({
       });
     }
 
+    if ((homepageConfig.showMarketing ?? true) && marketingCount > 0) {
+      tabs.push({
+        key: 'marketing',
+        label: pageSettings.tabs.marketing.label,
+        count: marketingCount,
+      });
+    }
+
     return tabs;
-  }, [homepageConfig.showGraphics, homepageConfig.showTabs, homepageConfig.showVideos, items, pageSettings.tabs, variant]);
+  }, [
+    homepageConfig.showGraphics,
+    homepageConfig.showMarketing,
+    homepageConfig.showTabs,
+    homepageConfig.showVideos,
+    items,
+    pageSettings.tabs,
+    variant,
+  ]);
 
   const tabs = variant === 'page' ? getPortfolioTabs(items, pageSettings) : homepageTabs;
   const defaultTab = tabs[0]?.key || 'all';
@@ -507,7 +555,9 @@ export default function PortfolioShowcase({
         ? items.filter(item => item.sourceType === 'video')
         : activeTab === 'graphic'
           ? items.filter(item => item.sourceType === 'graphic')
-          : items;
+          : activeTab === 'marketing'
+            ? items.filter(item => item.sourceType === 'marketing')
+            : items;
 
     return getSortedDisplayItems(tabFilteredItems, variant);
   })();
@@ -535,7 +585,9 @@ export default function PortfolioShowcase({
         ? (['video'] as PortfolioSourceType[])
         : activeTab === 'graphic'
           ? (['graphic'] as PortfolioSourceType[])
-          : getHomepageAllowedSourceTypes(homepageConfig);
+          : activeTab === 'marketing'
+            ? (['marketing'] as PortfolioSourceType[])
+            : getHomepageAllowedSourceTypes(homepageConfig);
 
     return categories
       .filter(
@@ -545,7 +597,7 @@ export default function PortfolioShowcase({
           category.show_filter_chip !== false
       )
       .filter(category => {
-        if (category.type === 'both') {
+        if (category.type === 'both' || category.type === 'all') {
           return allowedSourceTypes.length > 0;
         }
 
@@ -632,8 +684,7 @@ export default function PortfolioShowcase({
 
   const shouldGroupAll =
     activeTab === 'all' &&
-    projectDisplayItems.some(item => item.sourceType === 'video') &&
-    projectDisplayItems.some(item => item.sourceType === 'graphic');
+    new Set(projectDisplayItems.map(item => item.sourceType)).size > 1;
   const sectionSourceTypes = shouldGroupAll
     ? variant === 'homepage'
       ? getHomepageAllowedSourceTypes(homepageConfig)
@@ -643,10 +694,7 @@ export default function PortfolioShowcase({
     ? sectionSourceTypes
         .map(sourceType => ({
           sourceType,
-          label:
-            sourceType === 'video'
-              ? pageSettings.tabs.video.label
-              : pageSettings.tabs.graphic.label,
+          label: getSourceTypeLabel(sourceType, pageSettings),
           items: projectDisplayItems.filter(item => item.sourceType === sourceType),
         }))
         .filter(section => section.items.length > 0)
@@ -655,10 +703,14 @@ export default function PortfolioShowcase({
           sourceType:
             activeTab === 'graphic'
               ? ('graphic' as const)
-              : ('video' as const),
+              : activeTab === 'marketing'
+                ? ('marketing' as const)
+                : ('video' as const),
           label:
             activeTab === 'graphic'
               ? pageSettings.tabs.graphic.label
+              : activeTab === 'marketing'
+                ? pageSettings.tabs.marketing.label
               : activeTab === 'video'
                 ? pageSettings.tabs.video.label
                 : pageSettings.tabs.all.label,
@@ -697,6 +749,12 @@ export default function PortfolioShowcase({
             candidate =>
               candidate.slug === categorySlug &&
               candidate.type === 'both' &&
+              candidate.show_on_homepage !== false
+          ) ||
+          categories.find(
+            candidate =>
+              candidate.slug === categorySlug &&
+              candidate.type === 'all' &&
               candidate.show_on_homepage !== false
           );
         const categoryConfig = getHomepageCategoryConfig(
@@ -1673,12 +1731,22 @@ export default function PortfolioShowcase({
                   >
                     {categoryPreviewGroups.map(group => {
                       const previewItems = group.items.slice(0, homepageConfig.thumbnailsPerCategory);
-                      const typeLabel = group.sourceType === 'video' ? 'Video' : 'Graphics';
+                      const typeLabel =
+                        group.sourceType === 'video'
+                          ? 'Video'
+                          : group.sourceType === 'marketing'
+                            ? 'Marketing'
+                            : 'Graphics';
                       const featuredPreview = previewItems[0];
                       const thumbnailPreviewItems = previewItems.slice(0, 4);
                       const categoryFocusMatch = focusItemKey === group.key;
-                      const categoryUrl = `/portfolio/category/${group.sourceType === 'graphic' ? 'graphics' : group.sourceType}/${encodeURIComponent(group.slug)}`;
-                      const itemPluralLabel = group.sourceType === 'video' ? 'videos' : 'graphics';
+                      const categoryUrl = `/portfolio/category/${getSourceTypePathSegment(group.sourceType)}/${encodeURIComponent(group.slug)}`;
+                      const itemPluralLabel =
+                        group.sourceType === 'video'
+                          ? 'videos'
+                          : group.sourceType === 'marketing'
+                            ? 'marketing items'
+                            : 'graphics';
                       const accentColor = resolveSectionThemeColor(
                         showcaseStyles?.colors.accentLight || '',
                         showcaseStyles?.colors.accentDark || '',
@@ -2538,7 +2606,7 @@ export default function PortfolioShowcase({
                                     fontWeight: 700,
                                   }}
                                 >
-                                  {item.sourceType === 'video' ? 'Video' : 'Graphic'}
+                                  {getSourceTypeLabel(item.sourceType, pageSettings)}
                                 </span>
                                 ) : null}
                                 {showCardCategory &&

@@ -46,6 +46,10 @@ function normalizeSourceType(value: string): PortfolioSourceType | null {
     return 'graphic';
   }
 
+  if (value === 'marketing' || value === 'digital-marketing') {
+    return 'marketing';
+  }
+
   return null;
 }
 
@@ -72,7 +76,7 @@ export default function PortfolioCategoryPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: settingsRows }, { videos, graphics, categories: categoryRows }] =
+      const [{ data: settingsRows }, { videos, graphics, marketing, categories: categoryRows }] =
         await Promise.all([
           supabase.from('site_settings').select('*'),
           fetchPortfolioDataset(supabase),
@@ -85,13 +89,13 @@ export default function PortfolioCategoryPage() {
         setItemMetaConfig(parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]));
         setFooterConfig(
           getGlobalFooterConfig(map, {
-            projectCount: videos.length + graphics.length,
+            projectCount: videos.length + graphics.length + marketing.length,
           })
         );
       }
 
       setCategories(categoryRows || []);
-      setItems(toPortfolioPreviewItems(videos, graphics, categoryRows || []));
+      setItems(toPortfolioPreviewItems(videos, graphics, categoryRows || [], marketing));
       setLoading(false);
     }
 
@@ -120,7 +124,12 @@ export default function PortfolioCategoryPage() {
 
   const categoryTitle =
     categoryItems[0]?.categoryName || getPortfolioCategoryName(categories, slugParam);
-  const typeLabel = sourceType === 'video' ? 'Video Editing' : 'Graphics Design';
+  const typeLabel =
+    sourceType === 'video'
+      ? 'Video Editing'
+      : sourceType === 'marketing'
+        ? 'Digital Marketing'
+        : 'Graphics Design';
   const scopedPageSettings: PortfolioPageSettings = {
     ...pageSettings,
     title: categoryTitle,
@@ -140,11 +149,17 @@ export default function PortfolioCategoryPage() {
         enabled: sourceType === 'graphic',
         label: typeLabel,
       },
+      marketing: {
+        ...pageSettings.tabs.marketing,
+        enabled: sourceType === 'marketing',
+        label: typeLabel,
+      },
     },
     allTab: {
       ...pageSettings.allTab,
       showVideos: sourceType === 'video',
       showGraphics: sourceType === 'graphic',
+      showMarketing: sourceType === 'marketing',
     },
   };
 
@@ -200,7 +215,7 @@ export default function PortfolioCategoryPage() {
           <div style={{ textAlign: 'center', width: '100%', maxWidth: 560, minWidth: 0 }}>
             <h1 style={{ margin: '0 0 12px', fontSize: 34 }}>Category not found</h1>
             <p style={{ margin: 0, color: dark ? '#94a3b8' : '#475569' }}>
-              This portfolio category route needs a valid video or graphic type.
+              This portfolio category route needs a valid video, graphic, or digital marketing type.
             </p>
             <a
               href="/portfolio"

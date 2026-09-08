@@ -16,7 +16,7 @@ create table if not exists public.categories (
   name text not null default '',
   slug text not null default '',
   type text not null default 'video'
-    check (type in ('video', 'graphic', 'both')),
+    check (type in ('video', 'graphic', 'marketing', 'both', 'all')),
   active boolean not null default true,
   order_num integer not null default 0,
   description text,
@@ -55,6 +55,19 @@ create table if not exists public.videos (
 );
 
 create table if not exists public.graphics (
+  id uuid primary key default gen_random_uuid(),
+  title text not null default '',
+  slug text,
+  category text not null default '',
+  image_url text not null default '',
+  description text,
+  visible boolean not null default true,
+  order_num integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.digital_marketing (
   id uuid primary key default gen_random_uuid(),
   title text not null default '',
   slug text,
@@ -130,6 +143,11 @@ create trigger set_graphics_updated_at
 before update on public.graphics
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_digital_marketing_updated_at on public.digital_marketing;
+create trigger set_digital_marketing_updated_at
+before update on public.digital_marketing
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_tutorials_updated_at on public.tutorials;
 create trigger set_tutorials_updated_at
 before update on public.tutorials
@@ -152,6 +170,11 @@ create index if not exists videos_visible_order_idx
 create index if not exists graphics_visible_order_idx
   on public.graphics (visible, order_num, created_at desc);
 
+create index if not exists digital_marketing_visible_order_idx
+  on public.digital_marketing (visible, order_num, created_at desc);
+create index if not exists digital_marketing_slug_idx
+  on public.digital_marketing (slug);
+
 create index if not exists tutorials_visible_order_idx
   on public.tutorials (visible, order_num);
 
@@ -169,6 +192,7 @@ alter table public.site_settings enable row level security;
 alter table public.categories enable row level security;
 alter table public.videos enable row level security;
 alter table public.graphics enable row level security;
+alter table public.digital_marketing enable row level security;
 alter table public.tutorials enable row level security;
 alter table public.navigation enable row level security;
 alter table public.page_views enable row level security;

@@ -42,6 +42,7 @@ import {
   type PortfolioCategory,
   type PortfolioGraphic,
   type PortfolioItemMetaConfigMap,
+  type PortfolioMarketing,
   type PortfolioPageSettings,
   type PortfolioPreviewItem,
   type PortfolioVideo,
@@ -198,6 +199,7 @@ export type HomePageClientProps = {
   homepageBuilder: HomepageBuilderConfig;
   portfolioVideos: PortfolioVideo[];
   portfolioGraphics: PortfolioGraphic[];
+  portfolioMarketing: PortfolioMarketing[];
   portfolioCategories: PortfolioCategory[];
   homepagePortfolioSettings: HomepagePortfolioSectionSettings;
   portfolioPageSettings: PortfolioPageSettings;
@@ -209,6 +211,7 @@ export default function HomePageClient({
   homepageBuilder,
   portfolioVideos,
   portfolioGraphics,
+  portfolioMarketing,
   portfolioCategories,
   homepagePortfolioSettings,
   portfolioPageSettings,
@@ -244,9 +247,10 @@ export default function HomePageClient({
       toPortfolioPreviewItems(
         portfolioVideos,
         portfolioGraphics,
-        portfolioCategories
+        portfolioCategories,
+        portfolioMarketing
       ),
-    [portfolioCategories, portfolioGraphics, portfolioVideos]
+    [portfolioCategories, portfolioGraphics, portfolioMarketing, portfolioVideos]
   );
 
   const homepagePreviewItems = useMemo(
@@ -256,6 +260,7 @@ export default function HomePageClient({
         itemLimit: homepagePortfolioSettings.itemLimit,
         showVideos: homepagePortfolioSettings.showVideos,
         showGraphics: homepagePortfolioSettings.showGraphics,
+        showMarketing: homepagePortfolioSettings.showMarketing,
         categoryConfig: homepagePortfolioSettings.categoryConfig,
         itemMetaConfig: portfolioItemMetaConfig,
       }),
@@ -269,6 +274,7 @@ export default function HomePageClient({
           itemConfig: homepagePortfolioSettings.itemConfig,
           showVideos: homepagePortfolioSettings.showVideos,
           showGraphics: homepagePortfolioSettings.showGraphics,
+          showMarketing: homepagePortfolioSettings.showMarketing,
           categoryConfig: homepagePortfolioSettings.categoryConfig,
         })
       ),

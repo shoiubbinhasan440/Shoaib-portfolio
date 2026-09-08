@@ -122,7 +122,7 @@ export default function FooterAdminPage() {
     ]);
 
     const map = toSettingMap(settingsRows || []);
-    const totalProjects = dataset.videos.length + dataset.graphics.length;
+    const totalProjects = dataset.videos.length + dataset.graphics.length + dataset.marketing.length;
     const nextFooter = getGlobalFooterConfig(map, { projectCount: totalProjects });
 
     setRawSettings(map);

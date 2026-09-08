@@ -6,9 +6,9 @@ import {
   type BuilderSectionStyles,
 } from '@/lib/page-builder-styles';
 
-export type PortfolioSourceType = 'video' | 'graphic';
-export type PortfolioTabKey = 'all' | 'video' | 'graphic';
-export type PortfolioAllOrder = 'video-first' | 'graphic-first';
+export type PortfolioSourceType = 'video' | 'graphic' | 'marketing';
+export type PortfolioTabKey = 'all' | 'video' | 'graphic' | 'marketing';
+export type PortfolioAllOrder = 'video-first' | 'graphic-first' | 'marketing-first';
 export type HomepagePortfolioSectionAlignment = 'left' | 'center';
 export type HomepagePortfolioFilterAlignment = 'left' | 'center';
 export type HomepagePortfolioWidth = 'normal' | 'wide' | 'full';
@@ -32,7 +32,7 @@ export type HomepagePortfolioClickAction = 'preview' | 'portfolio' | 'preview-wi
 export type HomepagePortfolioChipStyle = 'soft' | 'glass' | 'editorial';
 export type HomepagePortfolioDisplayMode = 'item-grid' | 'category-preview';
 export type PortfolioLayoutMode = 'grid' | 'masonry';
-export type PortfolioProjectType = 'Graphic' | 'Video' | 'Mixed';
+export type PortfolioProjectType = 'Graphic' | 'Video' | 'Marketing' | 'Mixed';
 
 export type PortfolioItemStory = {
   challenge?: string;
@@ -66,6 +66,18 @@ export type PortfolioVideo = {
 };
 
 export type PortfolioGraphic = {
+  id: string;
+  title: string;
+  slug?: string | null;
+  category: string;
+  image_url: string;
+  description?: string | null;
+  visible: boolean;
+  created_at?: string;
+  order_num: number;
+};
+
+export type PortfolioMarketing = {
   id: string;
   title: string;
   slug?: string | null;
@@ -210,6 +222,7 @@ export type HomepagePortfolioSectionSettings = {
   maxRows: number;
   showVideos: boolean;
   showGraphics: boolean;
+  showMarketing: boolean;
   mixedOrder: PortfolioAllOrder;
   thumbnailsPerCategory: number;
   maxCategories: number;
@@ -266,10 +279,15 @@ export type PortfolioPageSettings = {
       enabled: boolean;
       label: string;
     };
+    marketing: {
+      enabled: boolean;
+      label: string;
+    };
   };
   allTab: {
     showVideos: boolean;
     showGraphics: boolean;
+    showMarketing: boolean;
     order: PortfolioAllOrder;
   };
 };
@@ -296,11 +314,14 @@ export const PORTFOLIO_PAGE_SETTING_KEYS = {
   tabAllLabel: 'portfolio_tab_all',
   tabVideoLabel: 'portfolio_tab_video',
   tabGraphicLabel: 'portfolio_tab_graphics',
+  tabMarketingLabel: 'portfolio_tab_marketing',
   tabAllEnabled: 'portfolioTabAllEnabled',
   tabVideoEnabled: 'portfolioTabVideoEnabled',
   tabGraphicEnabled: 'portfolioTabGraphicEnabled',
+  tabMarketingEnabled: 'portfolioTabMarketingEnabled',
   allShowVideos: 'portfolioAllShowVideos',
   allShowGraphics: 'portfolioAllShowGraphics',
+  allShowMarketing: 'portfolioAllShowMarketing',
   allOrder: 'portfolioAllOrder',
 } as const;
 
@@ -323,6 +344,7 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
   maxRows: 0,
   showVideos: true,
   showGraphics: true,
+  showMarketing: true,
   mixedOrder: 'video-first',
   thumbnailsPerCategory: 4,
   maxCategories: 8,
@@ -365,7 +387,7 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
 
 export const DEFAULT_PORTFOLIO_PAGE_SETTINGS: PortfolioPageSettings = {
   title: 'আমার কাজের সংগ্রহ',
-  subtitle: 'ভিডিও এডিটিং ও গ্রাফিক্স ডিজাইনের নির্বাচিত কাজগুলো এক জায়গায় দেখুন।',
+  subtitle: 'ভিডিও এডিটিং, গ্রাফিক্স ডিজাইন ও ডিজিটাল মার্কেটিংয়ের নির্বাচিত কাজগুলো এক জায়গায় দেখুন।',
   tabs: {
     all: {
       enabled: true,
@@ -379,10 +401,15 @@ export const DEFAULT_PORTFOLIO_PAGE_SETTINGS: PortfolioPageSettings = {
       enabled: true,
       label: 'গ্রাফিক্স ডিজাইন',
     },
+    marketing: {
+      enabled: true,
+      label: 'ডিজিটাল মার্কেটিং',
+    },
   },
   allTab: {
     showVideos: true,
     showGraphics: true,
+    showMarketing: true,
     order: 'video-first',
   },
 };
@@ -537,7 +564,7 @@ function sanitizeProjectGalleryItem(value: unknown, index: number): PortfolioPro
 
   const sourceType = pickEnum(
     value.sourceType,
-    ['graphic', 'video'] as const,
+    ['graphic', 'video', 'marketing'] as const,
     youtubeUrl ? 'video' : 'graphic'
   );
 
@@ -713,6 +740,13 @@ function getConfigEntryForCategory(
     const bothKey = getHomepagePortfolioCategoryKey('both', categorySlug);
     if (configMap[bothKey]) {
       return configMap[bothKey];
+    }
+  }
+
+  if (normalizedType !== 'all') {
+    const allKey = getHomepagePortfolioCategoryKey('all', categorySlug);
+    if (configMap[allKey]) {
+      return configMap[allKey];
     }
   }
 
@@ -938,7 +972,12 @@ function sanitizeHomepagePortfolioSettings(
     maxRows: clampNumber(value.maxRows, fallback.maxRows, 0, 6),
     showVideos: boolValue(value.showVideos, fallback.showVideos),
     showGraphics: boolValue(value.showGraphics, fallback.showGraphics),
-    mixedOrder: pickEnum(value.mixedOrder, ['video-first', 'graphic-first'], fallback.mixedOrder),
+    showMarketing: boolValue(value.showMarketing, fallback.showMarketing),
+    mixedOrder: pickEnum(
+      value.mixedOrder,
+      ['video-first', 'graphic-first', 'marketing-first'],
+      fallback.mixedOrder
+    ),
     thumbnailsPerCategory: clampNumber(
       value.thumbnailsPerCategory,
       fallback.thumbnailsPerCategory,
@@ -1097,9 +1136,15 @@ export function getPortfolioPageSettings(map: SettingMap) {
     map[PORTFOLIO_PAGE_SETTING_KEYS.tabGraphicLabel],
     DEFAULT_PORTFOLIO_PAGE_SETTINGS.tabs.graphic.label
   );
+  const marketingLabel = parseStyledSetting(
+    map[PORTFOLIO_PAGE_SETTING_KEYS.tabMarketingLabel],
+    DEFAULT_PORTFOLIO_PAGE_SETTINGS.tabs.marketing.label
+  );
   const requestedOrder = map[PORTFOLIO_PAGE_SETTING_KEYS.allOrder];
   const allOrder: PortfolioAllOrder =
-    requestedOrder === 'graphic-first' || requestedOrder === 'video-first'
+    requestedOrder === 'graphic-first' ||
+    requestedOrder === 'video-first' ||
+    requestedOrder === 'marketing-first'
       ? requestedOrder
       : DEFAULT_PORTFOLIO_PAGE_SETTINGS.allTab.order;
 
@@ -1128,6 +1173,13 @@ export function getPortfolioPageSettings(map: SettingMap) {
         ),
         label: graphicLabel.value,
       },
+      marketing: {
+        enabled: parseBooleanSetting(
+          map[PORTFOLIO_PAGE_SETTING_KEYS.tabMarketingEnabled],
+          DEFAULT_PORTFOLIO_PAGE_SETTINGS.tabs.marketing.enabled
+        ),
+        label: marketingLabel.value,
+      },
     },
     allTab: {
       showVideos: parseBooleanSetting(
@@ -1137,6 +1189,10 @@ export function getPortfolioPageSettings(map: SettingMap) {
       showGraphics: parseBooleanSetting(
         map[PORTFOLIO_PAGE_SETTING_KEYS.allShowGraphics],
         DEFAULT_PORTFOLIO_PAGE_SETTINGS.allTab.showGraphics
+      ),
+      showMarketing: parseBooleanSetting(
+        map[PORTFOLIO_PAGE_SETTING_KEYS.allShowMarketing],
+        DEFAULT_PORTFOLIO_PAGE_SETTINGS.allTab.showMarketing
       ),
       order: allOrder,
     },
@@ -1196,7 +1252,7 @@ function toPortfolioCategoryDetails(
   categories: PortfolioCategory[]
 ) {
   const matchedCategory = findPortfolioCategory(categories, categoryValue);
-  const fallbackType = sourceType === 'video' ? 'video' : 'graphic';
+  const fallbackType = sourceType;
   const categoryActive = matchedCategory?.visibility_status ?? matchedCategory?.active ?? true;
   const categoryShowOnPortfolio =
     matchedCategory?.show_on_portfolio_page ?? matchedCategory?.show_on_portfolio ?? true;
@@ -1232,7 +1288,15 @@ export function getHomepageConfigForItem(
 }
 
 export function getPortfolioItemDefaultTypeLabel(sourceType: PortfolioSourceType) {
-  return sourceType === 'video' ? 'Video Edit' : 'Graphic Design';
+  if (sourceType === 'video') {
+    return 'Video Edit';
+  }
+
+  if (sourceType === 'marketing') {
+    return 'Digital Marketing';
+  }
+
+  return 'Graphic Design';
 }
 
 export function getPortfolioItemMeta(
@@ -1280,7 +1344,7 @@ export function getPortfolioItemMeta(
     projectId: rawConfig.projectId || '',
     projectTitle: rawConfig.projectTitle || '',
     projectCoverImage: rawConfig.projectCoverImage || '',
-    projectType: rawConfig.projectType || 'Graphic',
+    projectType: rawConfig.projectType || (item.sourceType === 'video' ? 'Video' : item.sourceType === 'marketing' ? 'Marketing' : 'Graphic'),
     projectDescription: rawConfig.projectDescription || '',
     projectOrder: rawConfig.projectOrder ?? 0,
     projectVisible: rawConfig.projectVisible ?? true,
@@ -1304,7 +1368,12 @@ export function getPortfolioItemDetailPath(
   item: Pick<PortfolioPreviewItem, 'sourceType' | 'id' | 'title'> & { slug?: string | null },
   meta?: Pick<PortfolioItemMetaConfig, 'slug'> | null
 ) {
-  const routeType = item.sourceType === 'graphic' ? 'graphics' : 'videos';
+  const routeType =
+    item.sourceType === 'graphic'
+      ? 'graphics'
+      : item.sourceType === 'marketing'
+        ? 'digital-marketing'
+        : 'videos';
   return `/portfolio/${routeType}/${getPortfolioItemPublicSlug(item, meta)}`;
 }
 
@@ -1336,6 +1405,20 @@ export function getHomepageConfigForGraphic(
   );
 }
 
+export function getHomepageConfigForMarketing(
+  marketing: Pick<PortfolioMarketing, 'id' | 'order_num'>,
+  configMap: HomepagePortfolioConfigMap
+) {
+  return getHomepageConfigForItem(
+    {
+      sourceType: 'marketing',
+      id: String(marketing.id),
+      order_num: marketing.order_num,
+    },
+    configMap
+  );
+}
+
 export function getHomepageCategoryConfig(
   category:
     | Pick<PortfolioCategory, 'slug' | 'type' | 'name' | 'order_num'>
@@ -1356,15 +1439,23 @@ export function getHomepageCategoryConfig(
 }
 
 export function getHomepageAllowedSourceTypes(
-  settings: Pick<HomepagePortfolioSectionSettings, 'showVideos' | 'showGraphics' | 'mixedOrder'>
+  settings: Pick<HomepagePortfolioSectionSettings, 'showVideos' | 'showGraphics' | 'mixedOrder'> & {
+    showMarketing?: boolean;
+  }
 ) {
   const orderedTypes =
     settings.mixedOrder === 'graphic-first'
-      ? (['graphic', 'video'] as PortfolioSourceType[])
-      : (['video', 'graphic'] as PortfolioSourceType[]);
+      ? (['graphic', 'video', 'marketing'] as PortfolioSourceType[])
+      : settings.mixedOrder === 'marketing-first'
+        ? (['marketing', 'video', 'graphic'] as PortfolioSourceType[])
+        : (['video', 'graphic', 'marketing'] as PortfolioSourceType[]);
 
   return orderedTypes.filter(sourceType =>
-    sourceType === 'video' ? settings.showVideos : settings.showGraphics
+    sourceType === 'video'
+      ? settings.showVideos
+      : sourceType === 'graphic'
+        ? settings.showGraphics
+        : settings.showMarketing ?? true
   );
 }
 
@@ -1374,6 +1465,7 @@ export function isHomepageItemAllowed(
     HomepagePortfolioSectionSettings,
     'showVideos' | 'showGraphics' | 'itemConfig' | 'categoryConfig'
   >
+  & { showMarketing?: boolean }
 ) {
   if (!item.visible || !item.categoryActive || !item.categoryShowOnHomepage) {
     return false;
@@ -1384,6 +1476,10 @@ export function isHomepageItemAllowed(
   }
 
   if (item.sourceType === 'graphic' && !settings.showGraphics) {
+    return false;
+  }
+
+  if (item.sourceType === 'marketing' && settings.showMarketing === false) {
     return false;
   }
 
@@ -1404,7 +1500,8 @@ export function isHomepageItemAllowed(
 export function toPortfolioPreviewItems(
   videos: PortfolioVideo[],
   graphics: PortfolioGraphic[],
-  categories: PortfolioCategory[] = []
+  categories: PortfolioCategory[] = [],
+  marketing: PortfolioMarketing[] = []
 ) {
   const videoItems: PortfolioPreviewItem[] = videos.map(video => ({
     sourceType: 'video',
@@ -1432,7 +1529,19 @@ export function toPortfolioPreviewItems(
     ...toPortfolioCategoryDetails('graphic', graphic.category, categories),
   }));
 
-  return [...videoItems, ...graphicItems];
+  const marketingItems: PortfolioPreviewItem[] = marketing.map(item => ({
+    sourceType: 'marketing',
+    id: String(item.id),
+    title: item.title,
+    slug: item.slug || slugifyPortfolioValue(item.title),
+    description: item.description || null,
+    imageUrl: item.image_url,
+    visible: item.visible,
+    order_num: item.order_num,
+    ...toPortfolioCategoryDetails('marketing', item.category, categories),
+  }));
+
+  return [...videoItems, ...graphicItems, ...marketingItems];
 }
 
 export function getAllowedPortfolioSourceTypes(
@@ -1447,6 +1556,10 @@ export function getAllowedPortfolioSourceTypes(
     return ['graphic'] as PortfolioSourceType[];
   }
 
+  if (activeTab === 'marketing') {
+    return ['marketing'] as PortfolioSourceType[];
+  }
+
   const allowedSourceTypes: PortfolioSourceType[] = [];
 
   if (settings.allTab.showVideos) {
@@ -1455,6 +1568,10 @@ export function getAllowedPortfolioSourceTypes(
 
   if (settings.allTab.showGraphics) {
     allowedSourceTypes.push('graphic');
+  }
+
+  if (settings.allTab.showMarketing) {
+    allowedSourceTypes.push('marketing');
   }
 
   return allowedSourceTypes;
@@ -1469,6 +1586,7 @@ export function getPortfolioTabs(
   );
   const videoCount = visibleItems.filter(item => item.sourceType === 'video').length;
   const graphicCount = visibleItems.filter(item => item.sourceType === 'graphic').length;
+  const marketingCount = visibleItems.filter(item => item.sourceType === 'marketing').length;
   const allCount = visibleItems.filter(item =>
     getAllowedPortfolioSourceTypes('all', settings).includes(item.sourceType)
   ).length;
@@ -1500,6 +1618,14 @@ export function getPortfolioTabs(
       key: 'graphic',
       label: settings.tabs.graphic.label,
       count: graphicCount,
+    });
+  }
+
+  if (settings.tabs.marketing.enabled && marketingCount > 0) {
+    tabs.push({
+      key: 'marketing',
+      label: settings.tabs.marketing.label,
+      count: marketingCount,
     });
   }
 
@@ -1538,7 +1664,7 @@ export function getPortfolioCategoriesForTab(
         category.show_filter_chip !== false
     )
     .filter(category => {
-      if (category.type === 'both') {
+      if (category.type === 'both' || category.type === 'all') {
         return true;
       }
 
@@ -1574,6 +1700,7 @@ export function getHomepagePortfolioPreviewItems(
     HomepagePortfolioSectionSettings,
     'itemConfig' | 'itemLimit' | 'showVideos' | 'showGraphics' | 'categoryConfig'
   > & { itemMetaConfig?: PortfolioItemMetaConfigMap }
+  & { showMarketing?: boolean }
 ) {
   return items
     .filter(item => isHomepageItemAllowed(item, settings))
@@ -1660,10 +1787,24 @@ export async function fetchPortfolioDataset(
         .order('order_num', { ascending: true })
         .order('created_at', { ascending: false });
 
-  const [videoResponse, categoryResponse, graphicResponse] = await Promise.all([
+  const marketingQuery = includeHidden
+    ? supabase
+        .from('digital_marketing')
+        .select('*')
+        .order('order_num', { ascending: true })
+        .order('created_at', { ascending: false })
+    : supabase
+        .from('digital_marketing')
+        .select('*')
+        .eq('visible', true)
+        .order('order_num', { ascending: true })
+        .order('created_at', { ascending: false });
+
+  const [videoResponse, categoryResponse, graphicResponse, marketingResponse] = await Promise.all([
     videoQuery,
     supabase.from('categories').select('*').order('order_num', { ascending: true }),
     graphicQuery,
+    marketingQuery,
   ]);
 
   const graphics = ((graphicResponse.data || []) as Array<PortfolioGraphic>).map((graphic, index) => ({
@@ -1671,6 +1812,14 @@ export async function fetchPortfolioDataset(
     order_num:
       typeof graphic.order_num === 'number' && Number.isFinite(graphic.order_num)
         ? graphic.order_num
+      : 1000 + index,
+  }));
+
+  const marketing = ((marketingResponse.data || []) as Array<PortfolioMarketing>).map((item, index) => ({
+    ...item,
+    order_num:
+      typeof item.order_num === 'number' && Number.isFinite(item.order_num)
+        ? item.order_num
         : 1000 + index,
   }));
 
@@ -1678,6 +1827,7 @@ export async function fetchPortfolioDataset(
     videos: (videoResponse.data || []) as PortfolioVideo[],
     categories: (categoryResponse.data || []) as PortfolioCategory[],
     graphics,
+    marketing,
   };
 }
 

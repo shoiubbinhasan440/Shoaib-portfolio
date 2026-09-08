@@ -46,7 +46,7 @@ export default function AboutPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: settings }, { videos, graphics }] = await Promise.all([
+      const [{ data: settings }, { videos, graphics, marketing }] = await Promise.all([
         supabase.from('site_settings').select('*'),
         fetchPortfolioDataset(supabase),
       ]);
@@ -60,7 +60,7 @@ export default function AboutPage() {
         const savedYears = getFirstSetting(map, HERO_SETTING_KEYS.statYears);
         const clientCount = savedClients ? parseInt(savedClients, 10) || 50 : 50;
         const yearsCount = savedYears ? parseInt(savedYears, 10) || 3 : 3;
-        const projectCount = videos.length + graphics.length;
+        const projectCount = videos.length + graphics.length + marketing.length;
 
         setAboutSystem(
           getAboutSystemConfig(map, {

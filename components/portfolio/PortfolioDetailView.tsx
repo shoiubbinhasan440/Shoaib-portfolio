@@ -3,6 +3,7 @@ import {
   getPortfolioItemDetailPath,
   type PortfolioItemMetaConfig,
   type PortfolioPreviewItem,
+  type PortfolioSourceType,
 } from '@/lib/portfolio-content';
 
 type PortfolioDetailViewProps = {
@@ -45,6 +46,30 @@ function normalizeEmbedUrl(url: string) {
 
 function getItemHref(item: PortfolioPreviewItem) {
   return getPortfolioItemDetailPath(item);
+}
+
+function getSourceTypeLabel(sourceType: PortfolioSourceType) {
+  if (sourceType === 'video') {
+    return 'Videos';
+  }
+
+  if (sourceType === 'marketing') {
+    return 'Digital Marketing';
+  }
+
+  return 'Graphics';
+}
+
+function getDefaultTypeLabel(sourceType: PortfolioSourceType) {
+  if (sourceType === 'video') {
+    return 'Video Edit';
+  }
+
+  if (sourceType === 'marketing') {
+    return 'Digital Marketing';
+  }
+
+  return 'Graphic Design';
 }
 
 function Card({ item }: { item: PortfolioPreviewItem }) {
@@ -203,7 +228,7 @@ export default function PortfolioDetailView({
               Portfolio
             </Link>
             <span>/</span>
-            <span>{item.sourceType === 'video' ? 'Videos' : 'Graphics'}</span>
+            <span>{getSourceTypeLabel(item.sourceType)}</span>
           </div>
           <Link
             href="/portfolio"
@@ -298,7 +323,7 @@ export default function PortfolioDetailView({
                 {item.categoryName}
               </span>
               <span style={{ padding: '7px 12px', borderRadius: 999, background: 'rgba(148,163,184,0.12)', color: '#e2e8f0', fontSize: 12, fontWeight: 800 }}>
-                {meta.typeLabel || (item.sourceType === 'video' ? 'Video Edit' : 'Graphic Design')}
+                {meta.typeLabel || getDefaultTypeLabel(item.sourceType)}
               </span>
             </div>
 

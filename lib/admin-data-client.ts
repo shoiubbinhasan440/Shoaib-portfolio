@@ -1,6 +1,7 @@
 import type {
   PortfolioCategory,
   PortfolioGraphic,
+  PortfolioMarketing,
   PortfolioVideo,
 } from '@/lib/portfolio-content';
 
@@ -76,11 +77,17 @@ export async function adminCountRows(
 }
 
 export async function adminFetchPortfolioDataset() {
-  const [videos, graphicsRows, categories] = await Promise.all([
+  const [videos, graphicsRows, marketingRows, categories] = await Promise.all([
     adminSelectRows<PortfolioVideo[]>('videos', {
       order: [{ column: 'order_num', ascending: true }],
     }),
     adminSelectRows<PortfolioGraphic[]>('graphics', {
+      order: [
+        { column: 'order_num', ascending: true },
+        { column: 'created_at', ascending: false },
+      ],
+    }),
+    adminSelectRows<PortfolioMarketing[]>('digital_marketing', {
       order: [
         { column: 'order_num', ascending: true },
         { column: 'created_at', ascending: false },
@@ -96,12 +103,20 @@ export async function adminFetchPortfolioDataset() {
     order_num:
       typeof graphic.order_num === 'number' && Number.isFinite(graphic.order_num)
         ? graphic.order_num
+      : 1000 + index,
+  }));
+  const marketing = (marketingRows || []).map((item, index) => ({
+    ...item,
+    order_num:
+      typeof item.order_num === 'number' && Number.isFinite(item.order_num)
+        ? item.order_num
         : 1000 + index,
   }));
 
   return {
     categories: categories || [],
     graphics,
+    marketing,
     videos: videos || [],
   };
 }

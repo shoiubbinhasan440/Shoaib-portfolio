@@ -135,7 +135,7 @@ export default function AdminAboutPage() {
   const [msg, setMsg] = useState('');
 
   async function loadSystem() {
-    const [settings, { videos, graphics }] = await Promise.all([
+    const [settings, { videos, graphics, marketing }] = await Promise.all([
       adminSelectRows<Array<{ key: string; value: string }>>('site_settings'),
       adminFetchPortfolioDataset(),
     ]);
@@ -148,7 +148,7 @@ export default function AdminAboutPage() {
     const savedYears = getFirstSetting(map, HERO_SETTING_KEYS.statYears);
     const clientCount = savedClients ? parseInt(savedClients, 10) || 50 : 50;
     const yearsCount = savedYears ? parseInt(savedYears, 10) || 3 : 3;
-    const projectCount = videos.length + graphics.length;
+    const projectCount = videos.length + graphics.length + marketing.length;
 
     setRawSettings(map);
     setAboutSystem(

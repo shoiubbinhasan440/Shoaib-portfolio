@@ -12,6 +12,7 @@ type DashboardState = {
   briefs: CreativeBrief[];
   categories: number;
   graphics: number;
+  marketing: number;
   leads: ContactLead[];
   loading: boolean;
   projects: ClientProject[];
@@ -30,6 +31,7 @@ export default function AdminDashboardPage() {
     briefs: [],
     categories: 0,
     graphics: 0,
+    marketing: 0,
     leads: [],
     loading: true,
     projects: [],
@@ -40,13 +42,14 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [leadResponse, briefResponse, projectResponse, videos, graphics, categories, views] =
+        const [leadResponse, briefResponse, projectResponse, videos, graphics, marketing, categories, views] =
           await Promise.all([
             fetch('/api/contact'),
             fetch('/api/admin/briefs'),
             fetch('/api/admin/projects'),
             adminCountRows('videos'),
             adminCountRows('graphics'),
+            adminCountRows('digital_marketing'),
             adminCountRows('categories'),
             adminCountRows('page_views'),
           ]);
@@ -65,6 +68,7 @@ export default function AdminDashboardPage() {
           briefs: briefData.briefs || [],
           categories,
           graphics,
+          marketing,
           leads: leadData.leads || [],
           loading: false,
           projects: projectData.projects || [],
@@ -143,6 +147,12 @@ export default function AdminDashboardPage() {
         accent: 'linear-gradient(135deg, rgba(244,114,182,0.16), rgba(168,85,247,0.14))',
       },
       {
+        label: 'Marketing',
+        value: state.marketing,
+        note: 'Digital campaign library',
+        accent: 'linear-gradient(135deg, rgba(20,184,166,0.16), rgba(14,165,233,0.14))',
+      },
+      {
         label: 'Categories',
         value: state.categories,
         note: 'Shared taxonomy',
@@ -182,8 +192,8 @@ export default function AdminDashboardPage() {
     },
     {
       label: 'Content library',
-      value: `${state.videos + state.graphics}`,
-      meta: `${state.videos} videos and ${state.graphics} graphics available`,
+      value: `${state.videos + state.graphics + state.marketing}`,
+      meta: `${state.videos} videos, ${state.graphics} graphics, and ${state.marketing} marketing items available`,
     },
   ];
 

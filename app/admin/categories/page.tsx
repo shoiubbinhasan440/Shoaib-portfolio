@@ -27,11 +27,13 @@ import { verifyAdminSessionClient } from '@/lib/admin-session-client';
 import type {
   PortfolioCategory,
   PortfolioGraphic,
+  PortfolioMarketing,
   PortfolioVideo,
 } from '@/lib/portfolio-content';
 
-type CategoryType = 'video' | 'graphic' | 'both';
+type CategoryType = 'video' | 'graphic' | 'marketing' | 'both' | 'all';
 type StatusFilter = 'all' | 'active' | 'hidden' | 'empty' | 'featured';
+type CategoryTypeFilter = 'all-types' | CategoryType;
 
 type CategoryForm = {
   name: string;
@@ -54,6 +56,7 @@ type CategoryForm = {
 
 type CategoryUsage = {
   graphics: number;
+  marketing: number;
   total: number;
   videos: number;
 };
@@ -119,6 +122,20 @@ const DEFAULT_CATEGORY_SEEDS: Record<CategoryType, string[]> = {
     'Annual Report Design',
     'Newsletter Design',
   ],
+  marketing: [
+    'Digital Marketing',
+    'Social Media Marketing',
+    'Meta Ads Campaign',
+    'Google Ads Campaign',
+    'SEO Strategy',
+    'Content Marketing',
+    'Lead Generation Funnel',
+    'Email Marketing',
+    'Brand Awareness Campaign',
+    'Performance Marketing',
+    'Campaign Analytics',
+    'Marketing Automation',
+  ],
   both: [
     'Brand Identity',
     'Campaign Creative',
@@ -128,6 +145,14 @@ const DEFAULT_CATEGORY_SEEDS: Record<CategoryType, string[]> = {
     'Digital Marketing',
     'Corporate Communication',
     'Editorial Content',
+  ],
+  all: [
+    'Brand Campaign',
+    'Launch Content',
+    'Digital Marketing',
+    'Social Media Content',
+    'Product Promotion',
+    'Corporate Communication',
   ],
 };
 
@@ -163,7 +188,13 @@ function normalizeCategoryValue(value: string | null | undefined) {
 }
 
 function isCategoryType(value: string): value is CategoryType {
-  return value === 'video' || value === 'graphic' || value === 'both';
+  return (
+    value === 'video' ||
+    value === 'graphic' ||
+    value === 'marketing' ||
+    value === 'both' ||
+    value === 'all'
+  );
 }
 
 function toForm(category: PortfolioCategory): CategoryForm {
@@ -216,55 +247,85 @@ function getTypeLabel(type: string) {
     return 'Graphics';
   }
 
+  if (type === 'marketing') {
+    return 'Marketing';
+  }
+
   if (type === 'both') {
-    return 'Both';
+    return 'Video + Graphics';
+  }
+
+  if (type === 'all') {
+    return 'All';
   }
 
   return 'Video';
 }
 
 function getPreviewLinks(category: PortfolioCategory) {
-  if (category.type === 'both') {
+  if (category.type === 'both' || category.type === 'all') {
     return [
       { label: 'Video page', href: `/portfolio/category/video/${category.slug}` },
       { label: 'Graphics page', href: `/portfolio/category/graphics/${category.slug}` },
+      ...(category.type === 'all'
+        ? [{ label: 'Marketing page', href: `/portfolio/category/digital-marketing/${category.slug}` }]
+        : []),
     ];
   }
 
   return [
     {
       label: 'Preview page',
-      href: `/portfolio/category/${category.type === 'graphic' ? 'graphics' : 'video'}/${category.slug}`,
+      href: `/portfolio/category/${
+        category.type === 'graphic'
+          ? 'graphics'
+          : category.type === 'marketing'
+            ? 'digital-marketing'
+            : 'video'
+      }/${category.slug}`,
     },
   ];
 }
 
 function getCategoryCanonicalPath(type: CategoryType, slug: string) {
-  const routeType = type === 'graphic' ? 'graphics' : type === 'both' ? 'graphics' : 'video';
+  const routeType =
+    type === 'graphic'
+      ? 'graphics'
+      : type === 'marketing'
+        ? 'digital-marketing'
+        : type === 'both' || type === 'all'
+          ? 'graphics'
+          : 'video';
   return `/portfolio/category/${routeType}/${toSlug(slug)}`;
 }
 
 function getUsageForCategory(
   category: PortfolioCategory,
   videos: PortfolioVideo[],
-  graphics: PortfolioGraphic[]
+  graphics: PortfolioGraphic[],
+  marketing: PortfolioMarketing[]
 ): CategoryUsage {
   const values = new Set([
     normalizeCategoryValue(category.slug),
     normalizeCategoryValue(category.name),
   ]);
   const videoCount =
-    category.type === 'graphic'
+    category.type === 'graphic' || category.type === 'marketing'
       ? 0
       : videos.filter(video => values.has(normalizeCategoryValue(video.category))).length;
   const graphicCount =
-    category.type === 'video'
+    category.type === 'video' || category.type === 'marketing'
       ? 0
       : graphics.filter(graphic => values.has(normalizeCategoryValue(graphic.category))).length;
+  const marketingCount =
+    category.type === 'video' || category.type === 'graphic' || category.type === 'both'
+      ? 0
+      : marketing.filter(item => values.has(normalizeCategoryValue(item.category))).length;
 
   return {
     graphics: graphicCount,
-    total: videoCount + graphicCount,
+    marketing: marketingCount,
+    total: videoCount + graphicCount + marketingCount,
     videos: videoCount,
   };
 }
@@ -305,6 +366,14 @@ function getSeedButtonLabel(type: CategoryType) {
     return 'Load shared starter list';
   }
 
+  if (type === 'marketing') {
+    return 'Load marketing starter list';
+  }
+
+  if (type === 'all') {
+    return 'Load all-content starter list';
+  }
+
   return 'Load graphics starter list';
 }
 
@@ -342,6 +411,7 @@ export default function AdminCategories() {
   const [categories, setCategories] = useState<PortfolioCategory[]>([]);
   const [videos, setVideos] = useState<PortfolioVideo[]>([]);
   const [graphics, setGraphics] = useState<PortfolioGraphic[]>([]);
+  const [marketing, setMarketing] = useState<PortfolioMarketing[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<CategoryForm>(EMPTY_FORM);
   const [editing, setEditing] = useState<PortfolioCategory | null>(null);
@@ -349,7 +419,7 @@ export default function AdminCategories() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | CategoryType>('all');
+  const [typeFilter, setTypeFilter] = useState<CategoryTypeFilter>('all-types');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [pendingDelete, setPendingDelete] = useState<PortfolioCategory | null>(null);
@@ -369,6 +439,7 @@ export default function AdminCategories() {
       setCategories(dataset.categories || []);
       setVideos(dataset.videos || []);
       setGraphics(dataset.graphics || []);
+      setMarketing(dataset.marketing || []);
     } catch (error) {
       setMessage(error instanceof Error ? `❌ ${error.message}` : '❌ Category data failed to load.');
     } finally {
@@ -403,18 +474,19 @@ export default function AdminCategories() {
   const usageById = useMemo(() => {
     const usage = new Map<number, CategoryUsage>();
     categories.forEach(category => {
-      usage.set(category.id, getUsageForCategory(category, videos, graphics));
+      usage.set(category.id, getUsageForCategory(category, videos, graphics, marketing));
     });
     return usage;
-  }, [categories, graphics, videos]);
+  }, [categories, graphics, marketing, videos]);
 
   const stats = useMemo(() => {
     const empty = categories.filter(category => (usageById.get(category.id)?.total || 0) === 0).length;
 
     return {
       total: categories.length,
-      video: categories.filter(category => category.type === 'video' || category.type === 'both').length,
-      graphic: categories.filter(category => category.type === 'graphic' || category.type === 'both').length,
+      video: categories.filter(category => category.type === 'video' || category.type === 'both' || category.type === 'all').length,
+      graphic: categories.filter(category => category.type === 'graphic' || category.type === 'both' || category.type === 'all').length,
+      marketing: categories.filter(category => category.type === 'marketing' || category.type === 'all').length,
       visible: categories.filter(category => isCategoryVisible(category)).length,
       hidden: categories.filter(category => !isCategoryVisible(category)).length,
       empty,
@@ -440,7 +512,7 @@ export default function AdminCategories() {
           .filter(Boolean)
           .some(value => String(value).toLowerCase().includes(needle));
       })
-      .filter(category => typeFilter === 'all' || category.type === typeFilter)
+      .filter(category => typeFilter === 'all-types' || category.type === typeFilter)
       .filter(category => {
         if (statusFilter === 'active') {
           return isCategoryVisible(category);
@@ -561,6 +633,7 @@ export default function AdminCategories() {
       previousValues.flatMap(value => [
         adminUpdateRows('videos', { category: nextSlug }, { category: value }),
         adminUpdateRows('graphics', { category: nextSlug }, { category: value }),
+        adminUpdateRows('digital_marketing', { category: nextSlug }, { category: value }),
       ])
     );
   }
@@ -921,6 +994,7 @@ export default function AdminCategories() {
     { label: 'Total categories', value: stats.total },
     { label: 'Video taxonomy', value: stats.video },
     { label: 'Graphics taxonomy', value: stats.graphic },
+    { label: 'Marketing taxonomy', value: stats.marketing },
     { label: 'Visible / hidden', value: `${stats.visible}/${stats.hidden}` },
     { label: 'Empty categories', value: stats.empty },
   ];
@@ -937,6 +1011,9 @@ export default function AdminCategories() {
           </AdminActionButton>
           <AdminActionButton href="/admin/graphics" variant="secondary">
             Graphics Manager
+          </AdminActionButton>
+          <AdminActionButton href="/admin/digital-marketing" variant="secondary">
+            Marketing Manager
           </AdminActionButton>
           <AdminActionButton onClick={openBulkImport} variant="secondary">
             Bulk Import Categories
@@ -1004,7 +1081,7 @@ export default function AdminCategories() {
             }
           >
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-              <AdminField label="Category type" hint="Custom pasted categories can be Video, Graphics, or Both.">
+              <AdminField label="Category type" hint="Custom pasted categories can be Video, Graphics, Marketing, or shared across all content.">
                 <select
                   value={bulkType}
                   onChange={event => {
@@ -1017,7 +1094,9 @@ export default function AdminCategories() {
                 >
                   <option value="video">Video</option>
                   <option value="graphic">Graphics</option>
+                  <option value="marketing">Marketing</option>
                   <option value="both">Both</option>
+                  <option value="all">All</option>
                 </select>
               </AdminField>
               <AdminField label="Seed utility" hint="Load a starter list for the selected category type, then edit it before import.">
@@ -1200,11 +1279,13 @@ export default function AdminCategories() {
               <AdminField label="Slug" hint="Auto-generated, but you can edit it manually. Must be unique.">
                 <input value={form.slug} onChange={event => setForm(current => ({ ...current, slug: toSlug(event.target.value) }))} style={inputStyle} placeholder="minimal-design" />
               </AdminField>
-              <AdminField label="Category type" hint="Controls Video/Graphics manager dropdowns and public category routes.">
+              <AdminField label="Category type" hint="Controls Video, Graphics, and Digital Marketing manager dropdowns and public category routes.">
                 <select value={form.type} onChange={event => setForm(current => ({ ...current, type: event.target.value as CategoryType }))} style={inputStyle}>
                   <option value="video">Video</option>
                   <option value="graphic">Graphics</option>
+                  <option value="marketing">Marketing</option>
                   <option value="both">Both</option>
+                  <option value="all">All</option>
                 </select>
               </AdminField>
               <AdminField label="Display order">
@@ -1351,11 +1432,13 @@ export default function AdminCategories() {
               <input value={search} onChange={event => setSearch(event.target.value)} style={inputStyle} placeholder="Name, slug, SEO text..." />
             </AdminField>
             <AdminField label="Type">
-              <select value={typeFilter} onChange={event => setTypeFilter(event.target.value as 'all' | CategoryType)} style={inputStyle}>
-                <option value="all">All types</option>
+              <select value={typeFilter} onChange={event => setTypeFilter(event.target.value as CategoryTypeFilter)} style={inputStyle}>
+                <option value="all-types">All types</option>
                 <option value="video">Video</option>
                 <option value="graphic">Graphics</option>
+                <option value="marketing">Marketing</option>
                 <option value="both">Both</option>
+                <option value="all">Shared All</option>
               </select>
             </AdminField>
             <AdminField label="Status">
@@ -1387,7 +1470,12 @@ export default function AdminCategories() {
           ) : (
             <div style={{ display: 'grid', gap: 12 }}>
               {filteredCategories.map(category => {
-                const usage = usageById.get(category.id) || { total: 0, videos: 0, graphics: 0 };
+                const usage = usageById.get(category.id) || {
+                  total: 0,
+                  videos: 0,
+                  graphics: 0,
+                  marketing: 0,
+                };
                 const selected = selectedIds.includes(category.id);
                 const visible = isCategoryVisible(category);
                 const featured = isCategoryFeatured(category);
@@ -1457,6 +1545,7 @@ export default function AdminCategories() {
                           <AdminChip tone="neutral">{usage.total} items</AdminChip>
                           <AdminChip tone="neutral">{usage.videos} videos</AdminChip>
                           <AdminChip tone="neutral">{usage.graphics} graphics</AdminChip>
+                          <AdminChip tone="neutral">{usage.marketing} marketing</AdminChip>
                         </div>
                       </div>
                     </div>

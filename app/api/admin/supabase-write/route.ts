@@ -6,6 +6,7 @@ import { getSupabaseAdminClient } from '@/lib/supabase-admin';
 
 const ALLOWED_TABLES = new Set([
   'categories',
+  'digital_marketing',
   'experiences',
   'graphics',
   'site_settings',
