@@ -281,6 +281,38 @@ export default function AdminDigitalMarketing() {
     return usedOrders.length > 0 ? Math.max(...usedOrders) + 1 : 1;
   }
 
+  function nextAvailableHomepageOrder(preferredOrder: number, targetId: string) {
+    if (!draftOrderIsTaken(preferredOrder, targetId)) {
+      return preferredOrder;
+    }
+
+    const usedOrders = homepageItems
+      .filter(item => item.visible)
+      .filter(item => !(item.sourceType === 'marketing' && item.id === targetId))
+      .map(item => getHomepageConfigForItem(item, homepageConfig))
+      .filter(config => config.showOnHomepage)
+      .map(config => config.homepageOrder)
+      .filter(order => Number.isFinite(order) && order > 0);
+
+    return usedOrders.length > 0 ? Math.max(...usedOrders) + 1 : 1;
+  }
+
+  function draftOrderIsTaken(homepageOrder: number, targetId: string) {
+    return Boolean(
+      findHomepageOrderConflict(
+        homepageItems,
+        homepageConfig,
+        {
+          sourceType: 'marketing',
+          id: targetId,
+          order_num: 0,
+        },
+        homepageOrder,
+        true
+      )
+    );
+  }
+
   function getConflictMessage(title: string, type: string, homepageOrder: number) {
     return `❌ Homepage order ${homepageOrder} is already used by "${title}" (${type}). Choose another order.`;
   }
@@ -343,13 +375,17 @@ export default function AdminDigitalMarketing() {
       throw new Error('Campaign image is required.');
     }
 
-    const normalizedHomepageOrder = draft.homepageVisible
+    const requestedHomepageOrder = draft.homepageVisible
       ? draft.homepageOrder > 0
         ? draft.homepageOrder
         : nextHomepageOrder()
       : draft.homepageOrder || nextHomepageOrder();
     const targetId =
       options.mode === 'update' ? draft.id : `new-marketing-${Date.now()}`;
+    const normalizedHomepageOrder =
+      options.mode === 'create' && draft.homepageVisible
+        ? nextAvailableHomepageOrder(requestedHomepageOrder, targetId)
+        : requestedHomepageOrder;
     const conflict = findHomepageOrderConflict(
       homepageItems,
       homepageConfig,
