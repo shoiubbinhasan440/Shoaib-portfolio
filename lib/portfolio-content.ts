@@ -344,7 +344,7 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
   maxRows: 0,
   showVideos: true,
   showGraphics: true,
-  showMarketing: true,
+  showMarketing: false,
   mixedOrder: 'video-first',
   thumbnailsPerCategory: 4,
   maxCategories: 8,
@@ -387,7 +387,7 @@ export const DEFAULT_HOMEPAGE_PORTFOLIO_SETTINGS: HomepagePortfolioSectionSettin
 
 export const DEFAULT_PORTFOLIO_PAGE_SETTINGS: PortfolioPageSettings = {
   title: 'আমার কাজের সংগ্রহ',
-  subtitle: 'ভিডিও এডিটিং, গ্রাফিক্স ডিজাইন ও ডিজিটাল মার্কেটিংয়ের নির্বাচিত কাজগুলো এক জায়গায় দেখুন।',
+  subtitle: 'ভিডিও এডিটিং ও গ্রাফিক্স ডিজাইনের নির্বাচিত কাজগুলো এক জায়গায় দেখুন।',
   tabs: {
     all: {
       enabled: true,
@@ -402,14 +402,14 @@ export const DEFAULT_PORTFOLIO_PAGE_SETTINGS: PortfolioPageSettings = {
       label: 'গ্রাফিক্স ডিজাইন',
     },
     marketing: {
-      enabled: true,
+      enabled: false,
       label: 'ডিজিটাল মার্কেটিং',
     },
   },
   allTab: {
     showVideos: true,
     showGraphics: true,
-    showMarketing: true,
+    showMarketing: false,
     order: 'video-first',
   },
 };
@@ -1455,7 +1455,7 @@ export function getHomepageAllowedSourceTypes(
       ? settings.showVideos
       : sourceType === 'graphic'
         ? settings.showGraphics
-        : settings.showMarketing ?? true
+        : settings.showMarketing === true
   );
 }
 
@@ -1479,7 +1479,7 @@ export function isHomepageItemAllowed(
     return false;
   }
 
-  if (item.sourceType === 'marketing' && settings.showMarketing === false) {
+  if (item.sourceType === 'marketing' && settings.showMarketing !== true) {
     return false;
   }
 

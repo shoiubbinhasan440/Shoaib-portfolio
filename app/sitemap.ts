@@ -5,7 +5,8 @@ import { getServerGlobalSettings } from '@/lib/server-site-settings';
 import { buildSitemap } from '@/lib/site-metadata';
 import {
   fetchPortfolioDataset,
-  getHomepageAllowedSourceTypes,
+  getAllowedPortfolioSourceTypes,
+  getPortfolioPageSettings,
   getPortfolioItemDetailPath,
   getPortfolioItemMeta,
   parsePortfolioItemMetaConfig,
@@ -35,6 +36,8 @@ async function buildPortfolioSitemapEntries(
   ]);
   const map = toSettingMap(settingsRows || []);
   const metaConfig = parsePortfolioItemMetaConfig(map[PORTFOLIO_ITEM_META_SETTING_KEY]);
+  const pageSettings = getPortfolioPageSettings(map);
+  const allowedSourceTypes = getAllowedPortfolioSourceTypes('all', pageSettings);
   const items = toPortfolioPreviewItems(videos, graphics, categories, marketing);
   const keys = new Set<string>();
 
@@ -47,22 +50,19 @@ async function buildPortfolioSitemapEntries(
       return;
     }
 
-    keys.add(`${item.sourceType}:${item.categorySlug}`);
-  });
+    if (!allowedSourceTypes.includes(item.sourceType)) {
+      return;
+    }
 
-  const orderedTypes = getHomepageAllowedSourceTypes({
-    showVideos: true,
-    showGraphics: true,
-    showMarketing: true,
-    mixedOrder: 'video-first',
+    keys.add(`${item.sourceType}:${item.categorySlug}`);
   });
 
   const categoryEntries = [...keys]
     .sort((left, right) => {
       const [leftType, leftSlug] = left.split(':') as [PortfolioSourceType, string];
       const [rightType, rightSlug] = right.split(':') as [PortfolioSourceType, string];
-      const leftTypeIndex = orderedTypes.indexOf(leftType);
-      const rightTypeIndex = orderedTypes.indexOf(rightType);
+      const leftTypeIndex = allowedSourceTypes.indexOf(leftType);
+      const rightTypeIndex = allowedSourceTypes.indexOf(rightType);
 
       if (leftTypeIndex !== rightTypeIndex) {
         return leftTypeIndex - rightTypeIndex;
@@ -96,6 +96,7 @@ async function buildPortfolioSitemapEntries(
         item.visible &&
         item.categoryActive &&
         item.categoryShowOnPortfolio &&
+        allowedSourceTypes.includes(item.sourceType) &&
         meta.status !== 'draft' &&
         meta.status !== 'hidden' &&
         meta.robots !== 'noindex-nofollow'

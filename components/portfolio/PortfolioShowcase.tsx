@@ -519,7 +519,7 @@ export default function PortfolioShowcase({
       });
     }
 
-    if ((homepageConfig.showMarketing ?? true) && marketingCount > 0) {
+    if (homepageConfig.showMarketing === true && marketingCount > 0) {
       tabs.push({
         key: 'marketing',
         label: pageSettings.tabs.marketing.label,
